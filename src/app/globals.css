@@ -1,0 +1,150 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens.
+ * The workspace is a self-healing cutting mat (deep green with a millimetre
+ * grid); the chrome around it stays quiet and cool-neutral so the sheet and
+ * the mat carry the identity. Process cyan marks selection and primary
+ * actions, process magenta marks problems, as on a press proof.
+ */
+:root {
+  --mat: #24493d;
+  --mat-deep: #1c3a30;
+  --mat-line: rgb(255 255 255 / 0.06);
+  --mat-line-strong: rgb(255 255 255 / 0.13);
+  --chrome: #f4f5f3;
+  --chrome-sunk: #eaece8;
+  --surface: #ffffff;
+  --line: #d9dcd6;
+  --line-strong: #c3c7c0;
+  --ink: #16191c;
+  --ink-muted: #59616a;
+  --ink-faint: #8a9199;
+  --cyan: #0079ad;
+  --cyan-bright: #00a0e0;
+  --cyan-wash: #e3f3fa;
+  --magenta: #c0185a;
+  --magenta-wash: #fbe8ef;
+  --amber: #9a5d00;
+  --amber-wash: #fbf1df;
+  --ok: #2f7a4f;
+  --ok-wash: #e5f3ea;
+}
+
+@theme inline {
+  --color-mat: var(--mat);
+  --color-mat-deep: var(--mat-deep);
+  --color-chrome: var(--chrome);
+  --color-chrome-sunk: var(--chrome-sunk);
+  --color-surface: var(--surface);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-faint: var(--ink-faint);
+  --color-cyan: var(--cyan);
+  --color-cyan-bright: var(--cyan-bright);
+  --color-cyan-wash: var(--cyan-wash);
+  --color-magenta: var(--magenta);
+  --color-magenta-wash: var(--magenta-wash);
+  --color-amber: var(--amber);
+  --color-amber-wash: var(--amber-wash);
+  --color-ok: var(--ok);
+  --color-ok-wash: var(--ok-wash);
+  --font-sans: var(--font-archivo), ui-sans-serif, system-ui, sans-serif;
+  --radius-sm: 3px;
+  --radius-md: 5px;
+  --radius-lg: 8px;
+}
+
+html,
+body {
+  background: var(--chrome);
+  color: var(--ink);
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Numbers in an editor of measurements should never jitter. */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Condensed cut of Archivo for the wordmark and panel headings. */
+.font-condensed {
+  font-stretch: 78%;
+}
+
+:focus-visible {
+  outline: 2px solid var(--cyan-bright);
+  outline-offset: 2px;
+}
+
+.mat-surface {
+  background-color: var(--mat);
+  background-image:
+    linear-gradient(var(--mat-line-strong) 1px, transparent 1px),
+    linear-gradient(90deg, var(--mat-line-strong) 1px, transparent 1px),
+    linear-gradient(var(--mat-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--mat-line) 1px, transparent 1px);
+  background-size:
+    100px 100px,
+    100px 100px,
+    20px 20px,
+    20px 20px;
+}
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/*
+ * Printing: only the rendered sheet image in #print-root is printed. The
+ * @page size and orientation are injected at print time (lib/export/print.ts).
+ */
+#print-root {
+  display: none;
+}
+
+@media print {
+  html,
+  body {
+    background: #ffffff !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  body > *:not(#print-root) {
+    display: none !important;
+  }
+  #print-root {
+    display: block !important;
+  }
+  #print-root img {
+    display: block;
+    margin: 0;
+    padding: 0;
+    page-break-after: avoid;
+    break-after: avoid;
+    break-inside: avoid;
+  }
+}
