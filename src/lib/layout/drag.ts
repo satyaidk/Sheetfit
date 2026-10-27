@@ -9,7 +9,7 @@
  */
 
 import type { Design, PageSettings } from "@/types/editor";
-import { clampIntoRect, designBounds, pageSize, printableRect } from "./a4-layout";
+import { clampIntoRect, designBounds, pageSize, printableRect } from "./sheet-layout";
 import { snapRect, snapToGrid, type SnapGuide } from "./alignment";
 
 /** Snap distance in screen pixels; converted to millimetres using the zoom. */
@@ -36,7 +36,7 @@ export function resolveDrag<T extends Pick<Design, "x" | "y" | "width" | "height
     x += snapToGrid(b.x, ctx.page.gridSize) - b.x;
     y += snapToGrid(b.y, ctx.page.gridSize) - b.y;
   } else if (!ctx.bypassSnap && ctx.page.snapToGuides) {
-    const size = pageSize(ctx.page.orientation);
+    const size = pageSize(ctx.page);
     const printable = printableRect(ctx.page);
     const vertical = [
       size.width / 2,

@@ -25,9 +25,9 @@ export function AlertDialogContent({
 }) {
   return (
     <AlertPrimitive.Portal>
-      <AlertPrimitive.Overlay className="fixed inset-0 z-50 bg-[#0d1a15]/55" />
-      <AlertPrimitive.Content className="fixed top-1/2 left-1/2 z-50 w-[calc(100vw-32px)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg border border-line bg-surface p-5 shadow-2xl">
-        <AlertPrimitive.Title className="font-condensed text-[19px] font-semibold tracking-tight">
+      <AlertPrimitive.Overlay className="fixed inset-0 z-50 bg-[rgb(16_24_40/0.42)] animate-fade" />
+      <AlertPrimitive.Content className="fixed top-1/2 left-1/2 z-50 w-[calc(100vw-32px)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg bg-surface p-5 shadow-pop ring-1 ring-black/5 animate-pop">
+        <AlertPrimitive.Title className="text-[19px] font-semibold tracking-tight">
           {title}
         </AlertPrimitive.Title>
         <AlertPrimitive.Description asChild>

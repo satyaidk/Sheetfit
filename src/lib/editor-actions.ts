@@ -7,7 +7,7 @@
  */
 
 import { toast } from "sonner";
-import { useEditor } from "@/store/editor-store";
+import { allPages, useEditor } from "@/store/editor-store";
 import type { LoadedAsset } from "@/types/image";
 import type { ProjectRecord } from "@/types/project";
 import { ImageLoadError, LARGE_IMAGE_MEGAPIXELS, loadAssetFromBlob, loadAssetFromFile, megapixels } from "@/lib/image/image-loader";
@@ -15,6 +15,13 @@ import { buildRenderPlan } from "@/lib/render/render-plan";
 import { downloadBlob, renderPreviewDataUrl } from "@/lib/export/export-raster";
 import { parseProjectFile, PROJECT_FILE_EXTENSION, ProjectFileError, serializeProject } from "@/lib/storage/project-file";
 import { loadProject, saveProject, StorageError } from "@/lib/storage/project-storage";
+import { migratePages } from "@/lib/storage/migrate";
+import { findProduct, slotSize } from "@/lib/catalogue/products";
+import { renderSampleSvg, svgDataUrl, type SampleDesign } from "@/lib/catalogue/sample-designs";
+import { sheetLabel } from "@/lib/layout/sheet-layout";
+
+/** Drag-and-drop type for images dragged from the Uploads panel onto the canvas. */
+export const ASSET_DRAG_TYPE = "application/x-sheetfit-asset";
 
 function assetMap(): Map<string, LoadedAsset> {
   return new Map(Object.entries(useEditor.getState().assets));
@@ -26,7 +33,7 @@ export function currentPlan() {
 }
 
 /** Decode files, add them as assets and place each on the sheet. */
-export async function uploadFiles(files: Iterable<File>, options: { place?: boolean } = {}) {
+export async function uploadFiles(files: Iterable<File>, options: { place?: boolean; at?: { x: number; y: number } } = {}) {
   const place = options.place ?? true;
   const placed: string[] = [];
   for (const file of files) {
@@ -38,7 +45,13 @@ export async function uploadFiles(files: Iterable<File>, options: { place?: bool
           description: "Large images can make editing and export slower.",
         });
       }
-      if (place) {
+      if (place && options.at) {
+        // Dropped files land centred on the drop point, cascading slightly.
+        const offset = placed.length * 6;
+        placeAssetAt(asset.id, { x: options.at.x + offset, y: options.at.y + offset });
+        const sel = useEditor.getState().selection;
+        if (sel[0]) placed.push(sel[0]);
+      } else if (place) {
         const id = useEditor.getState().placeAsset(asset.id);
         if (id) placed.push(id);
       }
@@ -62,23 +75,27 @@ export async function replaceDesignImage(designId: string, file: File) {
 
 function makeThumbnail(): string | null {
   try {
-    return renderPreviewDataUrl(currentPlan(), assetMap(), 240, "image/jpeg");
+    const state = useEditor.getState();
+    // The project list shows the first page, like Canva.
+    return renderPreviewDataUrl(buildRenderPlan(allPages(state)[0], state.assets), assetMap(), 240, "image/jpeg");
   } catch {
     return null;
   }
 }
 
-/** Snapshot the current editor state as a storable project record. */
+/** Snapshot the current editor state (every page) as a storable project record. */
 function currentProjectRecord(now: number): { record: ProjectRecord; blobs: Map<string, Blob> } {
   const state = useEditor.getState();
-  const usedIds = new Set(state.doc.designs.map((d) => d.assetId));
+  const pages = structuredClone(allPages(state));
+  const usedIds = new Set(pages.flatMap((p) => p.designs).map((d) => d.assetId));
   const assets = Object.values(state.assets).filter((a) => usedIds.has(a.id));
   const record: ProjectRecord = {
     id: state.project.id,
     name: state.project.name.trim() || "Untitled sheet",
     createdAt: state.project.createdAt,
     updatedAt: now,
-    document: structuredClone(state.doc),
+    document: pages[0],
+    pages,
     assets: assets.map((a) => ({
       id: a.id,
       name: a.name,
@@ -139,12 +156,14 @@ async function applyLoadedProject(record: ProjectRecord, blobs: Map<string, Blob
     }
     assets[meta.id] = await loadAssetFromBlob(blob, meta);
   }
+  // Designs whose image is gone cannot be drawn; drop them visibly. Empty slots stay.
+  const pages = migratePages(record).map((doc) => ({
+    ...doc,
+    designs: doc.designs.filter((d) => !d.assetId || assets[d.assetId]),
+  }));
   useEditor.getState().loadState({
-    doc: {
-      ...record.document,
-      // Designs whose image is gone cannot be drawn; drop them visibly.
-      designs: record.document.designs.filter((d) => assets[d.assetId]),
-    },
+    doc: pages[0],
+    pages,
     assets,
     project: {
       id: record.id,
@@ -170,4 +189,111 @@ export async function openProject(id: string): Promise<boolean> {
     toast.error(error instanceof StorageError ? error.message : "The project could not be opened.");
     return false;
   }
+}
+
+/**
+ * Add a product template. It goes on the current page when it fits there;
+ * otherwise it gets a new page with the sheet it needs, so other designs are
+ * never moved to a different sheet (see `lib/layout/product-placement.ts`).
+ */
+export function addProduct(productId: string) {
+  const product = findProduct(productId);
+  if (!product) return;
+  const result = useEditor.getState().addProductSlot(productId);
+  if (!result.designId) return;
+  const label = `${product.name}, ${product.detail}`;
+  const page = useEditor.getState().doc.page;
+  const sheet = sheetLabel(page);
+  const hint = "Drop an image on it, or pick one from Uploads or Designs.";
+  if (result.newPage) {
+    const why =
+      result.reason === "process"
+        ? `It is printed with ${page.process === "dtf" ? "DTF" : "sublimation"}, so it has its own page.`
+        : result.reason === "sheet-full"
+          ? "The current page is full."
+          : `It needs ${sheet}; your other pages keep their sheets.`;
+    toast(`${label} added on page ${result.pageNumber} (${sheet})`, {
+      description: why,
+      action: { label: "Delete page", onClick: () => useEditor.getState().deletePage(result.pageNumber - 1) },
+    });
+  } else if (result.reason === "page-adjusted") {
+    toast(`${label} added`, { description: `This page was set to ${sheet} ${page.orientation} to hold it. ${hint}` });
+  } else {
+    toast(`${label} added`, { description: hint });
+  }
+}
+
+/** Rasterise a sample design to a PNG asset at print resolution for `size` (mm). */
+export async function sampleDesignAsset(design: SampleDesign, size: { width: number; height: number }) {
+  const aspect = size.width / size.height;
+  const svg = renderSampleSvg(design, aspect);
+  // 300 DPI at the target size, capped so very long wraps stay fast.
+  const longMm = Math.max(size.width, size.height);
+  const longPx = Math.min(4800, Math.max(1200, Math.round((longMm / 25.4) * 300)));
+  const w = aspect >= 1 ? longPx : Math.round(longPx * aspect);
+  const h = aspect >= 1 ? Math.round(longPx / aspect) : longPx;
+  const img = new Image();
+  img.src = svgDataUrl(svg);
+  await img.decode();
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
+  const blob = await new Promise<Blob>((resolve, reject) =>
+    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("The design could not be drawn."))), "image/png"),
+  );
+  return loadAssetFromBlob(blob, { name: `${design.name}.png`, mimeType: "image/png" });
+}
+
+/**
+ * Use a sample design: fill `targetId` or the selected product box (drawn at
+ * that box's shape), or else place it on the page.
+ */
+export async function applySampleDesign(design: SampleDesign, targetId?: string) {
+  const state = useEditor.getState();
+  const pickId = targetId ?? (state.selection.length === 1 ? state.selection[0] : undefined);
+  const selected = pickId ? state.doc.designs.find((d) => d.id === pickId) : undefined;
+  const target = selected && (!selected.assetId || selected.productId) ? selected : undefined;
+  const product = findProduct(target?.productId);
+  const size = target
+    ? { width: target.width, height: target.height }
+    : product
+      ? slotSize(product)
+      : { width: 80, height: 80 };
+  try {
+    const asset = await sampleDesignAsset(design, size);
+    useEditor.getState().addAsset(asset);
+    if (target) {
+      useEditor.getState().fillSlot(target.id, asset.id);
+      useEditor.getState().select([target.id]);
+    } else {
+      useEditor.getState().placeAsset(asset.id, { width: 80, height: 80 });
+    }
+  } catch {
+    toast.error("The sample design could not be drawn in this browser.");
+  }
+}
+
+/** Upload one file straight into an empty product slot. */
+export async function uploadIntoSlot(file: File, designId: string) {
+  try {
+    const asset = await loadAssetFromFile(file);
+    useEditor.getState().addAsset(asset);
+    useEditor.getState().fillSlot(designId, asset.id);
+    useEditor.getState().select([designId]);
+  } catch (error) {
+    toast.error(error instanceof ImageLoadError ? error.message : `${file.name} could not be opened.`);
+  }
+}
+
+/** Place an already-uploaded image centred on a point of the sheet (mm). */
+export function placeAssetAt(assetId: string, point: { x: number; y: number }) {
+  const state = useEditor.getState();
+  state.clearSelection();
+  const id = state.placeAsset(assetId);
+  if (!id) return;
+  const d = useEditor.getState().doc.designs.find((x) => x.id === id)!;
+  useEditor.getState().moveDesigns([{ id, x: point.x - d.width / 2, y: point.y - d.height / 2 }]);
+  // moveDesigns made a second history entry; fold it into the placement.
+  useEditor.setState((s) => ({ past: s.past.slice(0, -1) }));
 }

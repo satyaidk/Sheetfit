@@ -8,9 +8,10 @@
 import { useRef, useState } from "react";
 import { ImagePlus, Plus } from "lucide-react";
 import { useEditor } from "@/store/editor-store";
-import { uploadFiles } from "@/lib/editor-actions";
+import { ASSET_DRAG_TYPE, uploadFiles } from "@/lib/editor-actions";
 import { ACCEPT_ATTR } from "@/lib/image/image-loader";
 import { cn } from "@/lib/utils";
+
 import { ImagePreview } from "./ImagePreview";
 
 export function ImageUploader() {
@@ -37,12 +38,14 @@ export function ImageUploader() {
           void uploadFiles(e.dataTransfer.files);
         }}
         className={cn(
-          "flex flex-col items-center gap-2 rounded-lg border-2 border-dashed px-4 py-6 text-center transition-colors",
-          over ? "border-cyan bg-cyan-wash" : "border-line-strong bg-surface hover:border-cyan",
+          "flex flex-col items-center gap-2 rounded-xl border-2 border-dashed px-4 py-7 text-center transition-colors",
+          over ? "border-accent bg-accent-soft" : "border-line-strong bg-subtle hover:border-accent hover:bg-accent-soft",
         )}
       >
-        <ImagePlus className="size-6 text-cyan" />
-        <span className="text-[13px] font-semibold">Upload images</span>
+        <span className="flex size-10 items-center justify-center rounded-full bg-accent text-white">
+          <ImagePlus className="size-5" />
+        </span>
+        <span className="text-[14px] font-semibold">Upload images</span>
         <span className="text-[12px] text-ink-muted">PNG, JPG or WebP, up to 60 MB. Drop files here or click.</span>
       </button>
       <input
@@ -59,15 +62,23 @@ export function ImageUploader() {
 
       {list.length > 0 && (
         <div>
-          <h3 className="font-condensed mb-2 text-[14px] font-semibold">In this project</h3>
+          <h3 className="mb-2 text-[13px] font-semibold">
+            In this project <span className="font-normal text-ink-faint">{list.length}</span>
+          </h3>
+          <p className="mb-2 text-[12px] text-ink-muted">Click to add, or drag onto the sheet or into a product box.</p>
           <ul className="grid grid-cols-2 gap-2">
             {list.map((a) => (
               <li key={a.id}>
                 <button
                   type="button"
+                  draggable
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData(ASSET_DRAG_TYPE, a.id);
+                    e.dataTransfer.effectAllowed = "copy";
+                  }}
                   onClick={() => placeAsset(a.id)}
-                  className="group relative block w-full rounded-md border border-line bg-surface p-1.5 text-left hover:border-cyan"
-                  title={`Place another copy of ${a.name}`}
+                  className="group relative block w-full rounded-lg p-1.5 text-left transition-colors hover:bg-subtle"
+                  title={`Click to add ${a.name}, or drag it onto the sheet or a product box`}
                 >
                   <ImagePreview asset={a} />
                   <span className="absolute top-2.5 right-2.5 flex size-6 items-center justify-center rounded-md bg-ink text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">

@@ -10,7 +10,7 @@
 
 import type { Design } from "@/types/editor";
 import type { Rect } from "@/lib/image/image-fit";
-import { designBounds } from "./a4-layout";
+import { designBounds } from "./sheet-layout";
 
 export type AlignTarget =
   | "left"
@@ -130,4 +130,28 @@ export function snapRect(
 export function snapToGrid(value: number, grid: number, origin = 0): number {
   if (grid <= 0) return value;
   return origin + Math.round((value - origin) / grid) * grid;
+}
+
+/**
+ * Space designs evenly along an axis, keeping the outermost two in place
+ * (Figma's distribute). Gaps are measured between rotated bounds.
+ */
+export function distributeDesigns<T extends Placed & { id: string }>(designs: T[], axis: "x" | "y"): T[] {
+  if (designs.length < 3) return designs;
+  const items = designs
+    .map((d) => ({ d, b: designBounds(d) }))
+    .sort((a, b) => (axis === "x" ? a.b.x - b.b.x : a.b.y - b.b.y));
+  const start = axis === "x" ? items[0].b.x : items[0].b.y;
+  const last = items[items.length - 1].b;
+  const end = axis === "x" ? last.x + last.width : last.y + last.height;
+  const total = items.reduce((n, i) => n + (axis === "x" ? i.b.width : i.b.height), 0);
+  const gap = (end - start - total) / (items.length - 1);
+  let cursor = start;
+  const moved = new Map<string, T>();
+  for (const { d, b } of items) {
+    const delta = cursor - (axis === "x" ? b.x : b.y);
+    moved.set(d.id, axis === "x" ? { ...d, x: d.x + delta } : { ...d, y: d.y + delta });
+    cursor += (axis === "x" ? b.width : b.height) + gap;
+  }
+  return designs.map((d) => moved.get(d.id)!);
 }

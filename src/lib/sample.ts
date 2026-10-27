@@ -4,11 +4,16 @@
  * downloaded) and deliberately cover the interesting cases: a transparent
  * round badge, an extremely wide wordmark, and a small low-resolution photo
  * that triggers the print-quality warning.
+ *
+ * A second page holds a 30 oz tumbler wrap, which needs A3: adding it opens
+ * its own A3 page while page 1 stays A4, which shows how pages work.
  */
 
 import { useEditor } from "@/store/editor-store";
 import { loadAssetFromBlob } from "@/lib/image/image-loader";
-import { centerIn, printableRect } from "@/lib/layout/a4-layout";
+import { printableRect } from "@/lib/layout/sheet-layout";
+import { sampleDesign } from "@/lib/catalogue/sample-designs";
+import { sampleDesignAsset } from "@/lib/editor-actions";
 
 function canvasBlob(w: number, h: number, draw: (ctx: CanvasRenderingContext2D) => void, type: string) {
   const c = document.createElement("canvas");
@@ -103,31 +108,42 @@ async function buildSampleSheet() {
   for (const a of [badge, wordmark, photo]) store.addAsset(a);
   const s = useEditor.getState();
   s.setProjectName("Sample sheet");
-  const area = printableRect(s.doc.page);
+  s.setProcess("sublimation");
+  s.setSheet("a4", null, "landscape");
 
-  // A square logo in the 90 × 60 mm box from the brief: whole logo, centred.
-  s.placeAsset(badge.id, { width: 90, height: 60 });
-  // The same logo repeated as 50 mm stickers.
-  const sticker = s.placeAsset(badge.id, { width: 50, height: 50 });
-  s.placeAsset(wordmark.id, { width: 180, height: 45 });
-  s.placeAsset(photo.id, { width: 100, height: 66.7 });
-
+  // Product templates at their real print sizes, filled with images.
+  const slot = (productId: string, assetId: string | null, x: number, y: number) => {
+    const id = useEditor.getState().addProductSlot(productId).designId!;
+    if (assetId) useEditor.getState().fillSlot(id, assetId);
+    useEditor.getState().moveDesigns([{ id, x, y }]);
+    return id;
+  };
+  const area = printableRect(useEditor.getState().doc.page);
+  const mug = slot("mug-11oz", wordmark.id, area.x, area.y);
+  slot("magnet", photo.id, area.x + 226, area.y);
+  const coaster = slot("coaster-square", badge.id, area.x, area.y + 92);
+  slot("coaster-square", badge.id, area.x + 112, area.y + 92);
+  slot("pet-tag", null, area.x + 224, area.y + 92);
   const st = useEditor.getState();
-  const [logo, stick, word, pic] = st.doc.designs;
-  const place = (id: string, x: number, y: number) => st.moveDesigns([{ id, x, y }]);
-  place(logo.id, area.x + 5, area.y + 5);
-  place(word.id, centerIn(word, area, "x").x, area.y + 75);
-  place(pic.id, area.x + 5, area.y + 130);
-  place(stick.id, area.x + 125, area.y + 135);
-  st.updateDesign(logo.id, { fitMode: "fill", fillColor: "#eef2f7", border: true, name: "Logo 90 × 60 mm" });
-  st.updateDesign(word.id, { name: "Wide wordmark" });
-  st.updateDesign(pic.id, { name: "Low-resolution photo" });
-  if (sticker) st.updateDesign(sticker, { name: "Sticker 50 mm", border: true });
+  st.updateDesign(coaster, { fillColor: "#eef2f7" });
+  const logo = mug;
+
+  // Page 2: a template too big for A4 gets its own A3 page.
+  const tumbler = useEditor.getState().addProductSlot("tumbler-30oz");
+  if (tumbler.designId && tumbler.newPage) {
+    const d = useEditor.getState().doc.designs[0];
+    const pattern = await sampleDesignAsset(sampleDesign(424242, "pattern"), { width: d.width, height: d.height });
+    useEditor.getState().addAsset(pattern);
+    useEditor.getState().fillSlot(tumbler.designId, pattern.id);
+    useEditor.getState().updateDesign(tumbler.designId, { productColor: "#bfe6d4" });
+    useEditor.getState().switchPage(0);
+  }
   // The sample is a starting point, not an edit: clear history and dirty state.
   useEditor.setState((x) => ({
     past: [],
     future: [],
-    selection: [logo.id],
+    pages: x.pages.map((p) => ({ ...p, past: [], future: [] })),
+    selection: [logo],
     project: { ...x.project, dirty: false },
   }));
 }

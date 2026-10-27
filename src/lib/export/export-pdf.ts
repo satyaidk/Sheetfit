@@ -1,8 +1,9 @@
 /**
- * Exact-size A4 PDF export.
+ * Exact-size PDF export.
  *
- * The PDF page is created at exactly 210 × 297 mm (595.276 × 841.890 pt) or
- * its landscape equivalent. Designs are vector-placed: each one sets up a
+ * Each project page becomes one PDF page at exactly its sheet size (A4 is
+ * 210 × 297 mm, 595.276 × 841.890 pt), so a project with an A4 page and an A3
+ * page gives a two-page PDF with two page sizes. Designs are vector-placed: each one sets up a
  * transformation matrix that maps its local millimetre coordinates onto the
  * page, so position, rotation and size are exact rather than rasterised.
  *
@@ -66,7 +67,7 @@ export function itemMatrix(
 }
 
 export async function buildPdf(
-  plan: RenderPlan,
+  plans: RenderPlan | RenderPlan[],
   images: Map<string, PdfImageSource>,
   meta: { title: string },
 ): Promise<Uint8Array> {
@@ -74,6 +75,20 @@ export async function buildPdf(
   doc.setTitle(meta.title);
   doc.setCreator("Sheetfit");
   doc.setProducer("Sheetfit (pdf-lib)");
+  // Embed each asset once, even if many designs and pages use it.
+  const embedded = new Map<string, PDFImage>();
+  for (const plan of Array.isArray(plans) ? plans : [plans]) {
+    await drawPdfPage(doc, plan, images, embedded);
+  }
+  return doc.save();
+}
+
+async function drawPdfPage(
+  doc: PDFDocument,
+  plan: RenderPlan,
+  images: Map<string, PdfImageSource>,
+  embedded: Map<string, PDFImage>,
+) {
   const pageW = mmToPt(plan.page.width);
   const pageH = mmToPt(plan.page.height);
   const page = doc.addPage([pageW, pageH]);
@@ -88,8 +103,11 @@ export async function buildPdf(
     });
   }
 
-  // Embed each asset once, even if many designs use it.
-  const embedded = new Map<string, PDFImage>();
+  if (plan.mirror) {
+    // Sublimation transfers print mirror-image: flip everything after the background.
+    page.pushOperators(pushGraphicsState(), concatTransformationMatrix(-1, 0, 0, 1, pageW, 0));
+  }
+
   for (const item of plan.items) {
     if (embedded.has(item.assetId)) continue;
     const src = images.get(item.assetId);
@@ -123,6 +141,13 @@ export async function buildPdf(
     if (image && item.image.width > 0 && item.image.height > 0) {
       const dst = item.image;
       const src = item.sourceRect;
+      const box = flip(dst);
+      const fx = item.flipX ? -1 : 1;
+      const fy = item.flipY ? -1 : 1;
+      const cx = box.x + box.width / 2;
+      const cy = box.y + box.height / 2;
+      // Per-design flip happens around the image centre.
+      page.pushOperators(pushGraphicsState(), concatTransformationMatrix(fx, 0, 0, fy, cx - fx * cx, cy - fy * cy));
       const cropped =
         src.x > 0 ||
         src.y > 0 ||
@@ -151,6 +176,7 @@ export async function buildPdf(
         page.drawImage(image, flip(full));
         page.pushOperators(popGraphicsState());
       }
+      page.pushOperators(popGraphicsState());
     }
 
     if (item.border) {
@@ -175,7 +201,7 @@ export async function buildPdf(
     }
   }
 
-  return doc.save();
+  if (plan.mirror) page.pushOperators(popGraphicsState());
 }
 
 /** Read an asset blob into bytes pdf-lib can embed without re-encoding. */

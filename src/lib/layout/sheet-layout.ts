@@ -1,34 +1,56 @@
 /**
- * A4 page geometry: sheet size, printable area, and bounds checks.
+ * Sheet geometry: sheet size, printable area, and bounds checks.
  *
  * Page coordinates have their origin at the top-left corner of the sheet,
  * x to the right and y downward, in millimetres. A design's `x`/`y` is the
  * top-left of its unrotated box; rotation happens around the box centre, so
  * bounds checks use the axis-aligned bounding box of the rotated rectangle.
+ * The sheet itself (A4, A3, Letter, DTF roll, custom) comes from
+ * `lib/catalogue/sheets.ts`.
  */
 
 import type { Design, Margins, Orientation, PageSettings } from "@/types/editor";
 import type { Rect, Size } from "@/lib/image/image-fit";
+import { DEFAULT_SHEET_ID, findSheet } from "@/lib/catalogue/sheets";
 
 export const A4_MM: Size = { width: 210, height: 297 };
 
 /** Floating-point tolerance for "touching the edge" comparisons, in mm. */
 const EPSILON = 1e-6;
 
-export function pageSize(orientation: Orientation): Size {
-  return orientation === "portrait"
-    ? { width: A4_MM.width, height: A4_MM.height }
-    : { width: A4_MM.height, height: A4_MM.width };
+export type SheetRef = Pick<PageSettings, "sheet" | "customSize" | "orientation">;
+
+/** Portrait size of a sheet reference (width ≤ height for paper presets). */
+export function sheetBaseSize(page: Pick<PageSettings, "sheet" | "customSize">): Size {
+  if (page.sheet === "custom" && page.customSize) return { ...page.customSize };
+  const sheet = findSheet(page.sheet) ?? findSheet(DEFAULT_SHEET_ID)!;
+  return { width: sheet.width, height: sheet.height };
 }
 
-export function pageRect(page: Pick<PageSettings, "orientation">): Rect {
-  return { x: 0, y: 0, ...pageSize(page.orientation) };
+/** Sheet size in the chosen orientation. Landscape puts the long side across. */
+export function pageSize(page: SheetRef): Size {
+  const base = sheetBaseSize(page);
+  const long = Math.max(base.width, base.height);
+  const short = Math.min(base.width, base.height);
+  return page.orientation === "portrait" ? { width: short, height: long } : { width: long, height: short };
 }
 
-export function printableRect(
-  page: Pick<PageSettings, "orientation" | "margins">,
-): Rect {
-  const size = pageSize(page.orientation);
+/** Display name of a page's sheet, e.g. "A3" or "DTF gang sheet 22 × 24 in". */
+export function sheetLabel(page: Pick<PageSettings, "sheet">): string {
+  if (page.sheet === "custom") return "Custom";
+  return findSheet(page.sheet)?.name ?? "A4";
+}
+
+export function orientationFor(size: Size): Orientation {
+  return size.width > size.height ? "landscape" : "portrait";
+}
+
+export function pageRect(page: SheetRef): Rect {
+  return { x: 0, y: 0, ...pageSize(page) };
+}
+
+export function printableRect(page: SheetRef & Pick<PageSettings, "margins">): Rect {
+  const size = pageSize(page);
   const m = page.margins;
   return {
     x: m.left,
@@ -86,7 +108,7 @@ export interface PlacementStatus {
 
 export function placementStatus(
   design: Placed,
-  page: Pick<PageSettings, "orientation" | "margins">,
+  page: SheetRef & Pick<PageSettings, "margins">,
 ): PlacementStatus {
   const bounds = designBounds(design);
   const printable = printableRect(page);
@@ -133,4 +155,23 @@ export function centerIn<T extends Placed>(
     x: axis === "y" ? design.x : design.x + dx,
     y: axis === "x" ? design.y : design.y + dy,
   };
+}
+
+/** True when a page point (mm) lies inside a design's rotated box. */
+export function pointInDesign(d: Placed, p: { x: number; y: number }): boolean {
+  const c = boxCenter(d);
+  const rad = (-d.rotation * Math.PI) / 180;
+  const dx = p.x - c.x;
+  const dy = p.y - c.y;
+  const lx = dx * Math.cos(rad) - dy * Math.sin(rad);
+  const ly = dx * Math.sin(rad) + dy * Math.cos(rad);
+  return Math.abs(lx) <= d.width / 2 && Math.abs(ly) <= d.height / 2;
+}
+
+/** Top-most design (last in z-order) under a point that matches `filter`. */
+export function designAt<T extends Placed>(designs: T[], p: { x: number; y: number }, filter: (d: T) => boolean = () => true): T | undefined {
+  for (let i = designs.length - 1; i >= 0; i--) {
+    if (filter(designs[i]) && pointInDesign(designs[i], p)) return designs[i];
+  }
+  return undefined;
 }

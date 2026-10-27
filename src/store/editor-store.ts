@@ -10,19 +10,27 @@
  *              history: undoing a placement should not "un-upload" a file.
  * - UI state   Selection, zoom, units, panels. Never persisted in history.
  *
+ * A project has one or more pages, each with its own sheet (A4, A3, a DTF
+ * roll...) and its own undo history. `doc`, `past` and `future` always describe
+ * the active page, so most of the editor only ever sees one page; the other
+ * pages wait in `pages`, and `allPages()` gives the full, current list.
+ *
  * Geometry rules live in `lib/`; the store only orchestrates them, which keeps
  * the rules testable without React.
  */
 
 import { create } from "zustand";
-import type { AlignX, AlignY, Design, EditorDocument, FitMode, PageSettings, Unit } from "@/types/editor";
+import type { AlignX, AlignY, Design, EditorDocument, FitMode, Orientation, PageSettings, PrintProcess, Unit } from "@/types/editor";
 import type { LoadedAsset } from "@/types/image";
 import { createId } from "@/lib/id";
 import { croppedSourceSize, fitContain, normalizeBox, resizeBox, type Size } from "@/lib/image/image-fit";
-import { centerIn, clampIntoRect, pageRect, pageSize, printableRect, uniformMargins } from "@/lib/layout/a4-layout";
+import { centerIn, clampIntoRect, pageRect, pageSize, printableRect, uniformMargins } from "@/lib/layout/sheet-layout";
 import { CSS_DPI, MM_PER_INCH } from "@/lib/layout/coordinate-conversion";
-import { alignGroup, unionBounds, type AlignTarget } from "@/lib/layout/alignment";
-import { designBounds } from "@/lib/layout/a4-layout";
+import { alignGroup, distributeDesigns, unionBounds, type AlignTarget } from "@/lib/layout/alignment";
+import { DEFAULT_SHEET_ID, type SheetDefinition } from "@/lib/catalogue/sheets";
+import { findProduct, slotSize } from "@/lib/catalogue/products";
+import { planProductPlacement, type PlacementReason } from "@/lib/layout/product-placement";
+import { designBounds } from "@/lib/layout/sheet-layout";
 import {
   applyPlacements,
   arrangeGrid,
@@ -40,9 +48,16 @@ export const MAX_ZOOM = 8;
 export const PX_PER_MM = CSS_DPI / MM_PER_INCH;
 /** Width of the workspace rulers, in screen pixels. */
 export const RULER_PX = 22;
+/** Space reserved above the sheet for the floating quick-actions bar. */
+export const QUICK_BAR_PX = 48;
+/** Space reserved below the sheet for the floating page strip. */
+export const PAGES_BAR_PX = 64;
 
 export const DEFAULT_PAGE: PageSettings = {
-  paper: "A4",
+  sheet: DEFAULT_SHEET_ID,
+  customSize: null,
+  process: "sublimation",
+  mirrorOutput: true,
   orientation: "portrait",
   margins: uniformMargins(5),
   background: "#ffffff",
@@ -59,7 +74,19 @@ export function emptyDocument(): EditorDocument {
   return { page: structuredClone(DEFAULT_PAGE), designs: [] };
 }
 
-export type SidebarTab = "uploads" | "designs" | "page" | "background" | "guides" | "projects";
+export type SidebarTab = "products" | "designs" | "uploads" | "layers" | "sheet" | "projects";
+
+/** A page of the project. For the active page these fields may be stale; use `allPages`. */
+export interface PageEntry {
+  id: string;
+  doc: EditorDocument;
+  past: EditorDocument[];
+  future: EditorDocument[];
+}
+
+function pageEntry(doc: EditorDocument): PageEntry {
+  return { id: createId("page"), doc, past: [], future: [] };
+}
 
 export interface LayoutReport {
   placed: number;
@@ -68,7 +95,10 @@ export interface LayoutReport {
 }
 
 export interface EditorState {
+  /** The active page. */
   doc: EditorDocument;
+  pages: PageEntry[];
+  activePage: number;
   assets: Record<string, LoadedAsset>;
   selection: string[];
   past: EditorDocument[];
@@ -81,10 +111,20 @@ export interface EditorState {
   /** Screen position of the page's top-left corner inside the viewport. */
   pan: { x: number; y: number };
   viewport: { width: number; height: number };
+  /** True until the user pans or zooms; while true the view refits on resize. */
+  autoFit: boolean;
   sidebarTab: SidebarTab;
   layoutGap: LayoutGap;
   lastLayoutReport: LayoutReport | null;
-  dialog: "export" | "print" | null;
+  dialog: "export" | "print" | "sheet" | "shortcuts" | "start" | "mockup" | null;
+  /** Design shown in the product preview dialog. */
+  mockupDesignId: string | null;
+  /** Right-hand precise properties panel. */
+  inspectorOpen: boolean;
+  /** Left panel pinned open (Ctrl+/ toggles). */
+  panelOpen: boolean;
+  /** A drag or transform is in progress on the canvas. */
+  interacting: boolean;
 
   commit: (next: EditorDocument) => void;
   undo: () => void;
@@ -126,14 +166,81 @@ export interface EditorState {
   /** Zoom to `zoom`, keeping the screen point `anchor` fixed (default: centre). */
   zoomTo: (zoom: number, anchor?: { x: number; y: number }) => void;
   fitPage: () => void;
+  zoomToSelection: () => void;
   setSidebarTab: (tab: SidebarTab) => void;
   setLayoutGap: (gap: LayoutGap) => void;
   setDialog: (dialog: EditorState["dialog"]) => void;
+  setInspectorOpen: (open: boolean) => void;
+  setPanelOpen: (open: boolean) => void;
+  setInteracting: (interacting: boolean) => void;
+
+  addProductSlot: (productId: string) => SlotResult;
+  /** Add an empty page (default: same sheet settings as the active page) after the active one and open it. */
+  addPage: (page?: PageSettings) => number;
+  switchPage: (index: number) => void;
+  deletePage: (index: number) => void;
+  duplicatePage: (index: number) => void;
+  moveDesignsToPage: (ids: string[], index: number) => void;
+  openMockup: (designId: string | null) => void;
+  addEmptySlot: (size: Size, name?: string) => string;
+  moveLayer: (id: string, toIndex: number) => void;
+  fillSlot: (designId: string, assetId: string) => void;
+  clearSlot: (designId: string) => void;
+  flipDesigns: (axis: "x" | "y") => void;
+  distributeSelection: (axis: "x" | "y") => void;
+  setProcess: (process: PrintProcess) => void;
+  setSheet: (sheet: string, customSize?: { width: number; height: number } | null, orientation?: Orientation) => void;
 
   setProjectName: (name: string) => void;
   markSaved: (at: number) => void;
-  loadState: (input: { doc: EditorDocument; assets: Record<string, LoadedAsset>; project: EditorState["project"] }) => void;
+  loadState: (input: {
+    doc: EditorDocument;
+    assets: Record<string, LoadedAsset>;
+    project: EditorState["project"];
+    /** Every page; when given, `doc` is ignored in favour of `pages[0]`. */
+    pages?: EditorDocument[];
+  }) => void;
   newProject: () => void;
+}
+
+export interface SlotResult {
+  designId: string | null;
+  /** True when the product got a page of its own (it did not fit, or needs another process). */
+  newPage: boolean;
+  /** Why it went where it went (see `lib/layout/product-placement.ts`). */
+  reason: PlacementReason | null;
+  /** Sheet the page was switched to, when the sheet changed. */
+  sheet: SheetDefinition | null;
+  /** 1-based number of the page it is on. */
+  pageNumber: number;
+}
+
+/** A design with every field defaulted; callers override what they need. */
+export function makeDesign(patch: Partial<Design> & Pick<Design, "width" | "height">): Design {
+  return {
+    id: createId("design"),
+    name: "Design",
+    assetId: null,
+    productId: null,
+    productColor: null,
+    bleed: 0,
+    flipX: false,
+    flipY: false,
+    x: 0,
+    y: 0,
+    rotation: 0,
+    fitMode: "contain",
+    alignX: "center",
+    alignY: "center",
+    padding: 0,
+    fillColor: null,
+    lockAspect: false,
+    border: false,
+    crop: null,
+    groupId: null,
+    locked: false,
+    ...patch,
+  };
 }
 
 function assetSource(asset: LoadedAsset, design?: Pick<Design, "crop">): Size {
@@ -141,6 +248,29 @@ function assetSource(asset: LoadedAsset, design?: Pick<Design, "crop">): Size {
     { width: asset.naturalWidth, height: asset.naturalHeight },
     design?.crop ?? null,
   );
+}
+
+/** The project's pages with the active page's live state written in. */
+function stashPages(s: Pick<EditorState, "pages" | "activePage" | "doc" | "past" | "future">): PageEntry[] {
+  return s.pages.map((p, i) => (i === s.activePage ? { ...p, doc: s.doc, past: s.past, future: s.future } : p));
+}
+
+/** Every page of the project, in order, with the active page up to date. */
+export function allPages(s: Pick<EditorState, "pages" | "activePage" | "doc">): EditorDocument[] {
+  return s.pages.map((p, i) => (i === s.activePage ? s.doc : p.doc));
+}
+
+/** Copy designs with fresh ids, keeping group membership within the copy. */
+function cloneDesigns(designs: Design[]): Design[] {
+  const groups = new Map<string, string>();
+  return designs.map((d) => {
+    let groupId: string | null = null;
+    if (d.groupId) {
+      if (!groups.has(d.groupId)) groups.set(d.groupId, createId("group"));
+      groupId = groups.get(d.groupId)!;
+    }
+    return { ...d, id: createId("design"), groupId };
+  });
 }
 
 function newProjectMeta(): EditorState["project"] {
@@ -184,7 +314,7 @@ export const useEditor = create<EditorState>()((set, get) => {
   };
 
   const normalize = (d: Design): Design => {
-    const asset = get().assets[d.assetId];
+    const asset = d.assetId ? get().assets[d.assetId] : undefined;
     if (!asset) return d;
     return { ...d, ...normalizeBox(d, assetSource(asset, d)) };
   };
@@ -194,8 +324,12 @@ export const useEditor = create<EditorState>()((set, get) => {
     return page.constrainToPrintable ? clampIntoRect(d, printableRect(page)) : d;
   };
 
+  const firstDoc = emptyDocument();
   return {
-    doc: emptyDocument(),
+    doc: firstDoc,
+    pages: [pageEntry(firstDoc)],
+    activePage: 0,
+    mockupDesignId: null,
     assets: {},
     selection: [],
     past: [],
@@ -206,10 +340,14 @@ export const useEditor = create<EditorState>()((set, get) => {
     zoom: 1,
     pan: { x: 0, y: 0 },
     viewport: { width: 0, height: 0 },
-    sidebarTab: "uploads",
+    autoFit: true,
+    sidebarTab: "products",
     layoutGap: { x: 5, y: 5 },
     lastLayoutReport: null,
     dialog: null,
+    inspectorOpen: true,
+    panelOpen: true,
+    interacting: false,
 
     commit: commitDoc,
 
@@ -244,35 +382,28 @@ export const useEditor = create<EditorState>()((set, get) => {
     addAsset: (asset) => set((s) => ({ assets: { ...s.assets, [asset.id]: asset } })),
 
     placeAsset: (assetId, size) => {
-      const { assets, doc } = get();
+      const { assets, doc, selection } = get();
       const asset = assets[assetId];
       if (!asset) return null;
+      // Canva-style frames: a selected empty product slot takes the image.
+      const target = selection.length === 1 ? doc.designs.find((d) => d.id === selection[0]) : undefined;
+      if (target && !target.assetId && !size) {
+        get().fillSlot(target.id, assetId);
+        return target.id;
+      }
       const printable = printableRect(doc.page);
       const box = size ?? defaultPrintSize(asset, printable);
       const offset = (doc.designs.length % 8) * 5;
-      const base: Design = {
-        id: createId("design"),
+      const base = makeDesign({
         name: asset.name.replace(/\.[^.]+$/, ""),
         assetId,
-        x: 0,
-        y: 0,
         width: box.width,
         height: box.height,
-        rotation: 0,
-        fitMode: "contain",
-        alignX: "center",
-        alignY: "center",
-        padding: 0,
-        fillColor: null,
         // An explicit box with a different shape than the image is intentional.
         lockAspect:
           !size ||
           Math.abs(size.width / size.height / (asset.naturalWidth / asset.naturalHeight) - 1) < 0.005,
-        border: false,
-        crop: null,
-        groupId: null,
-        locked: false,
-      };
+      });
       const centred = centerIn(base, printable);
       const design = constrain({ ...centred, x: centred.x + offset, y: centred.y + offset });
       commitDoc({ ...doc, designs: [...doc.designs, design] });
@@ -280,15 +411,193 @@ export const useEditor = create<EditorState>()((set, get) => {
       return design.id;
     },
 
+    addProductSlot: (productId) => {
+      const product = findProduct(productId);
+      const none: SlotResult = { designId: null, newPage: false, reason: null, sheet: null, pageNumber: get().activePage + 1 };
+      if (!product) return none;
+      const { doc } = get();
+      const plan = planProductPlacement(product, doc.page, doc.designs);
+      const slot = slotSize(product);
+      const design = makeDesign({
+        name: `${product.name}, ${product.detail}`,
+        productId: product.id,
+        width: slot.width,
+        height: slot.height,
+        bleed: slot.bleed,
+        rotation: plan.rotation,
+        x: plan.x,
+        y: plan.y,
+        fitMode: "fill",
+        fillColor: null,
+      });
+      if (plan.target === "new-page") {
+        // A product that needs another sheet or process never changes this page.
+        get().addPage(plan.page);
+        commitDoc({ ...get().doc, designs: [design] });
+      } else {
+        const pageChanged = plan.page !== doc.page;
+        commitDoc({ page: plan.page, designs: [...doc.designs, design] });
+        if (pageChanged) get().fitPage();
+      }
+      set({ selection: [design.id] });
+      return {
+        designId: design.id,
+        newPage: plan.target === "new-page",
+        reason: plan.reason,
+        sheet: plan.sheet,
+        pageNumber: get().activePage + 1,
+      };
+    },
+
+    addPage: (page) => {
+      const s = get();
+      const pages = stashPages(s);
+      const doc: EditorDocument = { page: structuredClone(page ?? s.doc.page), designs: [] };
+      const entry = pageEntry(doc);
+      const at = s.activePage + 1;
+      pages.splice(at, 0, entry);
+      set({ pages, activePage: at, doc, past: [], future: [], selection: [], project: { ...s.project, dirty: true } });
+      get().fitPage();
+      return at;
+    },
+
+    switchPage: (index) => {
+      const s = get();
+      if (index === s.activePage || index < 0 || index >= s.pages.length) return;
+      const pages = stashPages(s);
+      const target = pages[index];
+      set({ pages, activePage: index, doc: target.doc, past: target.past, future: target.future, selection: [] });
+      get().fitPage();
+    },
+
+    deletePage: (index) => {
+      const s = get();
+      if (s.pages.length <= 1 || index < 0 || index >= s.pages.length) return;
+      const pages = stashPages(s);
+      pages.splice(index, 1);
+      const active = index < s.activePage ? s.activePage - 1 : Math.min(s.activePage, pages.length - 1);
+      const target = pages[active];
+      set({
+        pages,
+        activePage: active,
+        doc: target.doc,
+        past: target.past,
+        future: target.future,
+        selection: [],
+        project: { ...s.project, dirty: true },
+      });
+      get().fitPage();
+    },
+
+    duplicatePage: (index) => {
+      const s = get();
+      const source = allPages(s)[index];
+      if (!source) return;
+      if (index !== s.activePage) get().switchPage(index);
+      get().addPage(source.page);
+      // The copy starts with the source's designs and an empty history.
+      set((x) => ({ doc: { ...x.doc, designs: cloneDesigns(source.designs) } }));
+    },
+
+    moveDesignsToPage: (ids, index) => {
+      const s = get();
+      if (index === s.activePage || index < 0 || index >= s.pages.length) return;
+      const moving = s.doc.designs.filter((d) => ids.includes(d.id));
+      if (moving.length === 0) return;
+      commitDoc({ ...s.doc, designs: s.doc.designs.filter((d) => !ids.includes(d.id)) });
+      const pages = stashPages(get());
+      const target = pages[index];
+      const area = printableRect(target.doc.page);
+      const placed = moving.map((d) => (target.doc.page.constrainToPrintable ? clampIntoRect(d, area) : d));
+      pages[index] = {
+        ...target,
+        doc: { ...target.doc, designs: [...target.doc.designs, ...placed] },
+        past: [...target.past, target.doc].slice(-HISTORY_LIMIT),
+        future: [],
+      };
+      set({ pages, selection: [] });
+    },
+
+    openMockup: (designId) => set({ dialog: "mockup", mockupDesignId: designId }),
+
+    addEmptySlot: (size, name = "Custom box") => {
+      const { doc } = get();
+      const printable = printableRect(doc.page);
+      const offset = (doc.designs.length % 8) * 5;
+      const centred = centerIn(makeDesign({ name, width: size.width, height: size.height, fitMode: "fill" }), printable);
+      const design = constrain({ ...centred, x: centred.x + offset, y: centred.y + offset });
+      commitDoc({ ...doc, designs: [...doc.designs, design] });
+      set({ selection: [design.id] });
+      return design.id;
+    },
+
+    moveLayer: (id, toIndex) => {
+      const { doc } = get();
+      const from = doc.designs.findIndex((d) => d.id === id);
+      if (from < 0) return;
+      const designs = [...doc.designs];
+      const [item] = designs.splice(from, 1);
+      designs.splice(Math.max(0, Math.min(designs.length, toIndex)), 0, item);
+      if (designs.every((d, i) => d.id === doc.designs[i].id)) return;
+      commitDoc({ ...doc, designs });
+    },
+
+    fillSlot: (designId, assetId) =>
+      mapDesigns((d) => {
+        if (d.id !== designId) return d;
+        const asset = get().assets[assetId];
+        // Product slots keep their box: the image is fitted inside, never cropped.
+        return normalize({
+          ...d,
+          assetId,
+          crop: null,
+          name: d.productId ? d.name : (asset?.name.replace(/\.[^.]+$/, "") ?? d.name),
+        });
+      }),
+
+    clearSlot: (designId) => mapDesigns((d) => (d.id === designId ? { ...d, assetId: null, crop: null } : d)),
+
+    flipDesigns: (axis) => {
+      const { selection } = get();
+      mapDesigns((d) =>
+        selection.includes(d.id) ? (axis === "x" ? { ...d, flipX: !d.flipX } : { ...d, flipY: !d.flipY }) : d,
+      );
+    },
+
+    distributeSelection: (axis) => {
+      const { doc, selection } = get();
+      const picked = doc.designs.filter((d) => selection.includes(d.id));
+      if (picked.length < 3) return;
+      const byId = new Map(distributeDesigns(picked, axis).map((d) => [d.id, d]));
+      commitDoc({ ...doc, designs: doc.designs.map((d) => byId.get(d.id) ?? d) });
+    },
+
+    setProcess: (process) => {
+      const { doc } = get();
+      // Sublimation transfers are printed mirror-image; DTF films are not.
+      commitDoc({ ...doc, page: { ...doc.page, process, mirrorOutput: process === "sublimation" } });
+    },
+
+    setSheet: (sheet, customSize = null, orientation) => {
+      const { doc } = get();
+      commitDoc({
+        ...doc,
+        page: { ...doc.page, sheet, customSize: sheet === "custom" ? customSize : null, orientation: orientation ?? doc.page.orientation },
+      });
+      get().fitPage();
+    },
+
     replaceAsset: (designId, asset) => {
       get().addAsset(asset);
       // Keep the box, position and page setup; only the picture changes.
       mapDesigns((d) => (d.id === designId ? normalize({ ...d, assetId: asset.id, crop: null }) : d));
+      set({ selection: [designId] });
     },
 
     removeUnusedAssets: () =>
       set((s) => {
-        const used = new Set([...s.doc.designs, ...s.past.flatMap((d) => d.designs)].map((d) => d.assetId));
+        const docs = stashPages(s).flatMap((p) => [p.doc, ...p.past, ...p.future]);
+        const used = new Set(docs.flatMap((d) => d.designs).map((d) => d.assetId));
         const kept: Record<string, LoadedAsset> = {};
         for (const [id, a] of Object.entries(s.assets)) {
           if (used.has(id)) kept[id] = a;
@@ -302,10 +611,11 @@ export const useEditor = create<EditorState>()((set, get) => {
     resizeDesign: (id, size) =>
       mapDesigns((d) => {
         if (d.id !== id) return d;
-        const asset = get().assets[d.assetId];
-        if (!asset) return d;
-        // Keep the box centre fixed so typed sizes grow around the middle.
-        const next = resizeBox(d, assetSource(asset, d), size);
+        const asset = d.assetId ? get().assets[d.assetId] : undefined;
+        // Empty slots resize freely; images keep the aspect lock rules.
+        const next = asset
+          ? resizeBox(d, assetSource(asset, d), size)
+          : { width: Math.max(1, size.width ?? d.width), height: Math.max(1, size.height ?? d.height) };
         const cx = d.x + d.width / 2;
         const cy = d.y + d.height / 2;
         return normalize({ ...d, ...next, x: cx - next.width / 2, y: cy - next.height / 2 });
@@ -321,7 +631,7 @@ export const useEditor = create<EditorState>()((set, get) => {
     resetDesign: (id) =>
       mapDesigns((d) => {
         if (d.id !== id) return d;
-        const asset = get().assets[d.assetId];
+        const asset = d.assetId ? get().assets[d.assetId] : undefined;
         if (!asset) return d;
         const source = { width: asset.naturalWidth, height: asset.naturalHeight };
         const box = fitContain(source, { width: d.width, height: d.height });
@@ -530,25 +840,53 @@ export const useEditor = create<EditorState>()((set, get) => {
     },
 
     setUnit: (unit) => set({ unit }),
-    setViewport: (viewport) => set({ viewport }),
-    setPan: (pan) => set({ pan }),
+    setViewport: (viewport) => {
+      set({ viewport });
+      if (get().autoFit) get().fitPage();
+    },
+    setPan: (pan) => set({ pan, autoFit: false }),
 
     zoomTo: (target, anchor) => {
       const { zoom, pan, viewport } = get();
       const next = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, target));
       const a = anchor ?? { x: viewport.width / 2, y: viewport.height / 2 };
       const k = next / zoom;
-      set({ zoom: next, pan: { x: a.x - (a.x - pan.x) * k, y: a.y - (a.y - pan.y) * k } });
+      set({ zoom: next, pan: { x: a.x - (a.x - pan.x) * k, y: a.y - (a.y - pan.y) * k }, autoFit: false });
+    },
+
+    zoomToSelection: () => {
+      const { viewport, doc, selection } = get();
+      const picked = doc.designs.filter((d) => selection.includes(d.id));
+      const box = unionBounds(picked.map(designBounds));
+      if (!box || viewport.width === 0) return get().fitPage();
+      const pad = 96;
+      const width = viewport.width - RULER_PX;
+      const height = viewport.height - RULER_PX - PAGES_BAR_PX;
+      const zoom = Math.max(
+        MIN_ZOOM,
+        Math.min(MAX_ZOOM, (width - pad * 2) / (box.width * PX_PER_MM), (height - pad * 2) / (box.height * PX_PER_MM)),
+      );
+      const s = zoom * PX_PER_MM;
+      set({
+        zoom,
+        autoFit: false,
+        pan: {
+          x: RULER_PX + width / 2 - (box.x + box.width / 2) * s,
+          y: RULER_PX + height / 2 - (box.y + box.height / 2) * s,
+        },
+      });
     },
 
     fitPage: () => {
       const { viewport, doc } = get();
       if (viewport.width === 0 || viewport.height === 0) return;
-      const page = pageSize(doc.page.orientation);
+      const page = pageSize(doc.page);
       const pad = viewport.width < 640 ? 12 : 40;
       // The rulers cover the top and left edges of the viewport.
+      // Leave room for the rulers and the floating quick-actions bar at the top.
+      const top = RULER_PX + QUICK_BAR_PX;
       const width = viewport.width - RULER_PX;
-      const height = viewport.height - RULER_PX;
+      const height = viewport.height - top - PAGES_BAR_PX;
       const zoom = Math.max(
         MIN_ZOOM,
         Math.min(
@@ -559,29 +897,47 @@ export const useEditor = create<EditorState>()((set, get) => {
       const s = zoom * PX_PER_MM;
       set({
         zoom,
+        autoFit: true,
         pan: {
           x: RULER_PX + (width - page.width * s) / 2,
-          y: RULER_PX + (height - page.height * s) / 2,
+          y: top + (height - page.height * s) / 2,
         },
       });
     },
     setSidebarTab: (sidebarTab) => set({ sidebarTab }),
     setLayoutGap: (layoutGap) => set({ layoutGap }),
     setDialog: (dialog) => set({ dialog }),
+    setInspectorOpen: (inspectorOpen) => set({ inspectorOpen }),
+    setPanelOpen: (panelOpen) => set({ panelOpen }),
+    setInteracting: (interacting) => set({ interacting }),
 
     setProjectName: (name) => set((s) => ({ project: { ...s.project, name, dirty: true } })),
     markSaved: (at) => set((s) => ({ project: { ...s.project, savedAt: at, dirty: false } })),
 
-    loadState: ({ doc, assets, project }) => {
+    loadState: ({ doc, assets, project, pages }) => {
       for (const a of Object.values(get().assets)) URL.revokeObjectURL(a.objectUrl);
-      set({ doc, assets, project, selection: [], past: [], future: [], lastLayoutReport: null });
+      const docs = pages && pages.length > 0 ? pages : [doc];
+      set({
+        doc: docs[0],
+        pages: docs.map(pageEntry),
+        activePage: 0,
+        assets,
+        project,
+        selection: [],
+        past: [],
+        future: [],
+        lastLayoutReport: null,
+      });
       get().fitPage();
     },
 
     newProject: () => {
       for (const a of Object.values(get().assets)) URL.revokeObjectURL(a.objectUrl);
+      const doc = emptyDocument();
       set({
-        doc: emptyDocument(),
+        doc,
+        pages: [pageEntry(doc)],
+        activePage: 0,
         assets: {},
         selection: [],
         past: [],

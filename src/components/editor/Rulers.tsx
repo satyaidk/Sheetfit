@@ -9,6 +9,7 @@
  */
 
 import { useEffect, useRef } from "react";
+import { uiFontFamily } from "@/lib/utils";
 import type { Rect } from "@/lib/image/image-fit";
 
 import { RULER_PX } from "@/store/editor-store";
@@ -38,7 +39,7 @@ function drawRuler(
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx.fillStyle = "#f4f5f3";
+  ctx.fillStyle = "#f5f6f8";
   ctx.fillRect(0, 0, w, h);
 
   // Page extent shown as a lighter band.
@@ -49,7 +50,7 @@ function drawRuler(
   else ctx.fillRect(0, p0, w, p1 - p0);
 
   if (highlight) {
-    ctx.fillStyle = "rgba(0, 160, 224, 0.18)";
+    ctx.fillStyle = "rgba(7, 125, 137, 0.16)";
     const a = offset + highlight.start * pxPerMm;
     const b = offset + highlight.end * pxPerMm;
     if (axis === "x") ctx.fillRect(a, 0, b - a, h);
@@ -60,9 +61,9 @@ function drawRuler(
   const minor = step >= 10 ? step / 10 : step >= 5 ? 1 : step / 2;
   const startMm = Math.floor(-offset / pxPerMm / minor) * minor;
   const endMm = (length - offset) / pxPerMm;
-  ctx.strokeStyle = "#8a9199";
-  ctx.fillStyle = "#59616a";
-  ctx.font = "500 10px var(--font-archivo), sans-serif";
+  ctx.strokeStyle = "#a9b1ba";
+  ctx.fillStyle = "#5b636d";
+  ctx.font = `500 10px ${uiFontFamily()}`;
   ctx.lineWidth = 1;
   ctx.beginPath();
   for (let mm = startMm; mm <= endMm; mm += minor) {
@@ -92,7 +93,7 @@ function drawRuler(
     }
   }
   ctx.stroke();
-  ctx.strokeStyle = "#d9dcd6";
+  ctx.strokeStyle = "#e3e6ea";
   ctx.beginPath();
   if (axis === "x") {
     ctx.moveTo(0, RULER_PX - 0.5);
@@ -137,7 +138,7 @@ export function Rulers({
       <canvas ref={left} aria-hidden className="pointer-events-none absolute top-0 left-0 z-10" />
       <div
         aria-hidden
-        className="absolute top-0 left-0 z-20 flex items-center justify-center border-r border-b border-line bg-chrome text-[9px] font-semibold text-ink-faint"
+        className="absolute top-0 left-0 z-20 flex items-center justify-center border-r border-b border-line bg-subtle text-[9px] font-semibold text-ink-faint"
         style={{ width: RULER_PX, height: RULER_PX }}
       >
         mm

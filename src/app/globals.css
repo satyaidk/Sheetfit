@@ -1,102 +1,106 @@
 @import "tailwindcss";
 
 /*
- * Design tokens.
- * The workspace is a self-healing cutting mat (deep green with a millimetre
- * grid); the chrome around it stays quiet and cool-neutral so the sheet and
- * the mat carry the identity. Process cyan marks selection and primary
- * actions, process magenta marks problems, as on a press proof.
+ * Design tokens (v0.2, see AGENTS.md section 6 and the research report).
+ * Quiet, light chrome so the sheet is the hero; one teal accent for selection,
+ * primary actions, focus and active tabs; magenta reserved for snap guides
+ * and live measurements. Surfaces are separated by tone first, borders second.
  */
 :root {
-  --mat: #24493d;
-  --mat-deep: #1c3a30;
-  --mat-line: rgb(255 255 255 / 0.06);
-  --mat-line-strong: rgb(255 255 255 / 0.13);
-  --chrome: #f4f5f3;
-  --chrome-sunk: #eaece8;
   --surface: #ffffff;
-  --line: #d9dcd6;
-  --line-strong: #c3c7c0;
-  --ink: #16191c;
-  --ink-muted: #59616a;
-  --ink-faint: #8a9199;
-  --cyan: #0079ad;
-  --cyan-bright: #00a0e0;
-  --cyan-wash: #e3f3fa;
-  --magenta: #c0185a;
-  --magenta-wash: #fbe8ef;
-  --amber: #9a5d00;
-  --amber-wash: #fbf1df;
-  --ok: #2f7a4f;
-  --ok-wash: #e5f3ea;
+  --subtle: #f5f6f8;
+  --subtle-2: #eceef1;
+  --canvas: #e9ebef;
+  --line: #e3e6ea;
+  --line-strong: #cfd4da;
+  --ink: #1b1f24;
+  --ink-muted: #5b636d;
+  --ink-faint: #8b939c;
+  --accent: #077d89;
+  --accent-hover: #05656f;
+  --accent-soft: #e2f3f4;
+  --accent-ring: rgb(7 125 137 / 0.28);
+  --guide: #ec2f8f;
+  --danger: #cc2848;
+  --danger-soft: #fdecef;
+  --warn: #a35f00;
+  --warn-soft: #fff4de;
+  --ok: #18804a;
+  --ok-soft: #e4f5eb;
+  --shadow-pop: 0 1px 2px rgb(16 24 40 / 0.06), 0 8px 24px rgb(16 24 40 / 0.12);
+  --shadow-bar: 0 1px 2px rgb(16 24 40 / 0.06), 0 4px 14px rgb(16 24 40 / 0.08);
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
 }
 
 @theme inline {
-  --color-mat: var(--mat);
-  --color-mat-deep: var(--mat-deep);
-  --color-chrome: var(--chrome);
-  --color-chrome-sunk: var(--chrome-sunk);
   --color-surface: var(--surface);
+  --color-subtle: var(--subtle);
+  --color-subtle-2: var(--subtle-2);
+  --color-canvas: var(--canvas);
   --color-line: var(--line);
   --color-line-strong: var(--line-strong);
   --color-ink: var(--ink);
   --color-ink-muted: var(--ink-muted);
   --color-ink-faint: var(--ink-faint);
-  --color-cyan: var(--cyan);
-  --color-cyan-bright: var(--cyan-bright);
-  --color-cyan-wash: var(--cyan-wash);
-  --color-magenta: var(--magenta);
-  --color-magenta-wash: var(--magenta-wash);
-  --color-amber: var(--amber);
-  --color-amber-wash: var(--amber-wash);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-soft: var(--accent-soft);
+  --color-guide: var(--guide);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
   --color-ok: var(--ok);
-  --color-ok-wash: var(--ok-wash);
-  --font-sans: var(--font-archivo), ui-sans-serif, system-ui, sans-serif;
-  --radius-sm: 3px;
-  --radius-md: 5px;
-  --radius-lg: 8px;
+  --color-ok-soft: var(--ok-soft);
+  --font-sans: var(--font-figtree), ui-sans-serif, system-ui, sans-serif;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --shadow-pop: var(--shadow-pop);
+  --shadow-bar: var(--shadow-bar);
+  --ease-out: var(--ease-out);
 }
 
 html,
 body {
-  background: var(--chrome);
+  background: var(--surface);
   color: var(--ink);
 }
 
 body {
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1.45;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Numbers in an editor of measurements should never jitter. */
 .tnum {
   font-variant-numeric: tabular-nums;
 }
 
-/* Condensed cut of Archivo for the wordmark and panel headings. */
-.font-condensed {
-  font-stretch: 78%;
-}
-
 :focus-visible {
-  outline: 2px solid var(--cyan-bright);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
-.mat-surface {
-  background-color: var(--mat);
-  background-image:
-    linear-gradient(var(--mat-line-strong) 1px, transparent 1px),
-    linear-gradient(90deg, var(--mat-line-strong) 1px, transparent 1px),
-    linear-gradient(var(--mat-line) 1px, transparent 1px),
-    linear-gradient(90deg, var(--mat-line) 1px, transparent 1px);
-  background-size:
-    100px 100px,
-    100px 100px,
-    20px 20px,
-    20px 20px;
+/* Workspace backdrop: a faint dot grid, the convention of design canvases. */
+.canvas-surface {
+  background-color: var(--canvas);
+  background-image: radial-gradient(rgb(27 31 36 / 0.07) 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+
+.checker {
+  background-color: #fff;
+  background-image: conic-gradient(#eceef1 25%, #fff 0 50%, #eceef1 0 75%, #fff 0);
+  background-size: 12px 12px;
+}
+
+/* Thin, unobtrusive scrollbars in panels. */
+.scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
 }
 
 input[type="number"]::-webkit-inner-spin-button,
@@ -104,24 +108,55 @@ input[type="number"]::-webkit-outer-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
-input[type="number"] {
-  -moz-appearance: textfield;
-  appearance: textfield;
+
+/* Entrance motion for popovers, menus and panels (fast, ease-out, transform/opacity only). */
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes slide-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+}
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+.animate-pop {
+  animation: pop-in 150ms var(--ease-out);
+  transform-origin: var(--radix-popper-transform-origin, center);
+}
+.animate-fade {
+  animation: fade-in 150ms var(--ease-out);
+}
+.animate-panel {
+  animation: slide-in-left 200ms var(--ease-out);
+}
+.animate-up {
+  animation: slide-up 200ms var(--ease-out);
 }
 
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
-    animation-duration: 0.01ms !important;
-    transition-duration: 0.01ms !important;
+    animation-duration: 1ms !important;
+    transition-duration: 1ms !important;
   }
 }
 
-/*
- * Printing: only the rendered sheet image in #print-root is printed. The
- * @page size and orientation are injected at print time (lib/export/print.ts).
- */
+/* Printing: only the rendered sheet image in #print-root is printed. */
 #print-root {
   display: none;
 }
@@ -143,8 +178,10 @@ input[type="number"] {
     display: block;
     margin: 0;
     padding: 0;
-    page-break-after: avoid;
-    break-after: avoid;
+    break-after: page;
     break-inside: avoid;
+  }
+  #print-root img:last-child {
+    break-after: auto;
   }
 }

@@ -16,7 +16,7 @@ export function Section({
   return (
     <section className={cn("border-b border-line px-4 py-3.5", className)}>
       <div className="mb-2.5 flex items-center justify-between gap-2">
-        <h3 className="font-condensed text-[14px] font-semibold tracking-[0.01em] text-ink">{title}</h3>
+        <h3 className="text-[14px] font-semibold tracking-[0.01em] text-ink">{title}</h3>
         {aside}
       </div>
       {children}
@@ -37,10 +37,10 @@ export function Note({
   className?: string;
 }) {
   const tones = {
-    info: "bg-chrome-sunk text-ink-muted",
-    ok: "bg-ok-wash text-ok",
-    warn: "bg-amber-wash text-amber",
-    error: "bg-magenta-wash text-magenta",
+    info: "bg-subtle-2 text-ink-muted",
+    ok: "bg-ok-soft text-ok",
+    warn: "bg-warn-soft text-warn",
+    error: "bg-danger-soft text-danger",
   } as const;
   return (
     <div className={cn("flex gap-2 rounded-md px-2.5 py-2 text-[12px] leading-snug [&_svg]:mt-px [&_svg]:size-3.5 [&_svg]:shrink-0", tones[tone], className)}>

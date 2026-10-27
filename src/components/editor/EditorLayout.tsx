@@ -1,106 +1,160 @@
 "use client";
 
 /**
- * Editor shell.
+ * Editor shell (Canva structure, see AGENTS.md section 6).
  *
- * Desktop: top bar, icon rail + panel on the left, workspace in the centre,
- * properties on the right, status bar at the bottom.
- * Mobile: the workspace fills the screen, the rail becomes a bottom tab bar,
- * and both panels open as sheets over the workspace.
+ * Desktop: header; icon rail + one pinned panel on the left; the canvas with
+ * the quick-actions bar and the floating selection pill; the properties
+ * inspector on the right while something is selected; footer with zoom.
+ * Below 1024 px the inspector and below 768 px the side panel become bottom
+ * sheets, and the rail becomes a bottom tab bar.
  */
 
-import { useEffect, useState } from "react";
-import { SlidersHorizontal, X } from "lucide-react";
+import { useEffect, useSyncExternalStore } from "react";
+import { X } from "lucide-react";
 import { useEditor } from "@/store/editor-store";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { Button } from "@/components/ui/button";
-import { TopToolbar } from "./TopToolbar";
-import { SidebarPanel, SidebarRail } from "./LeftSidebar";
+import { Header } from "./Header";
+import { SidePanelContent, SideRail } from "./SidePanel";
 import { CanvasWorkspace } from "./CanvasWorkspace";
+import { QuickActionsBar } from "./QuickActionsBar";
+import { FloatingPill } from "./FloatingPill";
+import { PagesBar } from "./PagesBar";
+import { MockupDialog } from "@/components/products/MockupPreview";
 import { PropertiesPanel } from "./PropertiesPanel";
-import { BottomBar } from "./BottomBar";
-import { ZoomControls } from "./ZoomControls";
+import { Footer } from "./Footer";
+import { StartDialog, ONBOARDED_KEY } from "./StartDialog";
+import { ShortcutsDialog } from "./ShortcutsDialog";
+import { SheetDialog } from "@/components/settings/SheetDialog";
 import { ExportDialog } from "@/components/export/ExportDialog";
 import { useEditorShortcuts } from "./use-editor-shortcuts";
 import { loadSampleSheet } from "@/lib/sample";
 
+/**
+ * True while the viewport is narrower than `px`. Panels are mounted for one
+ * layout only: rendering the desktop panel and the hidden mobile sheet side by
+ * side doubled the work (two product grids) and confused focus and tests.
+ */
+function useNarrower(px: number) {
+  return useSyncExternalStore(
+    (onChange) => {
+      const mq = window.matchMedia(`(max-width: ${px - 0.02}px)`);
+      mq.addEventListener("change", onChange);
+      return () => mq.removeEventListener("change", onChange);
+    },
+    () => window.matchMedia(`(max-width: ${px - 0.02}px)`).matches,
+    () => false,
+  );
+}
+
 export default function EditorLayout() {
   useEditorShortcuts();
-  const [leftOpen, setLeftOpen] = useState(false);
-  const [propsOpen, setPropsOpen] = useState(false);
-  const selectionCount = useEditor((s) => s.selection.length);
+  const phone = useNarrower(768);
+  const tablet = useNarrower(1024);
+  const panelOpen = useEditor((s) => s.panelOpen);
+  const inspectorOpen = useEditor((s) => s.inspectorOpen);
+  const hasSelection = useEditor((s) => s.selection.length > 0);
+  const setPanelOpen = useEditor((s) => s.setPanelOpen);
+  const setInspectorOpen = useEditor((s) => s.setInspectorOpen);
 
   useEffect(() => {
-    if (new URLSearchParams(window.location.search).has("sample")) void loadSampleSheet();
+    const s = useEditor.getState();
+    // Small screens start with the canvas unobstructed.
+    if (window.innerWidth < 1024) s.setInspectorOpen(false);
+    if (window.innerWidth < 768) s.setPanelOpen(false);
+    if (new URLSearchParams(window.location.search).has("sample")) {
+      void loadSampleSheet();
+      return;
+    }
+    let onboarded = false;
+    try {
+      onboarded = localStorage.getItem(ONBOARDED_KEY) === "1";
+    } catch {
+      onboarded = true;
+    }
+    if (!onboarded && s.doc.designs.length === 0) s.setDialog("start");
   }, []);
 
+  const showInspector = inspectorOpen && hasSelection;
+
   return (
-    <TooltipProvider delayDuration={400}>
-      <div className="flex h-dvh flex-col overflow-hidden">
-        <TopToolbar />
+    <TooltipProvider delayDuration={350} skipDelayDuration={150}>
+      <div className="flex h-dvh flex-col overflow-hidden bg-surface">
+        <Header />
         <div className="relative flex min-h-0 flex-1">
           <div className="hidden md:flex">
-            <SidebarRail />
-            <aside aria-label="Panel" className="w-[284px] shrink-0 border-r border-line bg-chrome">
-              <SidebarPanel />
-            </aside>
+            <SideRail />
+            {panelOpen && !phone && (
+              <aside aria-label="Side panel" className="w-[340px] shrink-0 border-r border-line bg-surface animate-panel">
+                <SidePanelContent />
+              </aside>
+            )}
           </div>
 
           <main className="relative min-w-0 flex-1">
             <CanvasWorkspace />
-            <div className="absolute top-8 right-3 z-20 md:hidden">
-              <ZoomControls />
-            </div>
-            {selectionCount > 0 && (
-              <Button
-                variant="dark"
-                className="absolute bottom-3 left-1/2 z-20 -translate-x-1/2 shadow-lg lg:hidden"
-                onClick={() => setPropsOpen(true)}
-              >
-                <SlidersHorizontal />
-                Edit {selectionCount > 1 ? `${selectionCount} designs` : "design"}
-              </Button>
-            )}
+            <QuickActionsBar />
+            <FloatingPill />
+            <PagesBar />
           </main>
 
-          <aside aria-label="Properties" className="hidden w-[312px] shrink-0 overflow-y-auto border-l border-line bg-chrome lg:block">
-            <PropertiesPanel />
-          </aside>
+          {showInspector && !tablet && (
+            <aside aria-label="Properties" className="scroll-thin hidden w-[312px] shrink-0 overflow-y-auto border-l border-line bg-surface lg:block">
+              <InspectorHeader onClose={() => setInspectorOpen(false)} />
+              <PropertiesPanel />
+            </aside>
+          )}
 
-          {leftOpen && (
-            <MobileSheet onClose={() => setLeftOpen(false)} className="md:hidden">
-              <SidebarPanel onClose={() => setLeftOpen(false)} />
+          {panelOpen && phone && (
+            <MobileSheet className="md:hidden" onClose={() => setPanelOpen(false)}>
+              <SidePanelContent onClose={() => setPanelOpen(false)} />
             </MobileSheet>
           )}
-          {propsOpen && (
-            <MobileSheet onClose={() => setPropsOpen(false)} className="lg:hidden">
-              <div className="flex h-11 shrink-0 items-center justify-between border-b border-line px-4">
-                <h2 className="font-condensed text-[17px] font-semibold">Properties</h2>
-                <Button size="icon-sm" variant="ghost" aria-label="Close properties" onClick={() => setPropsOpen(false)}>
-                  <X />
-                </Button>
-              </div>
-              <div className="min-h-0 flex-1 overflow-y-auto">
+          {showInspector && tablet && (
+            <MobileSheet className="lg:hidden" onClose={() => setInspectorOpen(false)}>
+              <InspectorHeader onClose={() => setInspectorOpen(false)} />
+              <div className="scroll-thin min-h-0 flex-1 overflow-y-auto">
                 <PropertiesPanel />
               </div>
             </MobileSheet>
           )}
         </div>
         <div className="md:hidden">
-          <SidebarRail orientation="horizontal" onPick={() => setLeftOpen(true)} />
+          <SideRail horizontal />
         </div>
-        <BottomBar />
+        <Footer />
         <ExportDialog />
+        <SheetDialog />
+        <StartDialog />
+        <ShortcutsDialog />
+        <MockupDialog />
       </div>
     </TooltipProvider>
+  );
+}
+
+function InspectorHeader({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="sticky top-0 z-10 flex h-12 items-center justify-between border-b border-line bg-surface px-4">
+      <h2 className="text-[15px] font-semibold tracking-tight">Properties</h2>
+      <button
+        type="button"
+        aria-label="Close properties"
+        onClick={onClose}
+        className="flex size-8 items-center justify-center rounded-md text-ink-muted hover:bg-subtle hover:text-ink"
+      >
+        <X className="size-4" />
+      </button>
+    </div>
   );
 }
 
 function MobileSheet({ children, onClose, className }: { children: React.ReactNode; onClose: () => void; className?: string }) {
   return (
     <div className={`absolute inset-0 z-40 flex flex-col justify-end ${className ?? ""}`}>
-      <button type="button" aria-label="Close" className="absolute inset-0 bg-[#0d1a15]/40" onClick={onClose} />
-      <div className="relative flex max-h-[78%] min-h-[40%] flex-col rounded-t-xl border-t border-line bg-chrome shadow-2xl">
+      <button type="button" aria-label="Close" className="absolute inset-0 bg-[rgb(16_24_40/0.32)] animate-fade" onClick={onClose} />
+      <div className="relative flex max-h-[85%] min-h-[45%] flex-col rounded-t-2xl bg-surface shadow-pop animate-up">
+        <span className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-line-strong" aria-hidden />
         {children}
       </div>
     </div>
