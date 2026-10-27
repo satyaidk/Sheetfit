@@ -24,6 +24,8 @@ All notable changes to this project are documented here. The format follows [Kee
 ### Fixed
 
 - Preview dialogs opened without moving focus into them, so Escape also closed the side panel behind them.
+- Chrome and Edge on Windows logged Direct3D shader compiler warnings (`warning X4122`) for every 3D view. These
+  notes are harmless and are now filtered; real shader errors and other warnings still reach the console.
 
 ## [0.4.0] - 2026-10-27
 

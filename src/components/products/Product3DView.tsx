@@ -23,7 +23,11 @@ import type { PrintProcess } from "@/types/editor";
 import { backdropFor } from "@/lib/catalogue/colors";
 import { buildProductModel, disposeModel, printStyle, weaveRepeat } from "@/lib/three/product-model";
 import { colorTexture, corkTexture, loadImage, printCanvas, weaveNormalTexture } from "@/lib/three/print-textures";
+import { threeConsole } from "@/lib/three/driver-notes";
 import { cn } from "@/lib/utils";
+
+// Keep Direct3D compiler notes (Chrome on Windows) out of the console; real shader errors still show.
+THREE.setConsoleFunction(threeConsole);
 
 export interface Product3DViewProps {
   product: ProductPreset;

@@ -49,7 +49,7 @@ No backend; projects live in IndexedDB.
 ## 3. Commands
 
 ```bash
-npm run dev            # http://localhost:3000; /editor?sample loads the sample sheet
+npm run dev            # http://localhost:4000; /editor?sample loads the sample sheet
 npm run check          # lint + typecheck + tests with coverage + production build (must pass before "done")
 npm test               # vitest only
 ```
@@ -104,6 +104,7 @@ npm test               # vitest only
 | `src/lib/catalogue/outlines.ts` | Garment outlines shared by 2D mockups and 3D models; `parsePath` (no DOM) |
 | `src/lib/three/product-model.ts` | Procedural 3D builders per product shape (drinkware, flat, garment cloth surface, cap, tote, flag), `printCrop`, `printStyle`, `weaveRepeat` |
 | `src/lib/three/print-textures.ts` | Browser textures: print composite (process-aware), weave normal map, cork |
+| `src/lib/three/driver-notes.ts` | `threeConsole` for `THREE.setConsoleFunction`: drops Direct3D compiler notes (X4122), forwards the rest |
 | `src/lib/catalogue/sample-designs.ts` | Seeded SVG sample designs (4 emblem + 6 pattern families × 8 palettes), `renderSampleSvg(d, aspect)` |
 | `src/lib/catalogue/products.ts` | 52 product presets, `slotSize` (bleed / +6 mm seam), `minSheetFor`, `searchProducts` |
 | `src/lib/image/*` | Fitting engine, effective DPI, file loading |
@@ -203,6 +204,13 @@ Next (v0.6 candidates, in suggested order):
 - `research_notes/` and `reports/` are in the repo root; decide with the user whether to keep them committed.
 
 ## 8. Update log
+
+- **2026-10-27**: User pasted `npm run dev` output with `THREE.WebGLProgram: Program Info Log: warning X4122 ...`
+  from their browser. Cause: Chrome on Windows (ANGLE on Direct3D) returns HLSL constant-folding notes for
+  three.js shadow shaders that link fine; three.js logs any non-empty program log. Headless checks use SwiftShader,
+  which never logs it. Fix: `lib/three/driver-notes.ts` filters only Direct3D `warning X####` logs (tests use the
+  user's exact log). Also fixed docs that said the dev server runs on port 3000; `npm run dev` uses 4000.
+  `npm run check` green: 185 tests, 13 files; coverage 92.85 % lines, 90.82 % statements, 79.88 % branches.
 
 - **2026-10-27**: v0.5.0. User asked for a realistic 3D viewer for every product with a colour-adaptive
   background. Done: procedural three.js models for all 52 products (lathed drinkware with handles/lids/straws,

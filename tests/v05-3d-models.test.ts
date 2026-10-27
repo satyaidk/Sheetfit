@@ -1,9 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import * as THREE from "three";
 import { PRODUCTS, findProduct } from "@/lib/catalogue/products";
 import { buildProductModel, disposeModel, printCrop, printStyle, weaveRepeat } from "@/lib/three/product-model";
 import { backdropFor, colorsFor, contrastRatio, luminance } from "@/lib/catalogue/colors";
 import { OUTLINES, parsePath } from "@/lib/catalogue/outlines";
+import { isDriverNote, threeConsole } from "@/lib/three/driver-notes";
 
 const textures = { print: new THREE.Texture(), overlay: new THREE.Texture(), weave: new THREE.Texture(), cork: new THREE.Texture() };
 
@@ -133,5 +134,39 @@ describe("3D backdrop", () => {
   it("puts white blanks on a mid-tone and black blanks on a light sweep", () => {
     expect(luminance(backdropFor("#ffffff").inner)).toBeLessThan(0.75);
     expect(luminance(backdropFor("#1c1d20").inner)).toBeGreaterThan(0.85);
+  });
+});
+
+describe("driver notes", () => {
+  // Logged by Chrome on Windows (ANGLE on Direct3D) for three.js shadow shaders that link fine.
+  const d3dLog = [
+    "(210,86-138): warning X4122: sum of 0.996094 and -2.98545e-017 cannot be represented accurately in double precision",
+    "(209,39-65): warning X4122: sum of 1 and -1.49272e-017 cannot be represented accurately in double precision",
+    "(210,87-113): warning X4122: sum of 1 and -1.49272e-017 cannot be represented accurately in double precision",
+  ].join("\n");
+  const programLog = "THREE.WebGLProgram: Program Info Log:";
+
+  it("recognises Direct3D compiler warnings after a successful link", () => {
+    expect(isDriverNote(programLog, [d3dLog])).toBe(true);
+  });
+
+  it("keeps everything else", () => {
+    expect(isDriverNote(programLog, [d3dLog + "\nERROR: 0:12: 'vUv' : undeclared identifier"])).toBe(false);
+    expect(isDriverNote(programLog, ["warning: varying vNormal is unused"])).toBe(false);
+    expect(isDriverNote(programLog, [""])).toBe(false);
+    expect(isDriverNote("THREE.WebGLRenderer: Texture marked for update but no image data found.", [d3dLog])).toBe(false);
+  });
+
+  it("forwards other messages to the console and drops only the notes", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    threeConsole("warn", programLog, d3dLog);
+    expect(warn).not.toHaveBeenCalled();
+    threeConsole("warn", "THREE.Material: parameter is undefined.");
+    expect(warn).toHaveBeenCalledWith("THREE.Material: parameter is undefined.");
+    threeConsole("error", programLog, d3dLog);
+    expect(error).toHaveBeenCalledWith(programLog, d3dLog);
+    warn.mockRestore();
+    error.mockRestore();
   });
 });

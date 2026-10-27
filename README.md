@@ -142,7 +142,7 @@ No configuration or environment variables are required. The app has no backend a
 ### Run
 
 ```bash
-npm run dev        # http://localhost:3000
+npm run dev        # http://localhost:4000
 npm run build      # production build
 npm run start      # serve the production build
 ```
@@ -196,9 +196,9 @@ npm run test:coverage  # Vitest with V8 coverage and thresholds
 npm run check          # all of the above plus a production build
 ```
 
-The suite has 182 tests across 3D models (every product built and size-checked, print mapping, backdrop contrast for every blank colour), fitting, units, sheets, the product catalogue, product placement and free-spot search, product designs and the save-or-discard rules, pages with per-page history, layout, snapping, live gaps, distribution, auto-arrange, the render plan with mirroring and flips, single- and multi-page PDF export, print page rules, DPI metadata, the pre-print check, sample designs, blank colours, file validation, migrations, IndexedDB storage, project files and the editor store. It includes every scenario listed in the original specification, for example a square logo in a 90 × 60 mm box, an extremely wide logo, a low-resolution image at 300 DPI, A4 portrait and landscape PDFs, and an image placed at a known coordinate. A property-style test checks that no non-distorting mode ever places image pixels outside the box.
+The suite has 185 tests across 3D models (every product built and size-checked, print mapping, backdrop contrast for every blank colour), fitting, units, sheets, the product catalogue, product placement and free-spot search, product designs and the save-or-discard rules, pages with per-page history, layout, snapping, live gaps, distribution, auto-arrange, the render plan with mirroring and flips, single- and multi-page PDF export, print page rules, DPI metadata, the pre-print check, sample designs, blank colours, file validation, migrations, IndexedDB storage, project files and the editor store. It includes every scenario listed in the original specification, for example a square logo in a 90 × 60 mm box, an extremely wide logo, a low-resolution image at 300 DPI, A4 portrait and landscape PDFs, and an image placed at a known coordinate. A property-style test checks that no non-distorting mode ever places image pixels outside the box.
 
-Coverage is measured over the domain, export and store layers (`src/lib`, `src/store`), excluding browser-only glue that needs a real DOM canvas: 92.8% of lines, 90.8% of statements and 79.7% of branches. CI enforces minimums of 80% lines, statements and functions and 65% branches.
+Coverage is measured over the domain, export and store layers (`src/lib`, `src/store`), excluding browser-only glue that needs a real DOM canvas: 92.9% of lines, 90.8% of statements and 79.9% of branches. CI enforces minimums of 80% lines, statements and functions and 65% branches.
 
 Browser-only paths (landing page, Konva interaction, canvas export, file upload, IndexedDB round trip, printing, previews, 3D viewer, dialogs and dropdowns) were verified end to end in headless Chrome against the production build: 48 scripted checks, all passing, with no console errors. A second script opens the 3D view of all 52 products and checks that each one renders. See [Evaluation](#evaluation).
 
