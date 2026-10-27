@@ -205,6 +205,10 @@ Next (v0.6 candidates, in suggested order):
 
 ## 8. Update log
 
+- **2026-10-27**: CI typechecking failed on a clean checkout because `next-env.d.ts` and route-aware helpers are
+  generated and ignored. Updated `npm run typecheck` to run `next typegen` before `tsc --noEmit`, which also
+  provides Next.js's ambient declarations for imported image assets. Verified with `npm run typecheck`.
+
 - **2026-10-27**: User pasted `npm run dev` output with `THREE.WebGLProgram: Program Info Log: warning X4122 ...`
   from their browser. Cause: Chrome on Windows (ANGLE on Direct3D) returns HLSL constant-folding notes for
   three.js shadow shaders that link fine; three.js logs any non-empty program log. Headless checks use SwiftShader,
