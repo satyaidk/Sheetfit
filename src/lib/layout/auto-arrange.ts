@@ -16,7 +16,7 @@
 
 import type { Design, PageSettings } from "@/types/editor";
 import type { Rect, Size } from "@/lib/image/image-fit";
-import { designBounds, printableRect } from "./a4-layout";
+import { designBounds, printableRect } from "./sheet-layout";
 import { unionBounds } from "./alignment";
 
 export interface LayoutGap {
@@ -185,7 +185,7 @@ export function packItemsFor(designs: Design[]): PackItem[] {
  */
 export function suggestLayoutFixes(
   designs: Design[],
-  page: Pick<PageSettings, "orientation" | "margins">,
+  page: Pick<PageSettings, "sheet" | "customSize" | "orientation" | "margins">,
   gap: LayoutGap,
 ): string[] {
   const items = packItemsFor(designs);

@@ -21,7 +21,7 @@ export function Tooltip({
         <TooltipPrimitive.Content
           side={side}
           sideOffset={6}
-          className="z-50 flex items-center gap-2 rounded-md bg-ink px-2 py-1 text-[12px] text-white shadow-lg"
+          className="z-50 flex items-center gap-2 rounded-md bg-ink px-2 py-1 text-[12px] font-medium text-white shadow-lg animate-fade"
         >
           {label}
           {shortcut && <kbd className="font-sans text-[11px] text-white/60">{shortcut}</kbd>}

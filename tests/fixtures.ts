@@ -3,7 +3,10 @@ import type { ImageAsset } from "@/types/image";
 
 export function makePage(overrides: Partial<PageSettings> = {}): PageSettings {
   return {
-    paper: "A4",
+    sheet: "a4",
+    customSize: null,
+    process: "dtf",
+    mirrorOutput: false,
     orientation: "portrait",
     margins: { top: 10, right: 10, bottom: 10, left: 10 },
     background: "#ffffff",
@@ -23,6 +26,11 @@ export function makeDesign(overrides: Partial<Design> = {}): Design {
     id: "d1",
     name: "Logo",
     assetId: "a1",
+    productId: null,
+    productColor: null,
+    bleed: 0,
+    flipX: false,
+    flipY: false,
     x: 0,
     y: 0,
     width: 90,

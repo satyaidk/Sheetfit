@@ -76,14 +76,16 @@ async function pdfSourceForAsset(asset: LoadedAsset): Promise<PdfImageSource> {
   return pdfSourceFromBlob(asset.blob, () => rasterToPng(asset.element));
 }
 
-export async function exportPdf(plan: RenderPlan, assets: AssetLookup, title: string) {
+/** One PDF with a page per plan, each at its own exact sheet size. */
+export async function exportPdf(plans: RenderPlan | RenderPlan[], assets: AssetLookup, title: string) {
+  const list = Array.isArray(plans) ? plans : [plans];
   const sources = new Map<string, PdfImageSource>();
-  for (const item of plan.items) {
+  for (const item of list.flatMap((p) => p.items)) {
     if (sources.has(item.assetId)) continue;
     const asset = assets.get(item.assetId);
     if (asset) sources.set(item.assetId, await pdfSourceForAsset(asset));
   }
-  const bytes = await buildPdf(plan, sources, { title });
+  const bytes = await buildPdf(list, sources, { title });
   return new Blob([bytes as BlobPart], { type: "application/pdf" });
 }
 

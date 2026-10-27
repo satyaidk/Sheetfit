@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { useEditor, defaultPrintSize, emptyDocument } from "@/store/editor-store";
 import type { LoadedAsset } from "@/types/image";
-import { designBounds, placementStatus, rectsOverlap } from "@/lib/layout/a4-layout";
+import { designBounds, placementStatus, rectsOverlap } from "@/lib/layout/sheet-layout";
 import { computeImageRect } from "@/lib/image/image-fit";
 
 function asset(id: string, w: number, h: number): LoadedAsset {
@@ -23,6 +23,7 @@ function asset(id: string, w: number, h: number): LoadedAsset {
 const s = () => useEditor.getState();
 
 beforeEach(() => {
+  s().newProject();
   useEditor.setState({ doc: emptyDocument(), assets: {}, selection: [], past: [], future: [], clipboard: [], lastLayoutReport: null });
 });
 
@@ -255,5 +256,114 @@ describe("more store actions", () => {
     const report = s().autoArrange("selection");
     expect(report.unplaced).toBeGreaterThan(0);
     expect(report.suggestions.length).toBeGreaterThan(0);
+  });
+});
+
+describe("v0.2 product slots, process and sheets", () => {
+  it("adds a product slot with seam overlap, then fills it without changing the box", () => {
+    s().setViewport({ width: 1200, height: 800 });
+    const r = s().addProductSlot("coaster-square");
+    const d = s().doc.designs[0];
+    expect(r.designId).toBe(d.id);
+    expect(d).toMatchObject({ assetId: null, productId: "coaster-square", bleed: 3 });
+    expect(d.width).toBeCloseTo(107.6);
+    s().addAsset(asset("img", 2000, 1000));
+    s().fillSlot(d.id, "img");
+    expect(s().doc.designs[0]).toMatchObject({ assetId: "img", width: d.width, height: d.height });
+    s().clearSlot(d.id);
+    expect(s().doc.designs[0].assetId).toBeNull();
+  });
+
+  it("placing an image while an empty slot is selected fills that slot", () => {
+    const { designId } = s().addProductSlot("mug-11oz");
+    s().addAsset(asset("art", 1000, 400));
+    expect(s().placeAsset("art")).toBe(designId);
+    expect(s().doc.designs).toHaveLength(1);
+  });
+
+  it("turns an empty sheet to fit a wide template", () => {
+    const r1 = s().addProductSlot("mug-11oz"); // 222 mm wide, A4 portrait printable is 200 mm
+    expect(r1).toMatchObject({ newPage: false, reason: "page-adjusted" });
+    expect(s().doc.page.orientation).toBe("landscape");
+  });
+
+  it("gives a template that does not fit its own page and never changes the other page's sheet", () => {
+    s().addProductSlot("coaster-square");
+    const before = structuredClone(s().doc);
+    const r = s().addProductSlot("tumbler-30oz");
+    expect(r).toMatchObject({ newPage: true, reason: "too-big", pageNumber: 2 });
+    expect(r.sheet?.id).toBe("a3");
+    expect(s().doc.page.sheet).toBe("a3");
+    expect(s().pages).toHaveLength(2);
+    // Page 1 is untouched: same A4 sheet, same designs.
+    s().switchPage(0);
+    expect(s().doc).toEqual(before);
+    const r3 = s().addProductSlot("tee-full-back");
+    expect(r3.newPage).toBe(true);
+    expect(s().doc.page.sheet).toBe("a3plus");
+    expect(s().pages).toHaveLength(3);
+  });
+
+  it("adds a product with another process on a new page with that process", () => {
+    s().addProductSlot("mug-11oz");
+    const r = s().addProductSlot("cap-front"); // DTF only
+    expect(r).toMatchObject({ newPage: true, reason: "process" });
+    expect(s().doc.page).toMatchObject({ process: "dtf", mirrorOutput: false });
+  });
+
+  it("places a second template beside the first instead of on top of it", () => {
+    s().addProductSlot("coaster-square");
+    s().addProductSlot("coaster-square");
+    const [a, b] = s().doc.designs;
+    expect(rectsOverlap(designBounds(a), designBounds(b))).toBe(false);
+  });
+
+  it("switches process with mirror defaults, and sheets with undo", () => {
+    s().setProcess("dtf");
+    expect(s().doc.page).toMatchObject({ process: "dtf", mirrorOutput: false });
+    s().setProcess("sublimation");
+    expect(s().doc.page.mirrorOutput).toBe(true);
+    s().setSheet("custom", { width: 300, height: 500 });
+    expect(s().doc.page).toMatchObject({ sheet: "custom", customSize: { width: 300, height: 500 } });
+    s().undo();
+    expect(s().doc.page.sheet).toBe("a4");
+  });
+
+  it("flips, distributes, reorders layers and adds custom boxes", () => {
+    s().addAsset(asset("a", 1000, 1000));
+    s().placeAsset("a", { width: 10, height: 10 });
+    s().placeAsset("a", { width: 10, height: 10 });
+    s().placeAsset("a", { width: 10, height: 10 });
+    s().selectAll();
+    s().flipDesigns("x");
+    expect(s().doc.designs.every((d) => d.flipX)).toBe(true);
+    s().moveDesigns([
+      { id: s().doc.designs[0].id, x: 0, y: 0 },
+      { id: s().doc.designs[1].id, x: 15, y: 0 },
+      { id: s().doc.designs[2].id, x: 90, y: 0 },
+    ]);
+    s().distributeSelection("x");
+    expect(s().doc.designs[1].x).toBeCloseTo(45);
+    const first = s().doc.designs[0].id;
+    s().moveLayer(first, 2);
+    expect(s().doc.designs[2].id).toBe(first);
+    const box = s().addEmptySlot({ width: 40, height: 20 });
+    expect(s().doc.designs.find((d) => d.id === box)).toMatchObject({ assetId: null, width: 40, height: 20 });
+  });
+
+  it("zooms to the selection and refits on resize until the user pans", () => {
+    s().setViewport({ width: 1000, height: 800 });
+    s().addAsset(asset("a", 1000, 1000));
+    s().placeAsset("a", { width: 20, height: 20 });
+    s().zoomToSelection();
+    expect(s().zoom).toBeGreaterThan(2);
+    expect(s().autoFit).toBe(false);
+    s().fitPage();
+    const z = s().zoom;
+    s().setViewport({ width: 500, height: 400 });
+    expect(s().zoom).toBeLessThan(z);
+    s().setPan({ x: 1, y: 1 });
+    s().setViewport({ width: 1000, height: 800 });
+    expect(s().pan).toEqual({ x: 1, y: 1 });
   });
 });

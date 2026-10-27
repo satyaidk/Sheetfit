@@ -10,13 +10,13 @@ export function Slider({ className, ...props }: React.ComponentProps<typeof Slid
       {...props}
     >
       <SliderPrimitive.Track className="relative h-1 w-full grow overflow-hidden rounded-full bg-line">
-        <SliderPrimitive.Range className="absolute h-full bg-cyan" />
+        <SliderPrimitive.Range className="absolute h-full bg-accent" />
       </SliderPrimitive.Track>
       {thumbs.map((_, i) => (
         <SliderPrimitive.Thumb
           key={i}
           aria-label={props["aria-label"]}
-          className="block size-3.5 rounded-full border-2 border-cyan bg-white shadow-sm"
+          className="block size-3.5 rounded-full border-2 border-accent bg-white shadow-sm"
         />
       ))}
     </SliderPrimitive.Root>

@@ -98,7 +98,7 @@ export function DimensionControls({ design, asset }: { design: Design; asset: Lo
               }}
               className={cn(
                 "flex size-8 shrink-0 items-center justify-center rounded-md border disabled:opacity-40",
-                design.lockAspect ? "border-cyan bg-cyan-wash text-cyan" : "border-line bg-surface text-ink-muted",
+                design.lockAspect ? "border-accent bg-accent-soft text-accent" : "border-line bg-surface text-ink-muted",
               )}
             >
               {design.lockAspect ? <Link2 className="size-4" /> : <Link2Off className="size-4" />}
@@ -127,7 +127,7 @@ export function DimensionControls({ design, asset }: { design: Design; asset: Lo
                 className={cn(
                   "tnum h-6 rounded-[4px] border px-1.5 text-[11px] font-medium transition-colors",
                   active
-                    ? "border-cyan bg-cyan-wash text-cyan"
+                    ? "border-accent bg-accent-soft text-accent"
                     : "border-line bg-surface text-ink-muted hover:border-line-strong hover:text-ink",
                 )}
               >
@@ -184,7 +184,7 @@ export function DimensionControls({ design, asset }: { design: Design; asset: Lo
                 onClick={() => !active && onPickMode(m.value)}
                 className={cn(
                   "flex items-start gap-2.5 rounded-md border px-2.5 py-2 text-left transition-colors",
-                  active ? "border-cyan bg-cyan-wash" : "border-transparent hover:bg-chrome-sunk",
+                  active ? "border-accent bg-accent-soft" : "border-transparent hover:bg-subtle-2",
                 )}
               >
                 <FitGlyph mode={m.value} active={active} />
@@ -273,7 +273,7 @@ export function ColorChoices({
           onClick={() => onChange(null)}
           className={cn(
             "size-7 rounded-md border bg-[conic-gradient(#e6e8e4_25%,#fff_0_50%,#e6e8e4_0_75%,#fff_0)] bg-[length:10px_10px]",
-            value === null ? "ring-2 ring-cyan ring-offset-1" : "border-line",
+            value === null ? "ring-2 ring-accent ring-offset-1" : "border-line",
           )}
         />
       )}
@@ -286,7 +286,7 @@ export function ColorChoices({
           onClick={() => onChange(c)}
           className={cn(
             "size-7 rounded-md border border-line",
-            value?.toLowerCase() === c && "ring-2 ring-cyan ring-offset-1",
+            value?.toLowerCase() === c && "ring-2 ring-accent ring-offset-1",
           )}
           style={{ background: c }}
         />
@@ -317,7 +317,7 @@ function AlignGrid({
 }) {
   const steps = ["start", "center", "end"] as const;
   return (
-    <div className="grid w-fit grid-cols-3 gap-0.5 rounded-md border border-line bg-chrome-sunk p-0.5" role="group" aria-label="Image position in box">
+    <div className="grid w-fit grid-cols-3 gap-0.5 rounded-md border border-line bg-subtle-2 p-0.5" role="group" aria-label="Image position in box">
       {steps.map((y) =>
         steps.map((x) => {
           const active = x === alignX && y === alignY;
@@ -330,7 +330,7 @@ function AlignGrid({
               onClick={() => onChange(x, y)}
               className={cn("flex size-6 items-center justify-center rounded-[3px]", active ? "bg-surface shadow-[0_0_0_1px_var(--line)]" : "hover:bg-surface/60")}
             >
-              <span className={cn("size-1.5 rounded-full", active ? "bg-cyan" : "bg-ink-faint")} />
+              <span className={cn("size-1.5 rounded-full", active ? "bg-accent" : "bg-ink-faint")} />
             </button>
           );
         }),
@@ -341,8 +341,8 @@ function AlignGrid({
 
 /** Tiny diagram of each fitting mode: box outline plus where the image goes. */
 function FitGlyph({ mode, active }: { mode: FitMode; active: boolean }) {
-  const stroke = active ? "var(--cyan)" : "var(--ink-faint)";
-  const fill = active ? "var(--cyan)" : "var(--ink-muted)";
+  const stroke = active ? "var(--accent)" : "var(--ink-faint)";
+  const fill = active ? "var(--accent)" : "var(--ink-muted)";
   const img: Record<FitMode, { x: number; y: number; w: number; h: number }> = {
     contain: { x: 8, y: 2, w: 12, h: 12 },
     "fit-width": { x: 2, y: 1, w: 24, h: 14 },

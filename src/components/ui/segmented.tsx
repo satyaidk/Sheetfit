@@ -22,7 +22,7 @@ export function Segmented<T extends string>({
       value={value}
       aria-label={ariaLabel}
       onValueChange={(v) => v && onValueChange(v as T)}
-      className={cn("flex h-8 rounded-md border border-line bg-chrome-sunk p-0.5", className)}
+      className={cn("flex h-8 rounded-md border border-line bg-subtle-2 p-0.5", className)}
     >
       {options.map((o) => (
         <ToggleGroup.Item

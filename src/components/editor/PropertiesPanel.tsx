@@ -43,11 +43,14 @@ import { DimensionControls } from "@/components/settings/DimensionControls";
 import { Field, Note, Section } from "@/components/settings/Section";
 import { computeImageRect, croppedSourceSize, aspectRatio } from "@/lib/image/image-fit";
 import { QUALITY_COPY, resolutionReport } from "@/lib/image/image-resolution";
-import { placementStatus } from "@/lib/layout/a4-layout";
+import { placementStatus } from "@/lib/layout/sheet-layout";
 import type { AlignTarget } from "@/lib/layout/alignment";
 import { gridCapacity } from "@/lib/layout/auto-arrange";
-import { designBounds, printableRect } from "@/lib/layout/a4-layout";
-import { replaceDesignImage } from "@/lib/editor-actions";
+import { designBounds, printableRect } from "@/lib/layout/sheet-layout";
+import { replaceDesignImage, uploadIntoSlot } from "@/lib/editor-actions";
+import { findProduct, minSheetFor } from "@/lib/catalogue/products";
+import { MockupCard, SampleStrip } from "@/components/products/MockupPreview";
+import { pageSize, sheetLabel } from "@/lib/layout/sheet-layout";
 import { ACCEPT_ATTR, megapixels } from "@/lib/image/image-loader";
 import { cn } from "@/lib/utils";
 
@@ -60,9 +63,102 @@ export function PropertiesPanel() {
   if (picked.length === 0) return <SheetSummary />;
   if (picked.length > 1) return <MultiSelection designs={picked} />;
   const design = picked[0];
+  if (!design.assetId) return <SlotInspector key={design.id} design={design} />;
   const asset = assets[design.assetId];
   if (!asset) return null;
   return <SingleDesign key={design.id} design={design} asset={asset} />;
+}
+
+/** Inspector for an empty product box: what it is, its real size, how to fill it. */
+function SlotInspector({ design }: { design: Design }) {
+  const unit = useEditor((s) => s.unit);
+  const page = useEditor((s) => s.doc.page);
+  const resizeDesign = useEditor((s) => s.resizeDesign);
+  const moveDesigns = useEditor((s) => s.moveDesigns);
+  const updateDesign = useEditor((s) => s.updateDesign);
+  const input = useRef<HTMLInputElement>(null);
+  const product = findProduct(design.productId);
+  const sheet = product ? minSheetFor(product) : null;
+  const status = placementStatus(design, page);
+  const host = product ? new URL(product.source).hostname.replace(/^www\./, "") : null;
+
+  return (
+    <div>
+      {product && (
+        <Section title={`${product.name} preview`}>
+          <MockupCard design={design} />
+        </Section>
+      )}
+      <Section title={product ? product.name : "Empty box"}>
+        {product && (
+          <div className="mb-3">
+            <div className="min-w-0 text-[12px] leading-relaxed">
+              <p className="text-[13px] font-semibold">{product.detail}</p>
+              <p className="text-ink-muted">
+                Print area {+product.width.toFixed(1)} × {+product.height.toFixed(1)} mm
+                {product.wrap ? ", wraps around" : ""}
+              </p>
+              <p className="text-ink-muted">
+                {design.bleed > 0 ? `Box includes ${design.bleed} mm bleed per side.` : product.wrap ? "Box includes 6 mm seam overlap." : "No bleed."}
+              </p>
+              <p className="text-ink-muted">Smallest sheet: {sheet ? sheet.name : "a roll"}</p>
+            </div>
+          </div>
+        )}
+        <Button variant="primary" className="w-full" onClick={() => input.current?.click()}>
+          <ImageUp />
+          Add image
+        </Button>
+        <input
+          ref={input}
+          type="file"
+          accept={ACCEPT_ATTR}
+          hidden
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) void uploadIntoSlot(f, design.id);
+            e.target.value = "";
+          }}
+        />
+        <p className="mt-2 text-[12px] text-ink-muted">Or drag an image from your computer or from Uploads onto the box.</p>
+        {product && (
+          <div className="mt-3">
+            <SampleStrip design={design} />
+          </div>
+        )}
+        {product?.note && <Note className="mt-3">{product.note}</Note>}
+        {host && (
+          <p className="mt-2 text-[11.5px] text-ink-faint">
+            Size source: <a href={product!.source} target="_blank" rel="noreferrer" className="underline hover:text-ink">{host}</a>,{" "}
+            {product!.confidence} confidence. Blanks vary by brand; adjust if yours differs.
+          </p>
+        )}
+      </Section>
+      <Section title="Size and position">
+        <div className="grid grid-cols-2 gap-1.5">
+          <NumberField label="W" valueMm={design.width} unit={unit} dpi={page.dpi} min={1} max={6000} onCommit={(width) => resizeDesign(design.id, { width })} />
+          <NumberField label="H" valueMm={design.height} unit={unit} dpi={page.dpi} min={1} max={6000} onCommit={(height) => resizeDesign(design.id, { height })} />
+          <NumberField label="X" valueMm={design.x} unit={unit} dpi={page.dpi} onCommit={(x) => moveDesigns([{ id: design.id, x, y: design.y }])} />
+          <NumberField label="Y" valueMm={design.y} unit={unit} dpi={page.dpi} onCommit={(y) => moveDesigns([{ id: design.id, x: design.x, y }])} />
+        </div>
+        <div className="mt-1.5 flex gap-1.5">
+          <NumberField label="R" raw suffix="°" valueMm={design.rotation} min={-360} max={360} onCommit={(rotation) => updateDesign(design.id, { rotation })} />
+          <Button size="icon" aria-label="Rotate 90° right" onClick={() => updateDesign(design.id, { rotation: (design.rotation + 90) % 360 })}>
+            <RotateCw />
+          </Button>
+        </div>
+        {status.exceedsPrintable && (
+          <Note tone="error" icon={<TriangleAlert />} className="mt-3">
+            {status.largerThanPrintable ? "This box is larger than the printable area of this sheet." : "Part of this box is outside the printable area."}
+          </Note>
+        )}
+      </Section>
+      <RepeatSection design={design} />
+      <Section title="Layer" className="border-b-0">
+        <LayerActions design={design} />
+      </Section>
+    </div>
+  );
 }
 
 const ALIGN_BUTTONS: { target: AlignTarget; label: string; icon: React.ReactNode }[] = [
@@ -107,9 +203,18 @@ function SingleDesign({ design, asset }: { design: Design; asset: LoadedAsset })
   );
   const status = placementStatus(design, page);
   const ratio = aspectRatio({ width: asset.naturalWidth, height: asset.naturalHeight });
+  const product = findProduct(design.productId);
 
   return (
     <div>
+      <Section title={product ? `${product.name} preview` : "Preview on a product"}>
+        <MockupCard design={design} />
+        {product && (
+          <p className="mt-2 text-[12px] text-ink-muted">
+            {product.detail}, {+product.width.toFixed(1)} × {+product.height.toFixed(1)} mm print area.
+          </p>
+        )}
+      </Section>
       <Section
         title="Design"
         aside={
@@ -121,7 +226,7 @@ function SingleDesign({ design, asset }: { design: Design; asset: LoadedAsset })
               aria-pressed={design.locked}
               onClick={() => updateDesign(design.id, { locked: !design.locked })}
             >
-              {design.locked ? <Lock className="text-cyan" /> : <LockOpen />}
+              {design.locked ? <Lock className="text-accent" /> : <LockOpen />}
             </Button>
           </Tooltip>
         }
@@ -234,8 +339,8 @@ function SingleDesign({ design, asset }: { design: Design; asset: LoadedAsset })
 
 function QualityMeter({ dpi, level }: { dpi: number; level: "high" | "acceptable" | "low" }) {
   const pct = Math.min(100, (dpi / 400) * 100);
-  const color = level === "high" ? "bg-ok" : level === "acceptable" ? "bg-amber" : "bg-magenta";
-  const text = level === "high" ? "text-ok" : level === "acceptable" ? "text-amber" : "text-magenta";
+  const color = level === "high" ? "bg-ok" : level === "acceptable" ? "bg-warn" : "bg-danger";
+  const text = level === "high" ? "text-ok" : level === "acceptable" ? "text-warn" : "text-danger";
   return (
     <div>
       <div className="flex items-baseline justify-between">
@@ -470,9 +575,12 @@ export function LayoutWarning() {
 function SheetSummary() {
   const doc = useEditor((s) => s.doc);
   const assets = useEditor((s) => s.assets);
+  const pageCount = useEditor((s) => s.pages.length);
+  const activePage = useEditor((s) => s.activePage);
+  const size = pageSize(doc.page);
   const issues = doc.designs.filter((d) => placementStatus(d, doc.page).exceedsPrintable).length;
   const lowRes = doc.designs.filter((d) => {
-    const a = assets[d.assetId];
+    const a = d.assetId ? assets[d.assetId] : undefined;
     if (!a) return false;
     const r = computeImageRect(d, croppedSourceSize({ width: a.naturalWidth, height: a.naturalHeight }, d.crop));
     return resolutionReport({ width: a.naturalWidth, height: a.naturalHeight }, d.crop, r).level === "low";
@@ -482,10 +590,26 @@ function SheetSummary() {
     <div>
       <Section title="Sheet">
         <dl className="tnum grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[13px]">
-          <dt className="text-ink-muted">Paper</dt>
-          <dd className="text-right">A4, {doc.page.orientation}</dd>
+          {pageCount > 1 && (
+            <>
+              <dt className="text-ink-muted">Page</dt>
+              <dd className="text-right">
+                {activePage + 1} of {pageCount}
+              </dd>
+            </>
+          )}
+          <dt className="text-ink-muted">Sheet</dt>
+          <dd className="text-right">
+            {sheetLabel(doc.page)}, {doc.page.orientation}
+          </dd>
           <dt className="text-ink-muted">Size</dt>
-          <dd className="text-right">{doc.page.orientation === "portrait" ? "210 × 297" : "297 × 210"} mm</dd>
+          <dd className="text-right">
+            {+size.width.toFixed(1)} × {+size.height.toFixed(1)} mm
+          </dd>
+          <dt className="text-ink-muted">Process</dt>
+          <dd className="text-right">
+            {doc.page.process === "dtf" ? "DTF" : "Sublimation"}, {doc.page.mirrorOutput ? "mirrored" : "not mirrored"}
+          </dd>
           <dt className="text-ink-muted">Export resolution</dt>
           <dd className="text-right">{doc.page.dpi} DPI</dd>
           <dt className="text-ink-muted">Designs</dt>
@@ -493,7 +617,7 @@ function SheetSummary() {
         </dl>
         {issues > 0 && (
           <Note tone="error" icon={<TriangleAlert />} className="mt-3">
-            {issues} {issues === 1 ? "design is" : "designs are"} outside the printable area (dashed magenta outline).
+            {issues} {issues === 1 ? "design is" : "designs are"} outside the printable area (dashed danger outline).
           </Note>
         )}
         {lowRes > 0 && (

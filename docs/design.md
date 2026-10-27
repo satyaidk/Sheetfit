@@ -1,6 +1,6 @@
 # Sheetfit design document
 
-Status: implemented in 0.1.0. Owner: satyaidk.
+Status: implemented in 0.2.0. Owner: satyaidk. The living status report is `AGENTS.md`; the research behind 0.2 is in `reports/`.
 
 ## 1. Problem
 
@@ -20,16 +20,23 @@ Goals:
 4. Exports that are print-ready without further editing: exact-size PDF, high-resolution PNG and JPEG.
 5. No account and no server: the user's images never leave the device.
 
-Non-goals for 0.1: other paper sizes, multi-page documents, colour management (ICC profiles, CMYK conversion), text and shape editing.
+Non-goals: colour management (ICC profiles, CMYK conversion), text and shape editing, arc templates for tapered products, photographic mockups.
+
+Added in 0.2 (see ADR 0007): sheets other than A4 (Letter, Legal, A3, A3+, DTF rolls, custom), a sublimation/DTF process switch that drives output mirroring, and a catalogue of 52 product presets that create empty product boxes.
+
+Added in 0.3 (see ADR 0008): projects with several pages, each with its own sheet and undo history; automatic placement of product templates (free spot, or a new page with the right sheet); product previews in any blank colour; generated sample designs.
 
 ## 3. Document model
 
 ```ts
-EditorDocument = { page: PageSettings; designs: Design[] }
+EditorDocument = { page: PageSettings; designs: Design[] }   // one page
+Project        = EditorDocument[]                             // pages in order (store: pages + activePage)
 ```
 
+The store keeps the active page in `doc` (with its own `past`/`future` undo stacks) and the other pages in `pages`; `allPages()` returns the full list. Saved records keep `document` (page 1) for older readers and `pages` for the full list; `migratePages` reads both.
+
 - `PageSettings`: orientation, margins (mm), background colour or transparent, export DPI, grid and snapping options, crop marks.
-- `Design`: references an image asset and stores its **box**, the rectangle the user asked for: `x`, `y`, `width`, `height` (mm, top-left of the unrotated box), `rotation` (degrees, clockwise around the box centre), `fitMode`, alignment inside the box, padding, fill colour, aspect lock, border, optional crop insets, group and lock flags.
+- `Design`: references an image asset (or none, for an empty product box), the product preset it came from and the blank colour used in previews (`productColor`, never printed). It and stores its **box**, the rectangle the user asked for: `x`, `y`, `width`, `height` (mm, top-left of the unrotated box), `rotation` (degrees, clockwise around the box centre), `fitMode`, alignment inside the box, padding, fill colour, aspect lock, border, optional crop insets, group and lock flags.
 - Image assets keep the original `Blob`, decoded size and transparency flag. They are not part of the undoable document.
 
 Array order is z-order (last is on top).
@@ -87,7 +94,7 @@ Raster exports stamp the DPI into the file (PNG `pHYs`, JPEG JFIF density) so RI
 
 ## 8. Printing
 
-Printing the live editor would leak zoom and screen resolution into the output. Instead, the sheet is rasterised from the render plan (up to 300 DPI), placed in a print-only element sized `210mm × 297mm`, and an injected `@page { size: A4 <orientation>; margin: 0 }` rule fixes the paper. Browsers still allow "Fit to page" in their dialogs, so the print dialog explains which settings to choose and recommends PDF for exact work.
+Printing the live editor would leak zoom and screen resolution into the output. Instead, each page is rasterised from its render plan (up to 300 DPI) and placed in a print-only element sized in millimetres. Injected CSS gives each distinct sheet size a named page (`@page sheet1 { size: 297mm 210mm; margin: 0 }`), so an A4 page and an A3 page print on their own paper sizes in one job. Browsers still allow "Fit to page" in their dialogs, so the print dialog explains which settings to choose and recommends PDF for exact work.
 
 ## 9. Persistence
 
@@ -115,3 +122,29 @@ Effective DPI = source pixels ÷ printed inches, using the lower of the two axes
 - The store is tested through its public actions.
 - PDF output is parsed back with pdf-lib to verify page size; raster geometry is verified with a recording 2D context that tracks transforms.
 - Canvas interaction, file upload, IndexedDB in a real browser and printing are verified end to end in headless Chrome against the production build. Automating those checks in CI is on the roadmap.
+
+## 13. Editor structure (0.2)
+
+The shell follows Canva's, as described in the research report:
+
+| Zone | Component | Purpose |
+| --- | --- | --- |
+| Header | `editor/Header.tsx` | File menu, sheet size, process switch, undo/redo, title, save, Print, Download |
+| Rail + panel | `editor/SidePanel.tsx` | Products, Designs, Uploads, Layers, Sheet, Projects; click to open, Ctrl+/ toggles |
+| Quick-actions bar | `editor/QuickActionsBar.tsx` | Tools for the current selection (sheet, image, empty box, several designs) |
+| Floating pill | `editor/FloatingPill.tsx` | Duplicate, group, lock, delete, more; hidden while dragging |
+| Context menu | `editor/CanvasContextMenu.tsx` | Same actions as the pill, plus layer order and alignment |
+| Inspector | `editor/PropertiesPanel.tsx` | Every precise setting; empty boxes show product facts and how to fill them |
+| Page strip | `editor/PagesBar.tsx` | Live page thumbnails with sheet labels; add (same or chosen sheet), duplicate, delete, resize |
+| Product preview | `products/MockupPreview.tsx` | Live preview card in the inspector; large dialog with blank colours, turning, print area, PNG download |
+| Footer | `editor/Footer.tsx` | Sheet facts, mirrored-output badge, sheet usage, zoom slider and fit buttons |
+
+Print-specific additions on top of Canva's model: live gaps in millimetres during drags (`lib/layout/measure.ts`), effective-DPI badges, the pre-print check (`lib/export/preflight.ts`), and sheet utilisation.
+
+## 14. Pages, placement and previews (0.3)
+
+**Placement** (`lib/layout/product-placement.ts`). Adding a product never changes a page that already holds work. An empty page adopts what the product needs (orientation, then the smallest sheet or roll, then the process). A page with work gets the product in the first free spot (`lib/layout/free-spot.ts`: bottom-left candidates from the area corner and the right and bottom edges of placed boxes; 5 mm gap, then 2 mm, then turned 90°). Anything else (too big, page full, other process) opens a new page with the right sheet. Products start in the top-left corner, as on a gang sheet; a centred first product splits the free space.
+
+**Previews** (`components/products/ProductMockup.tsx`). Original SVG illustrations in a 100 × 100 box, drawn in the blank colour with a lighting overlay. The design shown is the print box rendered on its own through a one-item render plan (`design-image.ts`), so it matches the export. Wraps show the front half of the circumference: 28 vertical strips, where strip *i* covers screen position *u* = sin θ and samples the wrap at θ, which curves the design around the cylinder; the turn slider offsets θ. Sublimation previews use `multiply` blending because the dye is transparent; DTF previews are opaque. Flat goods take the product's real aspect ratio.
+
+**Sample designs** (`lib/catalogue/sample-designs.ts`). Ten families (emblems without background, edge-to-edge patterns) by eight palettes by twelve phrases, drawn as SVG from a seeded PRNG at any aspect ratio. Panels show them through cached blob URLs (`sample-url.ts`); using one rasterises it at 300 DPI for the target box (capped at 4800 px).

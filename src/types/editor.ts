@@ -53,10 +53,18 @@ export interface CropInsets {
   left: number;
 }
 
+/** Sublimation output is mirrored by default; DTF is not. */
+export type PrintProcess = "sublimation" | "dtf";
+
 export interface PageSettings {
-  /** Paper size identifier; A4 is the only sheet the product targets today. */
-  paper: "A4";
+  /** Sheet id from `lib/catalogue/sheets.ts`, or "custom". */
+  sheet: string;
+  /** Portrait (width ≤ height) size in mm, used when `sheet` is "custom". */
+  customSize: { width: number; height: number } | null;
   orientation: Orientation;
+  process: PrintProcess;
+  /** Flip the whole sheet horizontally in every output (not on screen). */
+  mirrorOutput: boolean;
   margins: Margins;
   /** `null` means transparent (honoured by PNG export only). */
   background: string | null;
@@ -74,7 +82,17 @@ export interface PageSettings {
 export interface Design {
   id: string;
   name: string;
-  assetId: string;
+  /** Source image, or `null` for an empty product slot waiting for an image. */
+  assetId: string | null;
+  /** Product preset this design was created from, if any. */
+  productId: string | null;
+  /** Blank colour shown in the product preview (hex); `null` is the product's default. Never printed. */
+  productColor: string | null;
+  /** Bleed included in the box on every side, in mm (shown as a trim guide). */
+  bleed: number;
+  /** Mirror the image inside its box (a design choice, unlike output mirroring). */
+  flipX: boolean;
+  flipY: boolean;
   /** Top-left corner of the unrotated design box, in page millimetres. */
   x: number;
   y: number;
@@ -98,6 +116,7 @@ export interface Design {
   locked: boolean;
 }
 
+/** One page of a project: a sheet and the designs on it. */
 export interface EditorDocument {
   page: PageSettings;
   designs: Design[];

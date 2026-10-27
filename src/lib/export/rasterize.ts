@@ -39,6 +39,11 @@ export function drawPlan(
   }
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = "high";
+  if (plan.mirror) {
+    // Sublimation transfers print mirror-image; flip everything after the background.
+    ctx.translate(plan.page.width * s, 0);
+    ctx.scale(-1, 1);
+  }
 
   for (const item of plan.items) {
     ctx.save();
@@ -54,17 +59,21 @@ export function drawPlan(
     if (img && item.image.width > 0 && item.image.height > 0) {
       const src = item.sourceRect;
       const dst = item.image;
+      ctx.save();
+      ctx.translate(dst.x + dst.width / 2, dst.y + dst.height / 2);
+      if (item.flipX || item.flipY) ctx.scale(item.flipX ? -1 : 1, item.flipY ? -1 : 1);
       ctx.drawImage(
         img,
         src.x,
         src.y,
         src.width,
         src.height,
-        dst.x,
-        dst.y,
+        -dst.width / 2,
+        -dst.height / 2,
         dst.width,
         dst.height,
       );
+      ctx.restore();
     }
     if (item.border) {
       const r = item.border.rect;

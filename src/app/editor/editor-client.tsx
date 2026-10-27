@@ -10,7 +10,7 @@ import dynamic from "next/dynamic";
 const EditorLayout = dynamic(() => import("@/components/editor/EditorLayout"), {
   ssr: false,
   loading: () => (
-    <div className="mat-surface flex h-dvh items-center justify-center">
+    <div className="canvas-surface flex h-dvh items-center justify-center">
       <p className="rounded-md bg-surface px-3 py-2 text-[13px] font-medium shadow-lg">Opening the editor…</p>
     </div>
   ),
