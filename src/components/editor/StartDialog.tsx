@@ -15,10 +15,10 @@ import { useEditor } from "@/store/editor-store";
 import type { PrintProcess } from "@/types/editor";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { findSheet } from "@/lib/catalogue/sheets";
 import { findProduct } from "@/lib/catalogue/products";
 import { ProductArt } from "@/components/products/ProductArt";
-import { addProduct } from "@/lib/editor-actions";
+import { openProductDesign } from "@/lib/editor-actions";
+import { SheetSelect } from "@/components/settings/SheetSelect";
 import { loadSampleSheet } from "@/lib/sample";
 import { cn } from "@/lib/utils";
 
@@ -30,8 +30,8 @@ const PROCESSES: { value: PrintProcess; title: string; body: string; icon: React
 ];
 
 const SHEET_CHOICES: Record<PrintProcess, string[]> = {
-  sublimation: ["a4", "letter", "a3", "a3plus"],
-  dtf: ["a4", "a3", "a3plus", "dtf-22x24", "dtf-22x60"],
+  sublimation: ["a4", "letter", "legal", "a3", "a3plus", "roll-13x19"],
+  dtf: ["a4", "a3", "a3plus", "dtf-22x12", "dtf-22x24", "dtf-22x36", "dtf-22x60", "dtf-22x120"],
 };
 
 const STARTERS: Record<PrintProcess, string[]> = {
@@ -74,14 +74,16 @@ function StartBody() {
 
   const start = () => {
     const s = useEditor.getState();
+    markOnboarded();
+    s.setDialog(null);
+    if (product) {
+      openProductDesign(product, { process, sheet });
+      return;
+    }
     s.newProject();
     s.setProcess(process);
     s.setSheet(sheet);
-    useEditor.setState({ past: [], future: [] });
-    if (product) addProduct(product);
-    useEditor.setState((x) => ({ project: { ...x.project, dirty: false } }));
-    markOnboarded();
-    s.setDialog(null);
+    useEditor.setState((x) => ({ past: [], future: [], project: { ...x.project, dirty: false } }));
   };
 
   return (
@@ -124,24 +126,10 @@ function StartBody() {
 
         <div>
           <p className="mb-2 text-[13px] font-semibold">Sheet</p>
-          <div className="flex flex-wrap gap-1.5">
-            {SHEET_CHOICES[process].map((id) => {
-              const s = findSheet(id)!;
-              return (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => setSheet(id)}
-                  className={cn(
-                    "h-9 rounded-full px-3.5 text-[12.5px] font-medium transition-colors",
-                    sheet === id ? "bg-ink text-white" : "bg-subtle text-ink hover:bg-subtle-2",
-                  )}
-                >
-                  {s.name}
-                </button>
-              );
-            })}
+          <div className="max-w-[360px]">
+            <SheetSelect value={sheet} onChange={setSheet} allowCustom={false} include={SHEET_CHOICES[process]} ariaLabel="Sheet" />
           </div>
+          <p className="mt-1.5 text-[12px] text-ink-muted">With a product chosen, a bigger sheet is picked automatically if the product needs it.</p>
         </div>
 
         <div>

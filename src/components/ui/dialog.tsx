@@ -62,3 +62,14 @@ export function DialogFooter({ className, ...props }: React.HTMLAttributes<HTMLD
     />
   );
 }
+
+/**
+ * `onOpenAutoFocus` handler that focuses the dialog panel instead of its first
+ * control. Use it when the first control has a tooltip that would pop open
+ * (colour swatches); focus still moves into the dialog, so Escape and Tab
+ * stay inside it.
+ */
+export function focusDialogItself(e: Event) {
+  e.preventDefault();
+  (e.currentTarget as HTMLElement | null)?.focus();
+}

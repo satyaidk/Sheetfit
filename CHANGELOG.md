@@ -4,6 +4,50 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-27
+
+### Added
+
+- 3D model viewer for every product (52 presets, 33 shapes), built procedurally at real size with three.js:
+  lathed mugs, tumblers, cans and bottles with handles, lids and straws; bevelled flat goods with cork, rubber,
+  magnet or aluminium backs, rings and strings; padded cloth garments with drape folds; caps, totes and flags.
+- Realistic materials: glazed ceramic, powder-coated and brushed steel, glass, fabric with sheen and a woven normal
+  map, cork, aluminium; studio environment lighting and a soft floor shadow.
+- The design is applied the way each process prints it: sublimation multiplies into the blank colour, DTF is an
+  opaque film; bleed and seam overlap are cropped, and images of another shape are fitted whole.
+- Backdrop that adapts to the blank colour for contrast (tested for every blank colour in the catalogue).
+- Where to find it: "3D" on every product card (catalogue viewer with colours, process, sample designs, auto-rotate,
+  reset and Save image), "3D" in the docked live preview, a 3D/Flat switch in the large preview, and a 3D view in
+  the landing page demo. three.js loads only when a 3D view opens.
+- ADR 0010.
+
+### Fixed
+
+- Preview dialogs opened without moving focus into them, so Escape also closed the side panel behind them.
+- Chrome and Edge on Windows logged Direct3D shader compiler warnings (`warning X4122`) for every 3D view. These
+  notes are harmless and are now filtered; real shader errors and other warnings still reach the console.
+
+## [0.4.0] - 2026-10-27
+
+### Added
+
+- A new design per product: clicking a product card opens it on the sheet it needs, zoomed to the print area. If
+  the current design has work, a dialog offers Save and open, Discard and open, Add to this sheet, or Cancel. File →
+  New design, Open sample and Clear ask the same way. The "+" on a card still adds to the current sheet.
+- Live product preview docked on the canvas, visible whenever the page has a product box, with blank colours.
+- Sheet size dropdown, grouped into paper and DTF rolls, in the header, Sheet panel, start dialog and Sheet size
+  dialog; a notice with Undo when designs end up off a smaller sheet.
+- Product cards: stronger contrast and depth, size badges in inches, close-ups for small print areas.
+- Empty product boxes on the canvas show the product, its exact size and how to fill them.
+- Landing page redesign with real photos of sublimated and DTF-printed products (Unsplash and Pexels, credited), a
+  four-step "how it works" with an interactive product preview, and a sublimation versus DTF comparison.
+- ADR 0009.
+
+### Fixed
+
+- The floating selection toolbar overlapped the quick-actions bar when a design filled the canvas.
+- The header sheet button showed the portrait size of a landscape page.
+
 ## [0.3.0] - 2026-10-27
 
 ### Fixed

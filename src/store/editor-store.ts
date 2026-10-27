@@ -52,6 +52,10 @@ export const RULER_PX = 22;
 export const QUICK_BAR_PX = 48;
 /** Space reserved below the sheet for the floating page strip. */
 export const PAGES_BAR_PX = 64;
+/** Width of the docked live product preview, plus its margin. */
+export const PREVIEW_DOCK_PX = 248;
+/** Narrowest canvas that still shows the preview dock expanded. */
+export const PREVIEW_DOCK_MIN_CANVAS = 540;
 
 export const DEFAULT_PAGE: PageSettings = {
   sheet: DEFAULT_SHEET_ID,
@@ -75,6 +79,18 @@ export function emptyDocument(): EditorDocument {
 }
 
 export type SidebarTab = "products" | "designs" | "uploads" | "layers" | "sheet" | "projects";
+
+/**
+ * Something that replaces the current design (a product template, the sample,
+ * a blank sheet, the start dialog). When there is work to lose, the editor
+ * asks first: save and continue, discard and continue, or (for a product) add
+ * it to the current sheet instead.
+ */
+export type LeaveIntent =
+  | { kind: "product"; productId: string }
+  | { kind: "sample" }
+  | { kind: "blank" }
+  | { kind: "start" };
 
 /** A page of the project. For the active page these fields may be stale; use `allPages`. */
 export interface PageEntry {
@@ -116,7 +132,9 @@ export interface EditorState {
   sidebarTab: SidebarTab;
   layoutGap: LayoutGap;
   lastLayoutReport: LayoutReport | null;
-  dialog: "export" | "print" | "sheet" | "shortcuts" | "start" | "mockup" | null;
+  dialog: "export" | "print" | "sheet" | "shortcuts" | "start" | "mockup" | "viewer3d" | null;
+  /** Product shown in the catalogue 3D viewer (opened from a product card). */
+  viewer3dProductId: string | null;
   /** Design shown in the product preview dialog. */
   mockupDesignId: string | null;
   /** Right-hand precise properties panel. */
@@ -125,6 +143,12 @@ export interface EditorState {
   panelOpen: boolean;
   /** A drag or transform is in progress on the canvas. */
   interacting: boolean;
+  /** Pending "replace the current design" action waiting for the user's answer. */
+  leaveIntent: LeaveIntent | null;
+  /** Live product preview docked on the canvas is expanded. */
+  previewDock: boolean;
+  /** Screen pixels covered by overlays on the right of the canvas (the preview dock). */
+  rightInset: number;
 
   commit: (next: EditorDocument) => void;
   undo: () => void;
@@ -173,6 +197,9 @@ export interface EditorState {
   setInspectorOpen: (open: boolean) => void;
   setPanelOpen: (open: boolean) => void;
   setInteracting: (interacting: boolean) => void;
+  setLeaveIntent: (intent: LeaveIntent | null) => void;
+  setPreviewDock: (open: boolean) => void;
+  setRightInset: (px: number) => void;
 
   addProductSlot: (productId: string) => SlotResult;
   /** Add an empty page (default: same sheet settings as the active page) after the active one and open it. */
@@ -182,6 +209,7 @@ export interface EditorState {
   duplicatePage: (index: number) => void;
   moveDesignsToPage: (ids: string[], index: number) => void;
   openMockup: (designId: string | null) => void;
+  openViewer3d: (productId: string) => void;
   addEmptySlot: (size: Size, name?: string) => string;
   moveLayer: (id: string, toIndex: number) => void;
   fillSlot: (designId: string, assetId: string) => void;
@@ -330,6 +358,7 @@ export const useEditor = create<EditorState>()((set, get) => {
     pages: [pageEntry(firstDoc)],
     activePage: 0,
     mockupDesignId: null,
+    viewer3dProductId: null,
     assets: {},
     selection: [],
     past: [],
@@ -346,6 +375,9 @@ export const useEditor = create<EditorState>()((set, get) => {
     lastLayoutReport: null,
     dialog: null,
     inspectorOpen: true,
+    leaveIntent: null,
+    previewDock: true,
+    rightInset: 0,
     panelOpen: true,
     interacting: false,
 
@@ -519,6 +551,7 @@ export const useEditor = create<EditorState>()((set, get) => {
     },
 
     openMockup: (designId) => set({ dialog: "mockup", mockupDesignId: designId }),
+    openViewer3d: (productId) => set({ dialog: "viewer3d", viewer3dProductId: productId }),
 
     addEmptySlot: (size, name = "Custom box") => {
       const { doc } = get();
@@ -855,13 +888,14 @@ export const useEditor = create<EditorState>()((set, get) => {
     },
 
     zoomToSelection: () => {
-      const { viewport, doc, selection } = get();
+      const { viewport, doc, selection, rightInset } = get();
       const picked = doc.designs.filter((d) => selection.includes(d.id));
       const box = unionBounds(picked.map(designBounds));
       if (!box || viewport.width === 0) return get().fitPage();
-      const pad = 96;
-      const width = viewport.width - RULER_PX;
-      const height = viewport.height - RULER_PX - PAGES_BAR_PX;
+      const pad = viewport.width < 640 ? 24 : 56;
+      const top = RULER_PX + QUICK_BAR_PX;
+      const width = viewport.width - RULER_PX - rightInset;
+      const height = viewport.height - top - PAGES_BAR_PX;
       const zoom = Math.max(
         MIN_ZOOM,
         Math.min(MAX_ZOOM, (width - pad * 2) / (box.width * PX_PER_MM), (height - pad * 2) / (box.height * PX_PER_MM)),
@@ -872,20 +906,20 @@ export const useEditor = create<EditorState>()((set, get) => {
         autoFit: false,
         pan: {
           x: RULER_PX + width / 2 - (box.x + box.width / 2) * s,
-          y: RULER_PX + height / 2 - (box.y + box.height / 2) * s,
+          y: top + height / 2 - (box.y + box.height / 2) * s,
         },
       });
     },
 
     fitPage: () => {
-      const { viewport, doc } = get();
+      const { viewport, doc, rightInset } = get();
       if (viewport.width === 0 || viewport.height === 0) return;
       const page = pageSize(doc.page);
       const pad = viewport.width < 640 ? 12 : 40;
       // The rulers cover the top and left edges of the viewport.
       // Leave room for the rulers and the floating quick-actions bar at the top.
       const top = RULER_PX + QUICK_BAR_PX;
-      const width = viewport.width - RULER_PX;
+      const width = viewport.width - RULER_PX - rightInset;
       const height = viewport.height - top - PAGES_BAR_PX;
       const zoom = Math.max(
         MIN_ZOOM,
@@ -910,6 +944,13 @@ export const useEditor = create<EditorState>()((set, get) => {
     setInspectorOpen: (inspectorOpen) => set({ inspectorOpen }),
     setPanelOpen: (panelOpen) => set({ panelOpen }),
     setInteracting: (interacting) => set({ interacting }),
+    setLeaveIntent: (leaveIntent) => set({ leaveIntent }),
+    setPreviewDock: (previewDock) => set({ previewDock }),
+    setRightInset: (rightInset) => {
+      if (rightInset === get().rightInset) return;
+      set({ rightInset });
+      if (get().autoFit) get().fitPage();
+    },
 
     setProjectName: (name) => set((s) => ({ project: { ...s.project, name, dirty: true } })),
     markSaved: (at) => set((s) => ({ project: { ...s.project, savedAt: at, dirty: false } })),

@@ -6,7 +6,7 @@ Thank you for helping. This guide covers how to set up the project, the conventi
 
 ```bash
 npm ci
-npm run dev          # http://localhost:3000, sample sheet at /editor?sample
+npm run dev          # http://localhost:4000, sample sheet at /editor?sample
 ```
 
 Requirements: Node.js 20.9 or newer and npm 10 or newer.

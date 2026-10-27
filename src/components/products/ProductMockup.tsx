@@ -20,6 +20,7 @@
 import { useId } from "react";
 import { WRAP_SEAM_MM, type ProductArt as ArtKind, type ProductPreset } from "@/lib/catalogue/products";
 import { luminance, shade } from "@/lib/catalogue/colors";
+import { OUTLINES } from "@/lib/catalogue/outlines";
 
 type Box = { x: number; y: number; w: number; h: number };
 type Light = "cylinder" | "flat" | "garment";
@@ -276,13 +277,17 @@ function shapes(kind: ArtKind, t: Tone, p: MockupProduct): ShapeSpec {
     case "kids-tee": {
       const kid = kind === "kids-tee";
       const d = kid
-        ? "M36 20 l-14 8 -10 16 10 6 6 -6 v40 h44 v-40 l6 6 10 -6 -10 -16 -14 -8 c-2 6 -8 9 -14 9 s-12 -3 -14 -9z"
-        : "M34 14 l-18 8 -12 18 12 8 8 -8 v48 h52 v-48 l8 8 12 -8 -12 -18 -18 -8 c-2 7 -9 11 -16 11 s-14 -4 -16 -11z";
-      const collar = kid ? "M36 20 c2 6 8 9 14 9 s12 -3 14 -9" : "M34 14 c2 7 9 11 16 11 s14 -4 16 -11";
+        ? OUTLINES.kidsTee
+        : OUTLINES.tee;
+      const collar = kid ? OUTLINES.kidsCollar : OUTLINES.teeCollar;
+      // Inside of the back neck, seen through the neck opening.
+      const backNeck = kid ? OUTLINES.kidsBackNeck : OUTLINES.teeBackNeck;
       return {
         sil: <path d={d} />,
         over: (
           <>
+            <path d={backNeck} fill={shade(t.body, 0.2)} />
+            <path d={kid ? "M38 52 q3 16 -1 36 M62 50 q-4 18 1 38" : "M37 50 q4 20 -1 40 M63 48 q-5 22 1 42"} fill="none" stroke="#000" strokeOpacity={0.05} strokeWidth={2.2} strokeLinecap="round" />
             <path d={collar} fill="none" stroke={t.deep} strokeWidth={2.4} strokeLinecap="round" />
             <path d={kid ? "M22 50 l6 -6 M78 50 l-6 -6" : "M16 48 l8 -8 M84 48 l-8 -8"} stroke={t.edge} strokeOpacity={0.5} strokeWidth={0.8} />
           </>
@@ -292,7 +297,7 @@ function shapes(kind: ArtKind, t: Tone, p: MockupProduct): ShapeSpec {
     }
     case "longsleeve":
       return {
-        sil: <path d="M34 14 l-18 8 -8 60 10 2 8 -46 v48 h48 v-48 l8 46 10 -2 -8 -60 -18 -8 c-2 7 -9 11 -16 11 s-14 -4 -16 -11z" />,
+        sil: <path d={OUTLINES.longsleeve} />,
         over: (
           <>
             <path d="M34 14 c2 7 9 11 16 11 s14 -4 16 -11" fill="none" stroke={t.deep} strokeWidth={2.4} strokeLinecap="round" />
@@ -303,12 +308,13 @@ function shapes(kind: ArtKind, t: Tone, p: MockupProduct): ShapeSpec {
       };
     case "hoodie":
       return {
-        sil: <path d="M32 18 l-16 8 -10 18 10 8 8 -8 v46 h52 v-46 l8 8 10 -8 -10 -18 -16 -8 c0 -12 -8 -16 -18 -16 s-18 4 -18 16z" />,
+        sil: <path d={OUTLINES.hoodie} />,
         over: (
           <>
             <path d="M32 18 c4 8 10 11 18 11 s14 -3 18 -11" fill="none" stroke={t.deep} strokeWidth={2} />
             <path d="M45 28 v10 M55 28 v10" stroke={t.deep} strokeWidth={1.1} strokeLinecap="round" />
             <path d="M36 70 h28 l4 13 h-36z" fill="none" stroke={t.edge} strokeOpacity={0.6} strokeWidth={0.9} />
+            <path d="M34 40 q3 14 0 28 M66 40 q-3 14 0 28" fill="none" stroke="#000" strokeOpacity={0.05} strokeWidth={2.2} strokeLinecap="round" />
             <rect x="24" y="90" width="52" height="4" fill={t.deep} />
           </>
         ),
@@ -316,7 +322,7 @@ function shapes(kind: ArtKind, t: Tone, p: MockupProduct): ShapeSpec {
       };
     case "onesie":
       return {
-        sil: <path d="M38 14 l-14 8 -10 14 9 6 7 -6 v34 c0 8 10 14 20 18 c10 -4 20 -10 20 -18 v-34 l7 6 9 -6 -10 -14 -14 -8 c-2 5 -6 8 -12 8 s-10 -3 -12 -8z" />,
+        sil: <path d={OUTLINES.onesie} />,
         over: (
           <>
             <path d="M38 14 c2 5 6 8 12 8 s10 -3 12 -8" fill="none" stroke={t.deep} strokeWidth={2.2} strokeLinecap="round" />
@@ -365,6 +371,8 @@ export interface ProductMockupProps {
   showArea?: boolean;
   /** Wraps only: how far the product is turned (0–1 of a full turn); 0 shows the front. */
   turn?: number;
+  /** Part of the 100 × 100 drawing to show, e.g. a close-up of a small print area. */
+  viewBox?: string;
   className?: string;
   title?: string;
 }
@@ -376,6 +384,7 @@ export function ProductMockup({
   blend = "normal",
   showArea = false,
   turn = 0,
+  viewBox = "0 0 100 100",
   className,
   title,
 }: ProductMockupProps) {
@@ -394,7 +403,7 @@ export function ProductMockup({
   const imgId = `${uid}-img`;
 
   return (
-    <svg viewBox="0 0 100 100" className={className} role={title ? "img" : undefined} aria-label={title} aria-hidden={title ? undefined : true}>
+    <svg viewBox={viewBox} className={className} role={title ? "img" : undefined} aria-label={title} aria-hidden={title ? undefined : true}>
       <defs>
         <clipPath id={silId}>{spec.sil}</clipPath>
         {area && (

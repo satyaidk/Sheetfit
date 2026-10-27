@@ -21,7 +21,7 @@ import {
   Trash2,
   Ungroup,
 } from "lucide-react";
-import { PAGES_BAR_PX, PX_PER_MM, useEditor } from "@/store/editor-store";
+import { PAGES_BAR_PX, PX_PER_MM, QUICK_BAR_PX, RULER_PX, useEditor } from "@/store/editor-store";
 import { designBounds } from "@/lib/layout/sheet-layout";
 import { unionBounds } from "@/lib/layout/alignment";
 import { Toolbar, ToolbarButton, ToolbarSeparator } from "@/components/ui/toolbar";
@@ -47,8 +47,11 @@ export function FloatingPill() {
   const centerX = pan.x + (box.x + box.width / 2) * k;
   const below = pan.y + (box.y + box.height) * k + 18;
   const above = pan.y + box.y * k - PILL_H - 44;
-  // Stay clear of the page strip at the bottom of the canvas.
-  const top = below + PILL_H < viewport.height - PAGES_BAR_PX ? below : Math.max(30, above);
+  // Below the selection, else above it, never over the quick-actions bar or
+  // the page strip; when the selection fills the canvas, at the canvas bottom.
+  const minTop = RULER_PX + QUICK_BAR_PX + 12;
+  const maxTop = viewport.height - PAGES_BAR_PX - PILL_H - 4;
+  const top = below <= maxTop ? below : above >= minTop ? above : maxTop;
   const left = Math.min(Math.max(centerX, 150), viewport.width - 150);
 
   const allLocked = picked.every((d) => d.locked);

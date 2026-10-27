@@ -27,6 +27,12 @@
   --warn-soft: #fff4de;
   --ok: #18804a;
   --ok-soft: #e4f5eb;
+  /* Print inks, for the marketing pages and process markers (CMY + a deep ink). */
+  --ink-deep: #1d1b3a;
+  --ink-deep-2: #2a2752;
+  --process-cyan: #00a3c4;
+  --process-magenta: #e5007d;
+  --process-yellow: #ffd21f;
   --shadow-pop: 0 1px 2px rgb(16 24 40 / 0.06), 0 8px 24px rgb(16 24 40 / 0.12);
   --shadow-bar: 0 1px 2px rgb(16 24 40 / 0.06), 0 4px 14px rgb(16 24 40 / 0.08);
   --ease-out: cubic-bezier(0.2, 0, 0, 1);
@@ -52,7 +58,13 @@
   --color-warn-soft: var(--warn-soft);
   --color-ok: var(--ok);
   --color-ok-soft: var(--ok-soft);
+  --color-ink-deep: var(--ink-deep);
+  --color-ink-deep-2: var(--ink-deep-2);
+  --color-process-cyan: var(--process-cyan);
+  --color-process-magenta: var(--process-magenta);
+  --color-process-yellow: var(--process-yellow);
   --font-sans: var(--font-figtree), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-bricolage), var(--font-figtree), ui-sans-serif, system-ui, sans-serif;
   --radius-sm: 4px;
   --radius-md: 8px;
   --radius-lg: 12px;
@@ -145,6 +157,59 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 .animate-up {
   animation: slide-up 200ms var(--ease-out);
+}
+
+/*
+ * Landing hero: transfers settle onto the sheet one after another, then a
+ * single heat-press sweep crosses the sheet. This is the page's one
+ * orchestrated moment; everything else moves only in response to the user.
+ */
+@keyframes transfer-settle {
+  from {
+    opacity: 0;
+    transform: translateY(-28px) rotate(calc(var(--tilt, 0deg) + 7deg)) scale(1.04);
+  }
+  70% {
+    opacity: 1;
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) rotate(var(--tilt, 0deg)) scale(1);
+  }
+}
+.transfer {
+  transform: rotate(var(--tilt, 0deg));
+  animation: transfer-settle 700ms var(--ease-out) both;
+  animation-delay: var(--delay, 0ms);
+}
+@keyframes press-sweep {
+  from {
+    transform: translateX(-110%);
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  to {
+    transform: translateX(110%);
+    opacity: 0;
+  }
+}
+.press-sweep {
+  animation: press-sweep 1400ms cubic-bezier(0.45, 0, 0.25, 1) 1500ms both;
+}
+@keyframes hero-copy {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+.hero-copy {
+  animation: hero-copy 600ms var(--ease-out) both;
+  animation-delay: var(--delay, 0ms);
 }
 
 @media (prefers-reduced-motion: reduce) {

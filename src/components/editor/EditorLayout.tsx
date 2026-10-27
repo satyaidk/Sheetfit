@@ -21,6 +21,9 @@ import { QuickActionsBar } from "./QuickActionsBar";
 import { FloatingPill } from "./FloatingPill";
 import { PagesBar } from "./PagesBar";
 import { MockupDialog } from "@/components/products/MockupPreview";
+import { LivePreviewDock } from "@/components/products/LivePreviewDock";
+import { LeaveDialog } from "./LeaveDialog";
+import { Product3DDialog } from "@/components/products/Product3DDialog";
 import { PropertiesPanel } from "./PropertiesPanel";
 import { Footer } from "./Footer";
 import { StartDialog, ONBOARDED_KEY } from "./StartDialog";
@@ -85,7 +88,7 @@ export default function EditorLayout() {
           <div className="hidden md:flex">
             <SideRail />
             {panelOpen && !phone && (
-              <aside aria-label="Side panel" className="w-[340px] shrink-0 border-r border-line bg-surface animate-panel">
+              <aside aria-label="Side panel" className="w-[360px] shrink-0 border-r border-line bg-surface animate-panel">
                 <SidePanelContent />
               </aside>
             )}
@@ -96,6 +99,7 @@ export default function EditorLayout() {
             <QuickActionsBar />
             <FloatingPill />
             <PagesBar />
+            <LivePreviewDock />
           </main>
 
           {showInspector && !tablet && (
@@ -128,6 +132,8 @@ export default function EditorLayout() {
         <StartDialog />
         <ShortcutsDialog />
         <MockupDialog />
+        <LeaveDialog />
+        <Product3DDialog />
       </div>
     </TooltipProvider>
   );

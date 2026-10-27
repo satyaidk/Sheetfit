@@ -3,9 +3,8 @@
 /**
  * Product preview: see a design on the product, in any blank colour.
  *
- * - `MockupCard` sits at the top of the properties panel for product boxes
- *   (and plain images, shown on a T-shirt) and updates live as the design
- *   changes.
+ * - `LivePreviewDock` (its own file) keeps the product visible on the canvas;
+ *   `ProductSection` gives the properties panel the blank colours.
  * - `MockupDialog` is the large view: blank colours, turning a mug or tumbler
  *   around, the print area outline, other product boxes on the page, and a
  *   PNG download to send to a customer.
@@ -14,8 +13,8 @@
  * with the project, but it is never printed.
  */
 
-import { useState } from "react";
-import { Check, Download, Eye, RotateCw, Shuffle, TriangleAlert } from "lucide-react";
+import { useRef, useState } from "react";
+import { Box, Check, Download, Eye, Image as ImageIcon, Pause, Play, RotateCw, Shuffle, TriangleAlert } from "lucide-react";
 import { useEditor } from "@/store/editor-store";
 import type { Design, PrintProcess } from "@/types/editor";
 import { findProduct, slotSize, type ProductPreset } from "@/lib/catalogue/products";
@@ -24,15 +23,17 @@ import { randomSeed, sampleSet, svgDataUrl } from "@/lib/catalogue/sample-design
 import { sampleUrl } from "./sample-url";
 import { applySampleDesign } from "@/lib/editor-actions";
 import { downloadBlob, safeFilename } from "@/lib/export/export-raster";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, focusDialogItself } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { Segmented } from "@/components/ui/segmented";
 import { Slider } from "@/components/ui/slider";
 import { Note } from "@/components/settings/Section";
 import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { ProductMockup } from "./ProductMockup";
 import { designImageUrl } from "./design-image";
+import { Product3D } from "./Product3D";
 
 /** Products offered when previewing a plain image that is not a product box. */
 const PREVIEW_PRODUCTS = ["tee-full-front", "hoodie-front", "mug-11oz", "tumbler-20oz", "tote", "coaster-square", "cap-front", "mousepad-rect"];
@@ -103,50 +104,38 @@ function DarkSublimationNote({ color, process }: { color: ProductColor; process:
   );
 }
 
-/** Live preview card for the properties panel. */
-export function MockupCard({ design }: { design: Design }) {
+/**
+ * Inspector section for a product box: blank colour and a button for the
+ * large preview. The picture itself is in the live preview docked on the
+ * canvas, so it stays visible while designing.
+ */
+export function ProductSection({ design }: { design: Design }) {
   const process = useEditor((s) => s.doc.page.process);
   const updateDesign = useEditor((s) => s.updateDesign);
   const openMockup = useEditor((s) => s.openMockup);
+  const setPreviewDock = useEditor((s) => s.setPreviewDock);
   const product = previewProduct(design);
   const color = resolveColor(product, design.productColor);
-  const image = useDesignImage(design, 480);
-  const isProductBox = !!design.productId;
-
   return (
-    <div>
-      <button
-        type="button"
-        onClick={() => openMockup(design.id)}
-        className="group relative block w-full overflow-hidden rounded-lg bg-subtle"
-        aria-label="Open product preview"
-      >
-        <ProductMockup
-          product={product}
-          color={color.hex}
-          design={image}
-          blend={blendFor(process)}
-          showArea={!image}
-          className="mx-auto aspect-square w-full max-w-[240px] p-2 transition-transform duration-200 group-hover:scale-[1.03]"
-          title={`${product.name} preview`}
-        />
-        <span className="absolute right-2 bottom-2 flex items-center gap-1 rounded-full bg-surface/95 px-2 py-1 text-[11.5px] font-semibold shadow-sm">
-          <Eye className="size-3.5" /> Preview
-        </span>
-        {!isProductBox && (
-          <span className="absolute top-2 left-2 rounded-full bg-surface/95 px-2 py-0.5 text-[11px] font-medium text-ink-muted shadow-sm">
-            Shown on a T-shirt
-          </span>
-        )}
-      </button>
-      {isProductBox && (
-        <div className="mt-2.5">
+    <div className="flex flex-col gap-2.5">
+      <div>
+        <p className="mb-1.5 text-[12px] font-medium text-ink-muted">
+          Blank colour <span className="text-ink">{color.name}</span>
+        </p>
+        <div aria-label="Blank colour" role="group">
           <ColorSwatches size="sm" colors={colorsFor(product)} value={color} onChange={(c) => updateDesign(design.id, { productColor: c.hex })} />
-          <div className="mt-2">
-            <DarkSublimationNote color={color} process={process} />
-          </div>
         </div>
-      )}
+      </div>
+      <DarkSublimationNote color={color} process={process} />
+      <div className="flex gap-1.5">
+        <Button className="flex-1" onClick={() => openMockup(design.id)}>
+          <Eye />
+          Large preview
+        </Button>
+        <Button variant="ghost" onClick={() => setPreviewDock(true)}>
+          Show on canvas
+        </Button>
+      </div>
     </div>
   );
 }
@@ -211,6 +200,9 @@ function MockupBody() {
   const [localColor, setLocalColor] = useState<string | null>(null);
   const [showArea, setShowArea] = useState(false);
   const [turn, setTurn] = useState(0);
+  const [view, setView] = useState<"3d" | "flat">("3d");
+  const [spin, setSpin] = useState(false);
+  const capture = useRef<(() => Promise<Blob | null>) | null>(null);
   const image = useDesignImage(design, 1200);
 
   if (!design) {
@@ -236,6 +228,11 @@ function MockupBody() {
   const size = slotSize(product);
 
   const download = async () => {
+    if (view === "3d") {
+      const blob = await capture.current?.();
+      if (blob) downloadBlob(blob, `${safeFilename(design.name)}-${color.id}-3d.png`);
+      return;
+    }
     const svg = document.getElementById("mockup-svg")?.querySelector("svg");
     if (!svg) return;
     const markup = new XMLSerializer().serializeToString(svg);
@@ -253,7 +250,7 @@ function MockupBody() {
 
   return (
     // Focusing the first swatch on open would pop its tooltip over the preview.
-    <DialogContent className="max-w-[960px]" onOpenAutoFocus={(e) => e.preventDefault()}>
+    <DialogContent className="max-w-[960px]" onOpenAutoFocus={focusDialogItself}>
       <DialogHeader>
         <DialogTitle>{product.name} preview</DialogTitle>
         <DialogDescription>
@@ -262,8 +259,22 @@ function MockupBody() {
         </DialogDescription>
       </DialogHeader>
       <div className="grid min-h-0 flex-1 overflow-y-auto md:grid-cols-[1fr_320px]">
-        <div className="relative flex min-h-[320px] items-center justify-center bg-[radial-gradient(circle_at_50%_40%,var(--surface),var(--subtle-2))] p-4">
-          <div id="mockup-svg" className="aspect-square w-full max-w-[min(520px,60vh)]">
+        <div className="relative flex h-[min(560px,60vh)] min-h-[320px] items-center justify-center bg-[radial-gradient(circle_at_50%_40%,var(--surface),var(--subtle-2))]">
+          <div className="absolute top-3 left-3 z-10 rounded-lg bg-surface/95 shadow-sm">
+            <Segmented<"3d" | "flat">
+              ariaLabel="Preview type"
+              value={view}
+              onValueChange={setView}
+              options={[
+                { value: "3d", label: <><Box /> 3D model</> },
+                { value: "flat", label: <><ImageIcon /> Flat</> },
+              ]}
+            />
+          </div>
+          {view === "3d" ? (
+            <Product3D product={product} color={color.hex} designUrl={image} process={process} autoRotate={spin} captureRef={capture} />
+          ) : (
+          <div id="mockup-svg" className="aspect-square w-full max-w-[min(520px,60vh)] p-4">
             <ProductMockup
               product={product}
               color={color.hex}
@@ -275,6 +286,7 @@ function MockupBody() {
               title={`${product.name} in ${color.name}`}
             />
           </div>
+          )}
           {!image && (
             <p className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-surface px-3 py-1 text-[12px] font-medium shadow">
               Add an image to the box to see it on the product
@@ -322,7 +334,16 @@ function MockupBody() {
             </div>
           </div>
 
-          {product.wrap && (
+          {view === "3d" && (
+            <label className="flex items-center justify-between gap-3 text-[13px]">
+              <span className="flex items-center gap-1.5">
+                {spin ? <Pause className="size-3.5 text-ink-muted" /> : <Play className="size-3.5 text-ink-muted" />} Turn automatically
+              </span>
+              <Switch checked={spin} onCheckedChange={setSpin} aria-label="Turn automatically" />
+            </label>
+          )}
+
+          {view === "flat" && product.wrap && (
             <div>
               <div className="mb-1.5 flex items-center justify-between text-[12px] font-medium text-ink-muted">
                 <span className="flex items-center gap-1">
@@ -334,10 +355,12 @@ function MockupBody() {
             </div>
           )}
 
-          <label className="flex items-center justify-between gap-3 text-[13px]">
-            Show print area
-            <Switch checked={showArea} onCheckedChange={setShowArea} aria-label="Show print area" />
-          </label>
+          {view === "flat" && (
+            <label className="flex items-center justify-between gap-3 text-[13px]">
+              Show print area
+              <Switch checked={showArea} onCheckedChange={setShowArea} aria-label="Show print area" />
+            </label>
+          )}
 
           {!isProductBox && (
             <p className="text-[12px] leading-relaxed text-ink-muted">
@@ -365,9 +388,9 @@ function MockupBody() {
         </div>
       </div>
       <DialogFooter>
-        <Button variant="ghost" disabled={!image} onClick={() => void download()}>
+        <Button variant="ghost" disabled={!image && view === "flat"} onClick={() => void download()}>
           <Download />
-          Download preview PNG
+          {view === "3d" ? "Save 3D image" : "Download preview PNG"}
         </Button>
         <Button variant="primary" onClick={() => setDialog(null)}>
           Done

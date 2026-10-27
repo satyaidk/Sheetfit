@@ -148,3 +148,20 @@ Print-specific additions on top of Canva's model: live gaps in millimetres durin
 **Previews** (`components/products/ProductMockup.tsx`). Original SVG illustrations in a 100 × 100 box, drawn in the blank colour with a lighting overlay. The design shown is the print box rendered on its own through a one-item render plan (`design-image.ts`), so it matches the export. Wraps show the front half of the circumference: 28 vertical strips, where strip *i* covers screen position *u* = sin θ and samples the wrap at θ, which curves the design around the cylinder; the turn slider offsets θ. Sublimation previews use `multiply` blending because the dye is transparent; DTF previews are opaque. Flat goods take the product's real aspect ratio.
 
 **Sample designs** (`lib/catalogue/sample-designs.ts`). Ten families (emblems without background, edge-to-edge patterns) by eight palettes by twelve phrases, drawn as SVG from a seeded PRNG at any aspect ratio. Panels show them through cached blob URLs (`sample-url.ts`); using one rasterises it at 300 DPI for the target box (capped at 4800 px).
+
+## 15. One design per product (0.4)
+
+Clicking a product card calls `requestProduct`: if the current design has an image or unsaved changes, `LeaveDialog` offers Save and open, Discard and open, Add to this sheet, or Cancel; otherwise `openProductDesign` replaces it directly. A product design is a new project whose single page is the smallest sheet holding the product (or the chosen sheet if big enough), with the box at the top centre of the printable area and the view zoomed to it. `hasWorkToLose` treats a project with only untouched empty boxes as nothing to lose. The live preview dock (`LivePreviewDock`) reserves `PREVIEW_DOCK_PX` on the right of the canvas through `rightInset`, which `fitPage` and `zoomToSelection` subtract.
+
+## 16. 3D product models (0.5)
+
+`lib/three/product-model.ts` builds a `THREE.Group` per product in millimetres, without touching the DOM, so every model is built and measured in unit tests:
+
+| Family | Geometry | Print |
+| --- | --- | --- |
+| Drinkware | `LatheGeometry` of a closed wall profile (outer wall, rim, inner wall, floor); handles as `TubeGeometry`; lids, straws, saucers | A lathe band 0.3 mm outside the body over the print height; full wraps face the camera, handled wraps sit opposite the handle |
+| Flat goods | `ExtrudeGeometry` of the outline (rounded rectangle, circle, stadium, chamfered tag) with holes; back material per product | A `ShapeGeometry` face with UVs fitted to its bounds |
+| Garments | A grid over the shared outline, raised by a chamfer distance transform to the edge, with drape folds; edge nodes snapped onto the outline; front and back sheets; collar, hood, pocket seams, snaps | A plane at the true print size laid on the cloth surface |
+| Cap, tote, flag | Crown hemisphere with seams and a bent brim; rounded box with strap tubes; rippled plane on a pole | `DecalGeometry` on the crown; plane on the bag; the whole flag |
+
+Textures come from `lib/three/print-textures.ts`: the print composite (blank colour, then the design multiplied for sublimation or drawn over for DTF, with bleed and seam overlap cropped and other shapes fitted whole), a procedural plain-weave normal map, and cork. The overlay material for garments multiplies (sublimation, unlit, not tone-mapped so white stays "no ink") or lays a semi-gloss film (DTF). The viewer (`Product3DView`) uses ACES tone mapping, a PMREM room environment, a key light with a blurred variance shadow on an invisible floor, orbit controls, and a CSS gradient backdrop from `backdropFor`, chosen so the blank always contrasts with it.
