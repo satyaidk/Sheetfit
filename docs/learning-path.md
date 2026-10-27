@@ -52,6 +52,14 @@ Notice: a mug preview is plain SVG. The design is cut into 28 strips whose width
 
 Exercise: add a highlight that moves with the turn slider.
 
+## 3e. 3D models
+
+Read: [`product-model.ts`](../src/lib/three/product-model.ts), [`print-textures.ts`](../src/lib/three/print-textures.ts), [`Product3DView.tsx`](../src/components/products/Product3DView.tsx), [ADR 0010](adr/0010-procedural-3d-product-models.md).
+
+Notice: a mug is a list of (radius, height) points spun around the vertical axis, and its print is a second, thinner spin of the same profile. The garment surface is a distance transform: every grid point is raised by how far it is from the edge, which is what rounds a flat outline into cloth.
+
+Exercise: add a rim colour option to the enamel mug, and check in `tests/v05-3d-models.test.ts` that its size does not change.
+
 ## 4. One render plan, many outputs
 
 Read: [`render-plan.ts`](../src/lib/render/render-plan.ts), [`rasterize.ts`](../src/lib/export/rasterize.ts), [`export-pdf.ts`](../src/lib/export/export-pdf.ts), [`dpi-metadata.ts`](../src/lib/export/dpi-metadata.ts), [ADR 0003](adr/0003-shared-render-plan.md) and [ADR 0005](adr/0005-pdf-lib-vector-placement.md).

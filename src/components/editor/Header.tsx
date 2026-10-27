@@ -37,12 +37,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Logo } from "@/components/Logo";
-import { exportProjectFile, importProjectFile, saveCurrentProject } from "@/lib/editor-actions";
-import { loadSampleSheet } from "@/lib/sample";
+import { changeSheet, exportProjectFile, importProjectFile, requestLeave, saveCurrentProject } from "@/lib/editor-actions";
+import { SheetSelect } from "@/components/settings/SheetSelect";
 import { safeFilename } from "@/lib/export/export-raster";
 import { pageSize } from "@/lib/layout/sheet-layout";
 import { formatUnit } from "@/lib/layout/coordinate-conversion";
-import { sheetLabel } from "@/components/settings/SheetPanel";
 import { cn } from "@/lib/utils";
 
 export function Header() {
@@ -53,7 +52,6 @@ export function Header() {
   const undo = useEditor((s) => s.undo);
   const redo = useEditor((s) => s.redo);
   const setDialog = useEditor((s) => s.setDialog);
-  const newProject = useEditor((s) => s.newProject);
   const hasDesigns = useEditor((s) => s.doc.designs.length > 0);
   const page = useEditor((s) => s.doc.page);
   const unit = useEditor((s) => s.unit);
@@ -83,15 +81,15 @@ export function Header() {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="min-w-60">
-          <DropdownMenuItem onSelect={() => setDialog("start")}>
+          <DropdownMenuItem onSelect={() => requestLeave({ kind: "start" })}>
             <FilePlus2 />
-            New sheet…
+            New design…
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={() => fileInput.current?.click()}>
             <FolderInput />
             Open .sheetfit file…
           </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => void loadSampleSheet()}>
+          <DropdownMenuItem onSelect={() => requestLeave({ kind: "sample" })}>
             <Sparkles />
             Open sample sheet
           </DropdownMenuItem>
@@ -114,7 +112,7 @@ export function Header() {
             Keyboard shortcuts
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onSelect={() => newProject()} className="text-danger [&_svg]:text-danger">
+          <DropdownMenuItem onSelect={() => requestLeave({ kind: "blank" })} className="text-danger [&_svg]:text-danger">
             <FilePlus2 />
             Clear and start blank
           </DropdownMenuItem>
@@ -132,14 +130,17 @@ export function Header() {
         }}
       />
 
-      <Tooltip label="Change sheet size">
-        <Button variant="ghost" className="hidden gap-1 px-2.5 md:inline-flex" onClick={() => setDialog("sheet")}>
-          <span className="font-semibold">{sheetLabel(page)}</span>
-          <span className="tnum text-ink-muted">
-            {formatUnit(size.width, u, page.dpi)} × {formatUnit(size.height, u, page.dpi)} {u}
-          </span>
-        </Button>
-      </Tooltip>
+      <div className="hidden w-[250px] shrink md:block xl:w-[290px]">
+        <SheetSelect
+          variant="ghost"
+          value={page.sheet}
+          onChange={changeSheet}
+          unit={unit}
+          ariaLabel="Sheet size for this page"
+          shownSize={size}
+          customLabel={`Custom ${formatUnit(size.width, u, page.dpi)} × ${formatUnit(size.height, u, page.dpi)} ${u}`}
+        />
+      </div>
 
       <ProcessSwitch />
 

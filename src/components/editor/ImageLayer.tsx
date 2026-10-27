@@ -84,8 +84,10 @@ export const DesignNode = forwardRef<Konva.Group, DesignNodeProps>(function Desi
   const product = findProduct(design.productId);
   const label = product ? `${product.name}, ${product.detail}` : design.name;
   const fontSize = 12 * px;
+  const trim = product && !product.wrap ? { w: w - design.bleed * 2, h: h - design.bleed * 2 } : { w, h };
+  const size = `${+trim.w.toFixed(1)} × ${+trim.h.toFixed(1)} mm${product ? ` (${+(trim.w / 25.4).toFixed(2)} × ${+(trim.h / 25.4).toFixed(2)} in)` : ""}`;
   // Small boxes get a plus sign instead of a label that would not fit.
-  const showLabel = !asset && w * pxPerMm > 130 && h * pxPerMm > 72;
+  const showLabel = !asset && w * pxPerMm > 150 && h * pxPerMm > 84;
   const showPlus = !asset && !showLabel && w * pxPerMm > 22 && h * pxPerMm > 22;
 
   return (
@@ -114,8 +116,8 @@ export const DesignNode = forwardRef<Konva.Group, DesignNodeProps>(function Desi
         fill={
           !asset
             ? dropTarget
-              ? "rgba(7,125,137,0.16)"
-              : "rgba(7,125,137,0.06)"
+              ? "rgba(7,125,137,0.18)"
+              : "rgba(7,125,137,0.08)"
             : design.fitMode === "fill" && design.fillColor
               ? design.fillColor
               : "rgba(0,0,0,0)"
@@ -128,7 +130,7 @@ export const DesignNode = forwardRef<Konva.Group, DesignNodeProps>(function Desi
             width={w}
             height={h}
             stroke={ACCENT}
-            strokeWidth={dropTarget ? 2 : 1.25}
+            strokeWidth={dropTarget ? 2.5 : 1.5}
             strokeScaleEnabled={false}
             dash={[6, 4]}
             listening={false}
@@ -147,19 +149,44 @@ export const DesignNode = forwardRef<Konva.Group, DesignNodeProps>(function Desi
             />
           )}
           {showLabel && (
-            <Text
-              x={0}
-              y={h / 2 - fontSize * 1.6}
-              width={w}
-              align="center"
-              text={`${label}\n${dropTarget ? "Release to place" : "Drop an image here"}`}
-              fontSize={fontSize}
-              lineHeight={1.5}
-              fontFamily={uiFontFamily()}
-              fontStyle="600"
-              fill="#05656f"
-              listening={false}
-            />
+            <>
+              <Text
+                x={0}
+                y={h / 2 - fontSize * 2.6}
+                width={w}
+                align="center"
+                text={label}
+                fontSize={fontSize * 1.15}
+                fontFamily={uiFontFamily()}
+                fontStyle="700"
+                fill="#05656f"
+                listening={false}
+              />
+              <Text
+                x={0}
+                y={h / 2 - fontSize * 0.9}
+                width={w}
+                align="center"
+                text={size}
+                fontSize={fontSize}
+                fontFamily={uiFontFamily()}
+                fill="#05656f"
+                listening={false}
+              />
+              <Text
+                x={0}
+                y={h / 2 + fontSize * 0.9}
+                width={w}
+                align="center"
+                text={dropTarget ? "Release to place your design" : "Drop your design here, or click Add image"}
+                fontSize={fontSize}
+                fontFamily={uiFontFamily()}
+                fontStyle="600"
+                fill="#1b1f24"
+                opacity={0.7}
+                listening={false}
+              />
+            </>
           )}
         </>
       )}

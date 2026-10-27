@@ -5,22 +5,24 @@
  *
  * Each card shows the product with a sample design on it, in a blank colour,
  * so users can picture the result; the designs and colours change every time
- * the panel opens (and on Shuffle). The badge says which sheet the product
- * needs, and whether adding it will open a new page because it does not fit
- * the current one. Clicking a card adds an empty product box at the real print
- * size; images are then dropped into it.
+ * the panel opens (and on Shuffle). Small print areas (left chest, sleeve,
+ * neck label) get a close-up so the card never looks empty. Badges give the
+ * print size in inches and the sheet it needs.
+ *
+ * Clicking a card starts a new design for that product (asking to save or
+ * discard current work first); the "+" button adds it to the current sheet
+ * instead, for gang sheets.
  */
 
 import { useMemo, useState } from "react";
-import { Plus, Search, Shuffle, X } from "lucide-react";
+import { Box, Plus, Search, Shuffle, X } from "lucide-react";
 import { useEditor } from "@/store/editor-store";
 import { GROUP_LABELS, minSheetFor, searchProducts, slotSize, type ProductGroup, type ProductPreset } from "@/lib/catalogue/products";
 import { colorsFor } from "@/lib/catalogue/colors";
 import { randomSeed, rng, sampleDesign } from "@/lib/catalogue/sample-designs";
 import { sampleUrl } from "./sample-url";
 import { formatUnit } from "@/lib/layout/coordinate-conversion";
-import { printableRect } from "@/lib/layout/sheet-layout";
-import { addProduct } from "@/lib/editor-actions";
+import { addProduct, requestProduct } from "@/lib/editor-actions";
 import { ProductMockup } from "./ProductMockup";
 import { NumberField } from "@/components/settings/NumberField";
 import { Button } from "@/components/ui/button";
@@ -153,63 +155,84 @@ function cardLook(product: ProductPreset, seed: number) {
   return { design, color, href: sampleUrl(design, slot.width / slot.height) };
 }
 
+/** Close-up frame around a small print area (left chest, sleeve, neck label, cap front). */
+function closeUpBox(product: ProductPreset): string | null {
+  const a = product.artArea;
+  if (!a || a.w * a.h >= 520) return null;
+  const side = Math.max(a.w, a.h) * 1.9;
+  return `${a.x + a.w / 2 - side / 2} ${a.y + a.h / 2 - side / 2} ${side} ${side}`;
+}
+
+const inches = (mm: number) => +(mm / 25.4).toFixed(2);
+
 function ProductCard({ product, seed }: { product: ProductPreset; seed: number }) {
   const unit = useEditor((s) => s.unit);
-  const page = useEditor((s) => s.doc.page);
-  const hasDesigns = useEditor((s) => s.doc.designs.length > 0);
-  const slot = slotSize(product);
+  const dpi = useEditor((s) => s.doc.page.dpi);
   const sheet = minSheetFor(product);
-  const area = printableRect(page);
-  const fitsCurrent =
-    (slot.width <= area.width && slot.height <= area.height) || (slot.width <= area.height && slot.height <= area.width);
-  const otherProcess = !product.processes.includes(page.process);
-  const opensPage = hasDesigns && (!fitsCurrent || otherProcess);
-  const fmt = (mm: number) => formatUnit(mm, unit === "px" ? "mm" : unit, page.dpi);
-  const shownUnit = unit === "px" ? "mm" : unit;
+  const fmt = (mm: number) => formatUnit(mm, unit === "px" || unit === "in" ? "mm" : unit, dpi);
+  const shownUnit = unit === "px" || unit === "in" ? "mm" : unit;
   const host = new URL(product.source).hostname.replace(/^www\./, "");
   const look = useMemo(() => cardLook(product, seed), [product, seed]);
+  const closeUp = closeUpBox(product);
+  const blend = look.color.dark ? "normal" : "multiply";
+  const label = `${product.name}, ${product.detail}`;
 
   return (
-    <Tooltip
-      label={`${product.confidence === "high" ? "High" : product.confidence === "medium" ? "Medium" : "Low"} confidence size, from ${host}${
-        opensPage ? `. Opens a new ${sheet?.short ?? "roll"} page.` : ""
-      }`}
-      side="right"
-    >
-      <button
-        type="button"
-        onClick={() => addProduct(product.id)}
-        className="group flex w-full flex-col text-left"
-        aria-label={`Add ${product.name}, ${product.detail}`}
+    <div className="group relative">
+      <Tooltip
+        label={`Start a design for this product. Size from ${host}, ${product.confidence} confidence.`}
+        side="right"
       >
-        <span className="relative flex aspect-square w-full items-center justify-center overflow-hidden rounded-lg bg-[radial-gradient(circle_at_50%_38%,var(--surface)_0%,var(--subtle)_55%,var(--subtle-2)_100%)] ring-1 ring-line/60 transition group-hover:ring-2 group-hover:ring-accent group-focus-visible:ring-2 group-focus-visible:ring-accent">
-          <ProductMockup
-            product={product}
-            color={look.color.hex}
-            design={look.href}
-            blend={look.color.dark ? "normal" : "multiply"}
-            className="size-[86%] transition-transform duration-200 group-hover:scale-[1.05]"
-          />
-          <span className="absolute top-1.5 right-1.5 flex size-7 items-center justify-center rounded-full bg-ink text-white opacity-0 shadow transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
-            <Plus className="size-4" />
-          </span>
-          <span
-            className={cn(
-              "absolute bottom-1.5 left-1.5 rounded-full px-2 py-0.5 text-[10.5px] font-semibold shadow-sm",
-              opensPage ? "bg-warn-soft text-warn" : "bg-surface/95 text-ink-muted",
+        <button type="button" onClick={() => requestProduct(product.id)} className="flex w-full flex-col text-left" aria-label={`Design ${label}`}>
+          <span className="relative flex aspect-square w-full items-center justify-center overflow-hidden rounded-xl bg-[radial-gradient(circle_at_50%_30%,var(--surface)_0%,var(--subtle-2)_70%,var(--line)_100%)] ring-1 ring-line transition group-hover:ring-2 group-hover:ring-accent group-has-[button:focus-visible]:ring-2 group-has-[button:focus-visible]:ring-accent">
+            <ProductMockup
+              product={product}
+              color={look.color.hex}
+              design={look.href}
+              blend={blend}
+              className="size-[90%] drop-shadow-[0_8px_10px_rgb(16_24_40/0.18)] transition-transform duration-300 group-hover:scale-[1.04]"
+            />
+            {closeUp && (
+              <span className="absolute right-1.5 bottom-1.5 size-14 overflow-hidden rounded-full bg-surface shadow-[0_2px_8px_rgb(16_24_40/0.25)] ring-2 ring-surface">
+                <ProductMockup product={product} color={look.color.hex} design={look.href} blend={blend} viewBox={closeUp} className="size-full" />
+              </span>
             )}
-          >
-            {sheet ? sheet.short : "Roll"}
-            {opensPage && " · new page"}
+            <span className="tnum absolute top-1.5 left-1.5 rounded-full bg-surface/95 px-2 py-0.5 text-[10.5px] font-semibold text-ink shadow-sm">
+              {inches(product.width)} × {inches(product.height)} in
+            </span>
+            <span className="absolute bottom-1.5 left-1.5 rounded-full bg-ink/80 px-2 py-0.5 text-[10.5px] font-semibold text-white">
+              {sheet ? sheet.short : "Roll"}
+            </span>
           </span>
-        </span>
-        <span className="mt-1.5 block truncate px-0.5 text-[12.5px] font-semibold">{product.name}</span>
-        <span className="block truncate px-0.5 text-[11.5px] text-ink-muted">{product.detail}</span>
-        <span className="tnum block px-0.5 text-[11px] text-ink-faint">
-          {fmt(product.width)} × {fmt(product.height)} {shownUnit}
-        </span>
-      </button>
-    </Tooltip>
+          <span className="mt-1.5 block truncate px-0.5 text-[12.5px] font-semibold">{product.name}</span>
+          <span className="block truncate px-0.5 text-[11.5px] text-ink-muted">{product.detail}</span>
+          <span className="tnum block px-0.5 text-[11px] text-ink-faint">
+            {fmt(product.width)} × {fmt(product.height)} {shownUnit}
+          </span>
+        </button>
+      </Tooltip>
+      <Tooltip label="View in 3D">
+        <button
+          type="button"
+          onClick={() => useEditor.getState().openViewer3d(product.id)}
+          aria-label={`View ${label} in 3D`}
+          className="absolute top-1.5 right-10 flex h-7 items-center gap-1 rounded-full bg-surface px-2 text-[11.5px] font-semibold text-ink opacity-0 shadow ring-1 ring-line transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+        >
+          <Box className="size-3.5" />
+          3D
+        </button>
+      </Tooltip>
+      <Tooltip label="Add to the current sheet instead">
+        <button
+          type="button"
+          onClick={() => addProduct(product.id)}
+          aria-label={`Add ${label} to this sheet`}
+          className="absolute top-1.5 right-1.5 flex size-7 items-center justify-center rounded-full bg-ink text-white opacity-0 shadow transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+        >
+          <Plus className="size-4" />
+        </button>
+      </Tooltip>
+    </div>
   );
 }
 

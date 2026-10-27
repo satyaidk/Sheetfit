@@ -29,6 +29,7 @@ import {
   Ungroup,
   Grid3x3,
   Crosshair,
+  Shirt,
 } from "lucide-react";
 import { useEditor, selectedDesigns } from "@/store/editor-store";
 import type { Design } from "@/types/editor";
@@ -49,7 +50,7 @@ import { gridCapacity } from "@/lib/layout/auto-arrange";
 import { designBounds, printableRect } from "@/lib/layout/sheet-layout";
 import { replaceDesignImage, uploadIntoSlot } from "@/lib/editor-actions";
 import { findProduct, minSheetFor } from "@/lib/catalogue/products";
-import { MockupCard, SampleStrip } from "@/components/products/MockupPreview";
+import { ProductSection, SampleStrip } from "@/components/products/MockupPreview";
 import { pageSize, sheetLabel } from "@/lib/layout/sheet-layout";
 import { ACCEPT_ATTR, megapixels } from "@/lib/image/image-loader";
 import { cn } from "@/lib/utils";
@@ -85,8 +86,8 @@ function SlotInspector({ design }: { design: Design }) {
   return (
     <div>
       {product && (
-        <Section title={`${product.name} preview`}>
-          <MockupCard design={design} />
+        <Section title="Product">
+          <ProductSection design={design} />
         </Section>
       )}
       <Section title={product ? product.name : "Empty box"}>
@@ -207,14 +208,18 @@ function SingleDesign({ design, asset }: { design: Design; asset: LoadedAsset })
 
   return (
     <div>
-      <Section title={product ? `${product.name} preview` : "Preview on a product"}>
-        <MockupCard design={design} />
-        {product && (
-          <p className="mt-2 text-[12px] text-ink-muted">
-            {product.detail}, {+product.width.toFixed(1)} × {+product.height.toFixed(1)} mm print area.
-          </p>
-        )}
-      </Section>
+      {product ? (
+        <Section title={`${product.name}, ${product.detail.toLowerCase()}`}>
+          <ProductSection design={design} />
+        </Section>
+      ) : (
+        <Section title="Preview on a product">
+          <Button className="w-full" onClick={() => useEditor.getState().openMockup(design.id)}>
+            <Shirt />
+            See it on a T-shirt, mug or tote
+          </Button>
+        </Section>
+      )}
       <Section
         title="Design"
         aside={

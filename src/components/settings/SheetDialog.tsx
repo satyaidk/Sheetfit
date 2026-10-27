@@ -1,16 +1,17 @@
 "use client";
 
 /**
- * "Sheet size" dialog, modelled on Canva's Resize: presets grouped by kind,
- * a custom size in any unit, orientation, and a warning that names how many
- * designs would end up outside the new sheet before anything changes.
+ * "Sheet size" dialog: the sheet dropdown, a custom size in any unit,
+ * orientation, a live preview of the proportions, and a warning that names
+ * how many designs would end up outside the new sheet before anything changes.
  */
 
 import { useState } from "react";
 import { RectangleHorizontal, RectangleVertical, TriangleAlert } from "lucide-react";
 import { useEditor } from "@/store/editor-store";
 import type { Orientation, PageSettings } from "@/types/editor";
-import { SHEETS, type SheetDefinition } from "@/lib/catalogue/sheets";
+import { findSheet } from "@/lib/catalogue/sheets";
+import { SheetSelect } from "./SheetSelect";
 import { placementStatus, pageSize } from "@/lib/layout/sheet-layout";
 import { formatUnit } from "@/lib/layout/coordinate-conversion";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -18,7 +19,6 @@ import { Button } from "@/components/ui/button";
 import { Segmented } from "@/components/ui/segmented";
 import { NumberField } from "./NumberField";
 import { Note } from "./Section";
-import { cn } from "@/lib/utils";
 
 export function SheetDialog() {
   const open = useEditor((s) => s.dialog === "sheet");
@@ -47,58 +47,23 @@ function SheetDialogBody() {
   const u = unit === "px" ? "mm" : unit;
   const fmt = (mm: number) => formatUnit(mm, u, page.dpi);
 
-  const groups: { title: string; items: SheetDefinition[] }[] = [
-    { title: "Paper", items: SHEETS.filter((s) => s.kind === "paper") },
-    { title: "Rolls and gang sheets", items: SHEETS.filter((s) => s.kind === "roll") },
-  ];
-
   return (
-    <DialogContent className="max-w-[720px]">
+    <DialogContent className="max-w-[640px]">
       <DialogHeader>
         <DialogTitle>Sheet size</DialogTitle>
         <DialogDescription>Choose the paper or film you print on. Designs keep their size and position.</DialogDescription>
       </DialogHeader>
-      <div className="grid min-h-0 flex-1 gap-5 overflow-y-auto p-5 md:grid-cols-[1fr_200px]">
+      <div className="grid min-h-0 flex-1 gap-5 overflow-y-auto p-5 md:grid-cols-[1fr_220px]">
         <div className="flex flex-col gap-4">
-          {groups.map((g) => (
-            <div key={g.title}>
-              <p className="mb-1.5 text-[12px] font-semibold text-ink-muted">{g.title}</p>
-              <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
-                {g.items.map((s) => (
-                  <button
-                    key={s.id}
-                    type="button"
-                    onClick={() => setSheetId(s.id)}
-                    className={cn(
-                      "flex items-center justify-between gap-2 rounded-md px-3 py-2 text-left transition-colors",
-                      sheet === s.id ? "bg-accent-soft ring-1 ring-accent" : "hover:bg-subtle",
-                    )}
-                  >
-                    <span className="min-w-0">
-                      <span className="block truncate text-[13px] font-medium">{s.name}</span>
-                      <span className="block truncate text-[11.5px] text-ink-muted">{s.usedFor}</span>
-                    </span>
-                    <span className="tnum shrink-0 text-[11.5px] text-ink-faint">
-                      {fmt(s.width)} × {fmt(s.height)}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          ))}
           <div>
-            <button
-              type="button"
-              onClick={() => setSheetId("custom")}
-              className={cn(
-                "mb-2 w-full rounded-md px-3 py-2 text-left text-[13px] font-medium",
-                sheet === "custom" ? "bg-accent-soft ring-1 ring-accent" : "hover:bg-subtle",
-              )}
-            >
-              Custom size
-            </button>
+            <p className="mb-1.5 text-[12px] font-semibold text-ink-muted">Sheet</p>
+            <SheetSelect value={sheet} onChange={setSheetId} unit={unit} customLabel="Custom size" />
+            {sheet !== "custom" && <p className="mt-1.5 text-[12px] text-ink-muted">{findSheet(sheet)?.usedFor}</p>}
+          </div>
+          <div>
             {sheet === "custom" && (
               <div className="flex items-center gap-1.5">
+                <span className="sr-only">Custom size</span>
                 <NumberField label="W" valueMm={custom.width} unit={unit} dpi={page.dpi} min={20} max={1500} onCommit={(width) => setCustom({ ...custom, width })} />
                 <span className="text-ink-faint">×</span>
                 <NumberField label="H" valueMm={custom.height} unit={unit} dpi={page.dpi} min={20} max={6100} onCommit={(height) => setCustom({ ...custom, height })} />

@@ -19,6 +19,8 @@ export default defineConfig({
         "src/lib/editor-actions.ts",
         "src/lib/sample.ts",
         "src/lib/utils.ts",
+        // Draws textures on a DOM canvas; the 3D models themselves are covered.
+        "src/lib/three/print-textures.ts",
       ],
       thresholds: { lines: 80, functions: 80, branches: 65, statements: 80 },
       reporter: ["text", "json-summary", "html"],

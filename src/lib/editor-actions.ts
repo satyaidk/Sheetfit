@@ -7,7 +7,8 @@
  */
 
 import { toast } from "sonner";
-import { allPages, useEditor } from "@/store/editor-store";
+import { allPages, makeDesign, PREVIEW_DOCK_MIN_CANVAS, PREVIEW_DOCK_PX, useEditor, type LeaveIntent } from "@/store/editor-store";
+import type { PrintProcess } from "@/types/editor";
 import type { LoadedAsset } from "@/types/image";
 import type { ProjectRecord } from "@/types/project";
 import { ImageLoadError, LARGE_IMAGE_MEGAPIXELS, loadAssetFromBlob, loadAssetFromFile, megapixels } from "@/lib/image/image-loader";
@@ -18,7 +19,9 @@ import { loadProject, saveProject, StorageError } from "@/lib/storage/project-st
 import { migratePages } from "@/lib/storage/migrate";
 import { findProduct, slotSize } from "@/lib/catalogue/products";
 import { renderSampleSvg, svgDataUrl, type SampleDesign } from "@/lib/catalogue/sample-designs";
-import { sheetLabel } from "@/lib/layout/sheet-layout";
+import { placementStatus, printableRect, sheetLabel } from "@/lib/layout/sheet-layout";
+import { pageFor } from "@/lib/layout/product-placement";
+import { findSheet } from "@/lib/catalogue/sheets";
 
 /** Drag-and-drop type for images dragged from the Uploads panel onto the canvas. */
 export const ASSET_DRAG_TYPE = "application/x-sheetfit-asset";
@@ -296,4 +299,108 @@ export function placeAssetAt(assetId: string, point: { x: number; y: number }) {
   useEditor.getState().moveDesigns([{ id, x: point.x - d.width / 2, y: point.y - d.height / 2 }]);
   // moveDesigns made a second history entry; fold it into the placement.
   useEditor.setState((s) => ({ past: s.past.slice(0, -1) }));
+}
+
+/**
+ * Start a fresh design for one product: a new project whose only page is the
+ * smallest sheet that holds the product (or `sheet`, when it is big enough),
+ * with the empty product box zoomed to fill the canvas. The box sits at the top
+ * centre of the sheet, which leaves the rest free if the user later chooses
+ * "Add to this sheet" (a centred box splits the space into unusable strips).
+ */
+export function openProductDesign(productId: string, options: { process?: PrintProcess; sheet?: string } = {}) {
+  const product = findProduct(productId);
+  if (!product) return;
+  const wanted = options.process ?? useEditor.getState().doc.page.process;
+  const process = product.processes.includes(wanted) ? wanted : product.processes[0];
+  const store = useEditor.getState();
+  store.newProject();
+  const blank = useEditor.getState().doc.page;
+  const start = {
+    ...blank,
+    process,
+    mirrorOutput: process === "sublimation",
+    sheet: options.sheet && findSheet(options.sheet) ? options.sheet : blank.sheet,
+  };
+  const slot = slotSize(product);
+  const { page } = pageFor(slot, start);
+  const area = printableRect(page);
+  const design = makeDesign({
+    name: `${product.name}, ${product.detail}`,
+    productId: product.id,
+    width: slot.width,
+    height: slot.height,
+    bleed: slot.bleed,
+    x: area.x + (area.width - slot.width) / 2,
+    y: area.y,
+    fitMode: "fill",
+  });
+  useEditor.setState((x) => ({
+    doc: { page, designs: [design] },
+    pages: [{ ...x.pages[0], doc: { page, designs: [design] } }],
+    selection: [design.id],
+    past: [],
+    future: [],
+    previewDock: true,
+    // The preview dock appears for product designs; reserve its space before zooming.
+    rightInset: x.viewport.width >= PREVIEW_DOCK_MIN_CANVAS ? PREVIEW_DOCK_PX : 0,
+    project: { ...x.project, name: `${product.name}, ${product.detail}`, dirty: false },
+  }));
+  // The product's print area fills the canvas, like a design canvas in Canva.
+  useEditor.getState().zoomToSelection();
+  toast(`${product.name}, ${product.detail}: ${sheetLabel(page)} ${page.orientation} ready`, {
+    description: "Drop your design on the box, click Add image, or pick one from Designs. The preview updates as you go.",
+  });
+}
+
+/** True when replacing the current design would lose something worth asking about. */
+export function hasWorkToLose(): boolean {
+  const state = useEditor.getState();
+  const designs = allPages(state).flatMap((d) => d.designs);
+  if (designs.length === 0) return false;
+  // A fresh, untouched product design (empty boxes only) can be replaced silently.
+  return state.project.dirty || designs.some((d) => d.assetId);
+}
+
+/** Carry out an intent without asking (after the user chose, or when nothing would be lost). */
+export function proceedWith(intent: LeaveIntent) {
+  const state = useEditor.getState();
+  state.setLeaveIntent(null);
+  if (intent.kind === "product") openProductDesign(intent.productId);
+  else if (intent.kind === "blank") state.newProject();
+  else if (intent.kind === "start") state.setDialog("start");
+  else void import("./sample").then((m) => m.loadSampleSheet());
+}
+
+/** Ask before replacing the current design when there is work to lose. */
+export function requestLeave(intent: LeaveIntent) {
+  if (hasWorkToLose()) useEditor.getState().setLeaveIntent(intent);
+  else proceedWith(intent);
+}
+
+/** Product card click: a new design for this product (asking first if needed). */
+export function requestProduct(productId: string) {
+  requestLeave({ kind: "product", productId });
+}
+
+/**
+ * Change the active page's sheet from a dropdown. Designs keep their size and
+ * position; if any end up off the sheet, the toast says so and offers Undo.
+ */
+export function changeSheet(sheetId: string) {
+  const state = useEditor.getState();
+  if (sheetId === state.doc.page.sheet) return;
+  if (sheetId === "custom") {
+    state.setDialog("sheet");
+    return;
+  }
+  state.setSheet(sheetId, null, state.doc.page.orientation);
+  const { doc } = useEditor.getState();
+  const off = doc.designs.filter((d) => placementStatus(d, doc.page).exceedsPage).length;
+  if (off > 0) {
+    toast.warning(`${off} ${off === 1 ? "design is" : "designs are"} partly off the ${sheetLabel(doc.page)} sheet`, {
+      description: "Nothing was resized. Move them, turn the sheet, or undo.",
+      action: { label: "Undo", onClick: () => useEditor.getState().undo() },
+    });
+  }
 }

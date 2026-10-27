@@ -16,11 +16,9 @@ import { NumberField } from "./NumberField";
 import { Field, Note, Section } from "./Section";
 import { ColorChoices } from "./DimensionControls";
 import { pageSize, sheetLabel, uniformMargins } from "@/lib/layout/sheet-layout";
-import { SHEETS } from "@/lib/catalogue/sheets";
+import { SheetSelect } from "./SheetSelect";
+import { changeSheet } from "@/lib/editor-actions";
 import { formatUnit } from "@/lib/layout/coordinate-conversion";
-import { cn } from "@/lib/utils";
-
-const QUICK_SHEETS = ["a4", "letter", "legal", "a3", "a3plus", "dtf-22x24"];
 
 export { sheetLabel };
 
@@ -28,7 +26,6 @@ export function SheetPanel() {
   const page = useEditor((s) => s.doc.page);
   const setPage = useEditor((s) => s.setPage);
   const setProcess = useEditor((s) => s.setProcess);
-  const setSheet = useEditor((s) => s.setSheet);
   const setDialog = useEditor((s) => s.setDialog);
   const unit = useEditor((s) => s.unit);
   const setUnit = useEditor((s) => s.setUnit);
@@ -70,30 +67,14 @@ export function SheetPanel() {
           </Button>
         }
       >
-        <p className="tnum mb-2 text-[13px]">
-          <span className="font-semibold">{sheetLabel(page)}</span>{" "}
-          <span className="text-ink-muted">
-            {fmt(size.width)} × {fmt(size.height)} {u}
-          </span>
-        </p>
-        <div className="mb-2 grid grid-cols-3 gap-1">
-          {QUICK_SHEETS.map((id) => {
-            const sheet = SHEETS.find((x) => x.id === id)!;
-            const active = page.sheet === id;
-            return (
-              <button
-                key={id}
-                type="button"
-                onClick={() => setSheet(id)}
-                className={cn(
-                  "h-8 rounded-md text-[12px] font-medium transition-colors",
-                  active ? "bg-accent-soft text-accent ring-1 ring-accent" : "bg-subtle text-ink hover:bg-subtle-2",
-                )}
-              >
-                {sheet.short}
-              </button>
-            );
-          })}
+        <div className="mb-2">
+          <SheetSelect
+            value={page.sheet}
+            onChange={changeSheet}
+            unit={unit}
+            shownSize={size}
+            customLabel={`Custom ${fmt(size.width)} × ${fmt(size.height)} ${u}`}
+          />
         </div>
         <Segmented
           ariaLabel="Orientation"

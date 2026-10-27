@@ -15,15 +15,16 @@ Every agent (and human) reads it before starting work and updates it **in the sa
 feature, plan or known-issue change. Keep entries short and factual. Newest entries go at the top of the
 update log (section 8).
 
-Last updated: 2026-10-27 (v0.3.0)
+Last updated: 2026-10-27 (v0.5.0)
 
 ## 1. Product in one paragraph
 
 Sheetfit is a browser-only, Canva-style layout editor for **sublimation and DTF** printing. A project has
 **pages**, each with its own sheet (A4, Letter, Legal, A3, A3+, 22 in DTF gang sheets, custom) and process.
-Users add **product templates** (52 presets: mugs, tumblers, coasters, shirt placements, caps, totes…) that
-become empty boxes at the real print size, placed in a free spot or on a new page with the sheet they need;
-drop images or generated **sample designs** in; **preview** the result on the product in any blank colour; and
+Clicking one of 52 **product templates** (mugs, tumblers, coasters, shirt placements, caps, totes…) starts a
+**new design** on the sheet it needs (asking to save or discard current work; "+" adds it to the current sheet
+instead). Users drop images or generated **sample designs** into the box, watch a **live preview** on the product,
+inspect every product as an interactive **3D model** in any blank colour, and
 export an exact-size multi-page PDF, PNG/JPEG per page with DPI metadata, a browser print at 100%, or a
 `.sheetfit` project file. Default fitting never crops or distorts. Sublimation output is mirrored; DTF is not.
 No backend; projects live in IndexedDB.
@@ -39,9 +40,11 @@ No backend; projects live in IndexedDB.
 | v0.2 UI/UX redesign (Canva shell, quick bar, pill, context menu, inspector, footer, dialogs, landing) | Done, verified in Chrome |
 | v0.3 pages (own sheet + history per page), placement fix for the "A3 takes over" bug | Done, tested, verified in Chrome |
 | v0.3 product previews (colours, wrap turning, PNG download), sample designs, product cards redesign | Done, verified in Chrome |
-| Quality gate `npm run check` | Passing: lint, types, 164 tests, coverage 90.4 % lines (lib + store), build |
-| Browser checks (`v3func.mjs`, 39 checks) | 39/39 passing on the production build, no console errors |
-| Committed to git | **No.** Branch `dev` (main branch `main`); v0.2 and v0.3 work is uncommitted. The user has not asked to commit yet |
+| v0.4 new design per product + save/discard dialog, live preview dock, sheet dropdowns, card visibility, landing page with real photos | Done, tested, verified in Chrome |
+| v0.5 3D models for all 52 products (three.js, procedural, real size), adaptive backdrop, catalogue 3D viewer | Done, tested; every product rendered in headless Chrome |
+| Quality gate `npm run check` | See section 8 for the latest numbers |
+| Browser checks | `v5func.mjs` (48 whole-app checks incl. 3D) and `v5all3d.mjs` (every product in 3D); see section 8 |
+| Committed to git | **No.** Branch `dev` (main branch `main`); v0.2 to v0.5 work is uncommitted. The user has not asked to commit yet |
 
 ## 3. Commands
 
@@ -57,10 +60,13 @@ npm test               # vitest only
   scratchpad and run it.
 - Browser verification: Claude-in-Chrome was disconnected. Working fallback: `puppeteer-core` + installed Chrome
   (`C:/Program Files/Google/Chrome/Application/chrome.exe`) from a scratch folder, against
-  `npm run build && npx next start -p 3200`. Scripts: `v3func.mjs` (39 functional checks), `v3shots.mjs`
-  (README screenshots → `docs/images/`). `localStorage["sheetfit:onboarded"]` controls the start dialog.
-  In scripts: clicking the active rail tab closes its panel; accept the unsaved-changes `beforeunload` prompt;
-  restart `next start` after every rebuild.
+  `npm run build && npx next start -p 3200`. Scripts: `v5func.mjs` (whole app), `v5all3d.mjs` (every product in
+  3D, optional args: start index and a label filter; launch Chrome with `--use-angle=swiftshader --enable-unsafe-swiftshader`, about 13 s per product, so run it
+  in the background), `v4shots.mjs` and `v5shots.mjs` (README screenshots →
+  `docs/images/`; 3D gallery via `contact.mjs`). `localStorage["sheetfit:onboarded"]`
+  controls the start dialog. In scripts: clicking the active rail tab closes its panel; accept the unsaved-changes
+  `beforeunload` prompt; restart `next start` after every rebuild; clipped `page.screenshot` came back stale, use
+  full-viewport or element screenshots; the product panel filters to the page's process, click "All" first.
 
 ## 4. Architecture rules (do not break)
 
@@ -81,6 +87,11 @@ npm test               # vitest only
     `allPages(state)`, never `state.pages[i].doc` for the active page (it is stale).
 11. Sample designs are generated (`lib/catalogue/sample-designs.ts`), never fetched from the web (ADR 0008).
 12. Mount panels for one layout only (`useNarrower` in `EditorLayout`); do not render desktop + mobile copies.
+13. **A product card click starts a new design** (`requestProduct` → `LeaveDialog` when there is work). Never merge
+    products onto one sheet unless the user chose "Add to this sheet" or the card's "+" (ADR 0009).
+14. 3D: three.js only through `Product3D` (next/dynamic). Builders in `lib/three/product-model.ts` stay pure (no
+    DOM) so they run in Vitest; textures come from `lib/three/print-textures.ts` in the browser (ADR 0010).
+15. Dialogs that skip auto-focus must use `focusDialogItself`, so focus (and Escape) stays inside the dialog.
 
 ## 5. File map
 
@@ -89,7 +100,10 @@ npm test               # vitest only
 | `src/types/editor.ts` | `PageSettings` (sheet, customSize, orientation, process, mirrorOutput, margins…), `Design` (assetId nullable, productId, productColor, bleed, flipX/Y…), `EditorDocument` = one page |
 | `src/types/project.ts` | `ProjectRecord` (`document` = page 1, `pages` = all), `ProjectSummary` (designCount, pageCount) |
 | `src/lib/catalogue/sheets.ts` | Sheet presets, `smallestSheetFor` (order A4, Letter, Legal, A3, A3+), `smallestSheetOrRollFor` |
-| `src/lib/catalogue/colors.ts` | Blank colours per product group, `resolveColor`, `shade`, `luminance` |
+| `src/lib/catalogue/colors.ts` | Blank colours per product group, `resolveColor`, `shade`, `luminance`, `contrastRatio`, `backdropFor` (3D backdrop) |
+| `src/lib/catalogue/outlines.ts` | Garment outlines shared by 2D mockups and 3D models; `parsePath` (no DOM) |
+| `src/lib/three/product-model.ts` | Procedural 3D builders per product shape (drinkware, flat, garment cloth surface, cap, tote, flag), `printCrop`, `printStyle`, `weaveRepeat` |
+| `src/lib/three/print-textures.ts` | Browser textures: print composite (process-aware), weave normal map, cork |
 | `src/lib/catalogue/sample-designs.ts` | Seeded SVG sample designs (4 emblem + 6 pattern families × 8 palettes), `renderSampleSvg(d, aspect)` |
 | `src/lib/catalogue/products.ts` | 52 product presets, `slotSize` (bleed / +6 mm seam), `minSheetFor`, `searchProducts` |
 | `src/lib/image/*` | Fitting engine, effective DPI, file loading |
@@ -99,11 +113,12 @@ npm test               # vitest only
 | `src/lib/render/render-plan.ts` | Shared plan incl. `mirror`, `flipX/Y`; empty slots skipped |
 | `src/lib/export/*` | Raster (mirror/flip), PDF (multi-page, mirror/flip via cm), DPI metadata, `preflight.ts`, print (named `@page` per size) |
 | `src/lib/storage/*` | IndexedDB, `.sheetfit` files, `migrate.ts` (v0.1 → v0.2 docs, `migratePages` for v0.3 records) |
-| `src/lib/editor-actions.ts` | Use-cases: upload, `addProduct` (page-aware toasts), save/open/import/export of all pages, `sampleDesignAsset`, `applySampleDesign`, `ASSET_DRAG_TYPE` |
+| `src/lib/editor-actions.ts` | Use-cases: upload, `openProductDesign`, `requestProduct`/`requestLeave`/`proceedWith`/`hasWorkToLose`, `addProduct` (gang sheets), `changeSheet`, save/open/import/export of all pages, sample designs, `ASSET_DRAG_TYPE` |
 | `src/lib/sample.ts` | Sample project: page 1 A4 landscape (mug wrap, 2 coasters, magnet, empty pet tag), page 2 A3 (30 oz tumbler, mint) |
-| `src/store/editor-store.ts` | Active page doc + undo, `pages`/`activePage` + page actions, `allPages`, assets, selection, view, dialogs (incl. `mockup`), slot/process/sheet actions, `PAGES_BAR_PX` |
+| `src/store/editor-store.ts` | Active page doc + undo, `pages`/`activePage` + page actions, `allPages`, assets, selection, view (incl. `rightInset` for the dock), dialogs (`mockup`, `viewer3d`), `leaveIntent`, `previewDock`, slot/process/sheet actions |
 | `src/components/editor/EditorLayout.tsx` | Shell; first-run start dialog; mobile sheets (`useNarrower`) |
 | `src/components/editor/PagesBar.tsx` | Floating page strip: thumbnails, add/duplicate/delete/resize page |
+| `src/components/editor/LeaveDialog.tsx` | Save and open / Discard and open / Add to this sheet / Cancel |
 | `src/components/editor/Header.tsx`, `Footer.tsx` | Top bar (File menu, sheet, process, undo, title, Download); bottom bar (usage %, zoom) |
 | `src/components/editor/SidePanel.tsx` | Icon rail + panel (Products, Designs, Uploads, Layers, Sheet, Projects) |
 | `src/components/editor/CanvasWorkspace.tsx` | Konva stage: handles, guides, gaps, slots, drops, space-pan, DPI badges, empty state |
@@ -112,14 +127,17 @@ npm test               # vitest only
 | `src/components/editor/PropertiesPanel.tsx` | Inspector (preview card, image, empty slot + sample strip, multi-select, sheet summary) |
 | `src/components/editor/LayersPanel.tsx`, `ProjectsPanel.tsx`, `StartDialog.tsx`, `ShortcutsDialog.tsx`, `use-editor-shortcuts.ts` | Panels, dialogs, keyboard |
 | `src/components/products/ProductMockup.tsx` | Original SVG product illustrations in any colour with a design (wrap strips, lighting, blend) |
-| `src/components/products/MockupPreview.tsx` | `MockupCard`, `MockupDialog`, `ColorSwatches`, `SampleStrip` |
+| `src/components/products/MockupPreview.tsx` | `MockupDialog` (3D / Flat switch), `ProductSection`, `ColorSwatches`, `SampleStrip` |
+| `src/components/products/LivePreviewDock.tsx` | Live preview docked on the canvas (colours, 3D, large preview, collapse) |
+| `src/components/products/Product3D.tsx`, `Product3DView.tsx`, `Product3DDialog.tsx` | Lazy 3D viewer (renderer, studio light, orbit, adaptive backdrop, capture) and the catalogue 3D dialog |
 | `src/components/products/*Panel.tsx`, `ProductArt.tsx`, `design-image.ts`, `sample-url.ts` | Products and Designs panels, plain illustration, slot render for previews, blob-URL cache |
-| `src/components/settings/*` | `SheetPanel`, `SheetDialog`, `DimensionControls`, `NumberField`, `Section` |
+| `src/components/settings/*` | `SheetSelect` (dropdown), `SheetPanel`, `SheetDialog`, `DimensionControls`, `NumberField`, `Section` |
 | `src/components/export/ExportDialog.tsx` | Export/print for all pages or one, page-by-page preview, preflight per page, mirror badge |
 | `src/components/ui/*` | Radix/shadcn-style primitives incl. popover, context-menu, toolbar |
-| `src/app/page.tsx` | Landing page (uses `public/editor-preview.png`) |
-| `tests/*` | 164 Vitest tests (`v03-pages-mockups.test.ts` covers pages, placement, colours, samples, multi-page output) |
-| `docs/` | Design doc, ADRs 0001–0008, learning path, printing guide, screenshots |
+| `src/app/page.tsx`, `src/components/landing/*` | Landing page: `HeroSheet` (transfers settle on a sheet), `ColorDemo` (flat/3D), `photos.ts` (credits) |
+| `src/assets/photos/` | 13 landing photos (Unsplash/Pexels) and `CREDITS.md` |
+| `tests/*` | Vitest suites incl. `v03-pages-mockups`, `v04-product-flow`, `v05-3d-models` (every product built in 3D) |
+| `docs/` | Design doc, ADRs 0001–0010, learning path, printing guide, screenshots |
 
 ## 6. Plan
 
@@ -141,9 +159,20 @@ v0.3 phases (all done 2026-10-27):
 - [x] Q4 Sample designs: generator, Designs panel, product cards, sample strip for empty boxes, landing showcase
 - [x] Q5 Quality: 164 tests, 39 browser checks, screenshots, README, ADR 0008, CHANGELOG 0.3.0
 
-Next (v0.4 candidates, in suggested order):
+v0.4 phases (all done 2026-10-27):
+- [x] R1 New design per product, save/discard dialog, "+" for gang sheets
+- [x] R2 Live preview dock; sheet dropdowns; card visibility; canvas box labels
+- [x] R3 Landing page with real photos, how-it-works, sublimation vs DTF
+
+v0.5 phases (all done 2026-10-27):
+- [x] S1 Procedural 3D models for every product, real size, realistic materials
+- [x] S2 Viewer: studio lighting, soft shadow, orbit, auto-rotate, capture; adaptive backdrop
+- [x] S3 Entry points: card 3D, dock 3D, 3D/Flat in the large preview, landing demo
+- [x] S4 Quality: unit tests (all products built, sizes, contrast), browser render of every product
+
+Next (v0.6 candidates, in suggested order):
 1. Commit the work (ask the user first; current branch `dev`, main branch `main`).
-2. Playwright e2e in CI (port `v3func.mjs`).
+2. Playwright e2e in CI (port `v5func.mjs`; 3D needs SwiftShader flags).
 3. Page reordering (drag in the page strip); page names.
 4. DTF auto-pack with per-image quantity and 90° rotation; separate edge margin vs gap.
 5. Text tool; simple shapes.
@@ -157,6 +186,13 @@ Next (v0.4 candidates, in suggested order):
   works. The export dialog explains it.
 - Empty-slot labels are hidden on small boxes (only a "+" shows).
 - Undo is per page; deleting a page cannot be undone (it asks first). Pages cannot be reordered yet.
+- 3D models are procedural and stylised (no scanned textures); headless software rendering is slow (about 13 s
+  per product), real GPUs are fast. Tapered latte mugs still have no template.
+- Handled mugs open facing the print (centre 24° off-axis, `viewAzimuth` -1.15), so the handle is behind the body
+  until the user turns the mug or auto-rotate runs. A centred emblem covers about 120° of a mug; showing both the
+  whole print and the handle from one angle is not possible.
+- `next start` survives TaskStop of its `npx` wrapper on Windows; after a rebuild, stop the node process that
+  listens on port 3200 before starting a new server, or the old build keeps serving.
 - Previews are illustrations; colours are approximate. Sample-design text relies on system fonts
   (Arial Black/Impact fallback) and is forced to width with `textLength`.
 - Pinterest images are deliberately not used (copyright, terms of service); see ADR 0008.
@@ -168,6 +204,21 @@ Next (v0.4 candidates, in suggested order):
 
 ## 8. Update log
 
+- **2026-10-27**: v0.5.0. User asked for a realistic 3D viewer for every product with a colour-adaptive
+  background. Done: procedural three.js models for all 52 products (lathed drinkware with handles/lids/straws,
+  bevelled flat goods with real backs, padded cloth garments with drape, cap with decal print, tote, flag),
+  ceramic/steel/glass/fabric/cork materials, process-aware print textures, `backdropFor` with a contrast test for
+  every blank colour, catalogue 3D dialog, 3D in dock, large preview and landing demo; fixed focus leaking out of
+  preview dialogs (Escape closed the side panel). three.js 0.186.1 (exact pin). Fixed after the first full render:
+  a line across the floor (VSM frustum edge on the floor; floor is now a 3R disc inside a 3.3R shadow frustum,
+  2048 px map) and mug prints facing sideways (camera now starts 24° off the print centre). Measured:
+  `npm run check` green (182 tests, 13 files; coverage 92.82 % lines, 90.78 % statements, 79.68 % branches,
+  91.51 % functions); `v5func.mjs` 48/48, no console errors; `v5all3d.mjs` 52/52 products rendered in one run,
+  no console errors. Screenshots: `docs/images/3d-mug.png`, `3d-tee.png`, `3d-gallery.png`.
+- **2026-10-27**: v0.4.0. User: "still not fixed": product switching merged designs, preview not found, cards
+  looked empty, sheet chips hard to read, landing needed real photos. Done: new design per product + LeaveDialog,
+  live preview dock, sheet dropdown, cards with close-ups and inch badges, canvas box labels, landing rebuilt with
+  13 credited photos (one removed for a visible club crest). Browser: 43/43.
 - **2026-10-27**: v0.3.0. User reported: product cards not attractive enough; choosing A3 for one product
   "conflicts" with other designs; wanted Pinterest example designs that refresh, a preview of the design on the
   T-shirt, and blank colours. Done: pages with their own sheets (root cause: one sheet per project + "Switch to
