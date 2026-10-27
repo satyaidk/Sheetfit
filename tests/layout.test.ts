@@ -7,7 +7,7 @@ import {
   pageSize,
   placementStatus,
   printableRect,
-} from "@/lib/layout/a4-layout";
+} from "@/lib/layout/sheet-layout";
 import { alignDesign, alignGroup, snapRect, snapToGrid, unionBounds } from "@/lib/layout/alignment";
 import {
   applyPlacements,
@@ -17,13 +17,13 @@ import {
   packShelves,
   suggestLayoutFixes,
 } from "@/lib/layout/auto-arrange";
-import { rectsOverlap } from "@/lib/layout/a4-layout";
+import { rectsOverlap } from "@/lib/layout/sheet-layout";
 import { makeDesign, makePage } from "./fixtures";
 
 describe("A4 page", () => {
   it("is 210 × 297 mm portrait and 297 × 210 mm landscape", () => {
-    expect(pageSize("portrait")).toEqual({ width: 210, height: 297 });
-    expect(pageSize("landscape")).toEqual({ width: 297, height: 210 });
+    expect(pageSize(makePage())).toEqual({ width: 210, height: 297 });
+    expect(pageSize(makePage({ orientation: "landscape" }))).toEqual({ width: 297, height: 210 });
   });
 
   it("subtracts margins for the printable area", () => {

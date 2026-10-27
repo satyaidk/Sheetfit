@@ -21,7 +21,7 @@ import {
   type Rect,
   type Size,
 } from "@/lib/image/image-fit";
-import { boxCenter, designBounds, pageSize } from "@/lib/layout/a4-layout";
+import { boxCenter, designBounds, pageSize } from "@/lib/layout/sheet-layout";
 
 export interface PlanItem {
   designId: string;
@@ -38,6 +38,9 @@ export interface PlanItem {
   sourceRect: Rect;
   /** Full decoded size of the source image, in pixels. */
   naturalSize: Size;
+  /** Mirror the image inside its own rectangle. */
+  flipX: boolean;
+  flipY: boolean;
   border: { rect: Rect; width: number; color: string } | null;
 }
 
@@ -51,6 +54,8 @@ export interface PlanLine {
 export interface RenderPlan {
   page: Size;
   background: string | null;
+  /** Flip the whole sheet horizontally (sublimation transfers). */
+  mirror: boolean;
   items: PlanItem[];
   cropMarks: PlanLine[];
   cropMarkWidth: number;
@@ -79,6 +84,8 @@ export function buildPlanItem(design: Design, asset: ImageAsset): PlanItem {
     image: { ...local, x: local.x - hw, y: local.y - hh },
     sourceRect: sourceCropRect(natural, design.crop),
     naturalSize: natural,
+    flipX: design.flipX,
+    flipY: design.flipY,
     border: design.border
       ? {
           // Inset by half the stroke so the line stays inside the box edge.
@@ -127,14 +134,16 @@ export function buildRenderPlan(
   const items: PlanItem[] = [];
   const marks: PlanLine[] = [];
   for (const design of doc.designs) {
-    const asset = lookup(design.assetId);
+    // Empty product slots have no image and print nothing.
+    const asset = design.assetId ? lookup(design.assetId) : undefined;
     if (!asset) continue;
     items.push(buildPlanItem(design, asset));
     if (doc.page.cropMarks) marks.push(...cropMarksFor(designBounds(design)));
   }
   return {
-    page: pageSize(doc.page.orientation),
+    page: pageSize(doc.page),
     background: doc.page.background,
+    mirror: doc.page.mirrorOutput,
     items,
     cropMarks: marks,
     cropMarkWidth: CROP_MARK.width,

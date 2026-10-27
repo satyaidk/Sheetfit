@@ -64,7 +64,7 @@ export function NumberField({
   return (
     <label
       className={cn(
-        "flex h-8 min-w-0 items-center rounded-md border border-line bg-surface pl-2 text-[13px] transition-colors focus-within:border-cyan focus-within:ring-2 focus-within:ring-cyan/15 hover:border-line-strong",
+        "flex h-8 min-w-0 items-center rounded-md border border-line bg-surface pl-2 text-[13px] transition-colors focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/15 hover:border-line-strong",
         disabled && "pointer-events-none opacity-50",
         className,
       )}

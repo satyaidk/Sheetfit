@@ -34,7 +34,60 @@ export function useEditorShortcuts() {
         if (s.doc.designs.length > 0) s.setDialog("print");
         return;
       }
+      if (mod && e.key === "/") {
+        e.preventDefault();
+        s.setPanelOpen(!s.panelOpen);
+        return;
+      }
       if (isTyping(e.target) || s.dialog) return;
+
+      if (e.key === "?") {
+        s.setDialog("shortcuts");
+        return;
+      }
+      if ((e.key === "PageDown" || e.key === "PageUp") && s.pages.length > 1) {
+        e.preventDefault();
+        s.switchPage(Math.min(s.pages.length - 1, Math.max(0, s.activePage + (e.key === "PageDown" ? 1 : -1))));
+        return;
+      }
+      if (mod && (e.key === "]" || e.key === "[")) {
+        e.preventDefault();
+        const id = s.selection[0];
+        if (!id) return;
+        if (e.key === "]") s.bringForward(id, e.altKey);
+        else s.sendBackward(id, e.altKey);
+        return;
+      }
+      if (e.altKey && e.shiftKey && key === "l") {
+        e.preventDefault();
+        const picked = s.doc.designs.filter((d) => s.selection.includes(d.id));
+        const lock = !picked.every((d) => d.locked);
+        for (const d of picked) s.updateDesign(d.id, { locked: lock });
+        return;
+      }
+      if (e.altKey && (e.key === "," || e.key === ".") && s.selection.length > 0) {
+        e.preventDefault();
+        const step = e.key === "," ? -15 : 15;
+        for (const d of s.doc.designs.filter((x) => s.selection.includes(x.id) && !x.locked)) {
+          s.updateDesign(d.id, { rotation: (d.rotation + step) % 360 });
+        }
+        return;
+      }
+      if (e.shiftKey && !mod && (key === "h" || key === "v") && s.selection.length > 0) {
+        e.preventDefault();
+        s.flipDesigns(key === "h" ? "x" : "y");
+        return;
+      }
+      const onCanvas = e.target === document.body || (e.target as HTMLElement).getAttribute?.("role") === "application";
+      if (key === "tab" && !mod && onCanvas && s.doc.designs.length > 0) {
+        // Cycle the selection through designs (keyboard access to canvas objects).
+        e.preventDefault();
+        const ids = s.doc.designs.map((d) => d.id);
+        const current = ids.indexOf(s.selection[0]);
+        const next = current < 0 ? 0 : (current + (e.shiftKey ? -1 : 1) + ids.length) % ids.length;
+        s.select([ids[next]]);
+        return;
+      }
 
       if (mod && key === "z") {
         e.preventDefault();
@@ -77,8 +130,10 @@ export function useEditorShortcuts() {
         s.zoomTo(s.zoom * 1.25);
       } else if (e.key === "-") {
         s.zoomTo(s.zoom / 1.25);
-      } else if (e.shiftKey && (e.code === "Digit1")) {
+      } else if (e.shiftKey && (e.code === "Digit1" || e.code === "Digit2")) {
         s.fitPage();
+      } else if (e.shiftKey && e.code === "Digit3") {
+        s.zoomToSelection();
       } else if (e.shiftKey && (e.code === "Digit0")) {
         s.zoomTo(1);
       }

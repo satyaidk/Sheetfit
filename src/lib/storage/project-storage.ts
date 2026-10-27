@@ -115,7 +115,8 @@ export async function listProjects(): Promise<ProjectSummary[]> {
       createdAt: p.createdAt,
       updatedAt: p.updatedAt,
       thumbnail: p.thumbnail,
-      designCount: p.document.designs.length,
+      designCount: (p.pages ?? [p.document]).reduce((n, page) => n + page.designs.length, 0),
+      pageCount: (p.pages ?? [p.document]).length,
     }));
   } catch (error) {
     throw wrap(error, "list saved projects");
