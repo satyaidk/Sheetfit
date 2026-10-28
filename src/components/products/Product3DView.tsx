@@ -3,10 +3,12 @@
 /**
  * Interactive 3D view of a product with the design on it.
  *
- * A studio set: a room environment for reflections (glaze, steel and glass
- * need something to reflect), a key light casting a soft shadow onto an
- * invisible floor, and a backdrop gradient picked for contrast with the blank
- * colour (`backdropFor`). Drag to orbit, scroll or pinch to zoom; the view is
+ * A studio set: a photographed studio (a CC0 HDRI with large softboxes,
+ * `public/env/`) lights the product and gives glaze, steel and glass real
+ * highlights to reflect; three.js's synthetic room stands in while it loads
+ * or if it fails. A key light casts a soft shadow onto an invisible floor,
+ * and a backdrop gradient is picked for contrast with the blank colour
+ * (`backdropFor`). Drag to orbit, scroll or pinch to zoom; the view is
  * framed to the product's size and re-framed only when the product changes,
  * so switching colours or designs keeps the angle the user chose.
  *
@@ -24,6 +26,7 @@ import { Maximize2, Minimize2, ZoomIn, ZoomOut } from "lucide-react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
+import { HDRLoader } from "three/examples/jsm/loaders/HDRLoader.js";
 import type { ProductPreset } from "@/lib/catalogue/products";
 import type { PrintProcess } from "@/types/editor";
 import { backdropFor } from "@/lib/catalogue/colors";
@@ -86,6 +89,16 @@ interface Stage {
   home: { front: number; distance: number };
 }
 
+/** "Studio Small 03" by Greg Zaal, Poly Haven, CC0 (public/env/CREDITS.md). */
+const STUDIO_HDRI = "/env/studio_small_03_1k.hdr";
+/**
+ * The studio's softbox is bright and large: facing the camera it washes a
+ * glossy print out. Turned to the upper left it leaves a narrow highlight
+ * near the edge, as in a product photo. Tuned by eye on the mug, tumbler and
+ * T-shirt; the key light is lowered because the studio now does half its work.
+ */
+const STUDIO = { rotation: -0.8, intensity: 0.7, key: 1.3 };
+
 const NO_WEBGL = "3D preview needs WebGL, which this browser has turned off. The flat preview still works.";
 
 function webglAvailable(): boolean {
@@ -147,7 +160,8 @@ export default function Product3DView({
     const scene = new THREE.Scene();
     const pmrem = new THREE.PMREMGenerator(renderer);
     const room = new RoomEnvironment();
-    const env = pmrem.fromScene(room, 0.04).texture;
+    let env = pmrem.fromScene(room, 0.04).texture;
+    room.dispose();
     scene.environment = env;
     scene.environmentIntensity = 0.9;
 
@@ -191,6 +205,27 @@ export default function Product3DView({
       home: { front: 0, distance: 1 },
     };
     stage.current = s;
+
+    // Swap in the photographed studio once it arrives (1.6 MB); until then, or if it fails, keep the room.
+    let disposed = false;
+    new HDRLoader().load(
+      STUDIO_HDRI,
+      (hdr) => {
+        if (!disposed) {
+          env.dispose();
+          env = pmrem.fromEquirectangular(hdr).texture;
+          scene.environment = env;
+          scene.environmentIntensity = STUDIO.intensity;
+          scene.environmentRotation.y = STUDIO.rotation;
+          key.intensity = STUDIO.key;
+          s.dirty = true;
+        }
+        hdr.dispose();
+      },
+      undefined,
+      () => undefined,
+    );
+
     controls.addEventListener("change", () => (s.dirty = true));
     controls.addEventListener("start", () => {
       setHint(false);
@@ -238,6 +273,7 @@ export default function Product3DView({
     frame = requestAnimationFrame(tick);
 
     return () => {
+      disposed = true;
       cancelAnimationFrame(frame);
       ro.disconnect();
       controls.dispose();

@@ -4,6 +4,13 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Changed
+
+- 3D viewer lighting: products are lit by a photographed studio ("Studio Small 03", a CC0 HDRI from Poly Haven,
+  1.6 MB in `public/env/`) instead of three.js's synthetic room. Glaze, steel and glass now show a softbox
+  highlight and a darker far edge, as in a product photo; the studio is turned so the highlight sits near the edge
+  instead of washing out the print. The synthetic room stays as the fallback while the file loads or if it fails.
+
 ## [0.7.0] - 2026-10-28
 
 ### Added
