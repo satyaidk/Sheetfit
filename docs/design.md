@@ -165,3 +165,20 @@ Clicking a product card calls `requestProduct`: if the current design has an ima
 | Cap, tote, flag | Crown hemisphere with seams and a bent brim; rounded box with strap tubes; rippled plane on a pole | `DecalGeometry` on the crown; plane on the bag; the whole flag |
 
 Textures come from `lib/three/print-textures.ts`: the print composite (blank colour, then the design multiplied for sublimation or drawn over for DTF, with bleed and seam overlap cropped and other shapes fitted whole), a procedural plain-weave normal map, and cork. The overlay material for garments multiplies (sublimation, unlit, not tone-mapped so white stays "no ink") or lays a semi-gloss film (DTF). The viewer (`Product3DView`) uses ACES tone mapping, a PMREM room environment, a key light with a blurred variance shadow on an invisible floor, orbit controls, and a CSS gradient backdrop from `backdropFor`, chosen so the blank always contrasts with it.
+
+## 17. Home page (0.6)
+
+The home page is a separate visual system, scoped to a `.studio` wrapper so none of it reaches the editor: warm paper (`#f6f3ed`), ink (`#22231f`), lime (`#d7f36a`) for what is selected or ready, coral (`#f36b4f`) for annotations, and the editor's magenta for guides. Headlines use Bricolage Grotesque condensed (`font-stretch: 80%`); body text stays on Figtree.
+
+The page shows the product rather than describing it, and every picture of a sheet is computed, not drawn:
+
+| Section | Source of truth |
+| --- | --- |
+| Hero sheet, interactive sheet demo | `lib/landing/sheet-demos.ts`: real slot sizes (`slotSize`), real sheet sizes, the editor's 5 mm margins and `packShelves`; gaps from `measureGaps`, snapping from `snapRect`, usage from `sheetUtilisation` |
+| Product tiles | `PRODUCTS` and `ProductMockup`; each links to `/editor?product=<id>` |
+| 3D preview | The editor's `Product3D`, loaded only when the section is near the viewport |
+| Spec sheet | Measured results from the evaluation table, or arithmetic shown next to the number |
+
+`lib/editor-link.ts` parses `?sample`, `?product=` and `&process=`; unknown values fall back to the empty editor. `EditorLayout` opens the product with `openProductDesign`, or asks first through `requestProduct` if there is work to lose.
+
+Motion is CSS, plus one small client component (`StudioMotion`) for scroll reveals and a gentle hero parallax. Sections below the fold are hidden only after the script has run, so nothing is invisible without scripts. Sections that a fast scroll jumps past are revealed too. Reduced motion turns off reveals, parallax and the floating annotations.

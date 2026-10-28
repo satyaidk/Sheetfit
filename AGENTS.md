@@ -15,7 +15,7 @@ Every agent (and human) reads it before starting work and updates it **in the sa
 feature, plan or known-issue change. Keep entries short and factual. Newest entries go at the top of the
 update log (section 8).
 
-Last updated: 2026-10-27 (v0.5.0)
+Last updated: 2026-10-28 (v0.6.0)
 
 ## 1. Product in one paragraph
 
@@ -27,7 +27,8 @@ instead). Users drop images or generated **sample designs** into the box, watch 
 inspect every product as an interactive **3D model** in any blank colour, and
 export an exact-size multi-page PDF, PNG/JPEG per page with DPI metadata, a browser print at 100%, or a
 `.sheetfit` project file. Default fitting never crops or distorts. Sublimation output is mirrored; DTF is not.
-No backend; projects live in IndexedDB.
+No backend; projects live in IndexedDB. The home page (`/`) is a separate "studio" design that demonstrates
+all of this with real layouts and links straight into templates (`/editor?product=<id>`).
 
 ## 2. Current status
 
@@ -42,9 +43,10 @@ No backend; projects live in IndexedDB.
 | v0.3 product previews (colours, wrap turning, PNG download), sample designs, product cards redesign | Done, verified in Chrome |
 | v0.4 new design per product + save/discard dialog, live preview dock, sheet dropdowns, card visibility, landing page with real photos | Done, tested, verified in Chrome |
 | v0.5 3D models for all 52 products (three.js, procedural, real size), adaptive backdrop, catalogue 3D viewer | Done, tested; every product rendered in headless Chrome |
+| v0.6 home page redesign (studio palette, real-layout hero, product tiles → templates, workflow, interactive sheet demo, 3D section, spec sheet), `?product=` editor links | Done, tested, verified in Chrome at 1440/1024/768/390/320 px |
 | Quality gate `npm run check` | See section 8 for the latest numbers |
-| Browser checks | `v5func.mjs` (48 whole-app checks incl. 3D) and `v5all3d.mjs` (every product in 3D); see section 8 |
-| Committed to git | **No.** Branch `dev` (main branch `main`); v0.2 to v0.5 work is uncommitted. The user has not asked to commit yet |
+| Browser checks | `v5func.mjs` (48 whole-app checks incl. 3D), `v6func.mjs` (24 home page checks), `v5all3d.mjs` (every product in 3D); see section 8 |
+| Committed to git | Up to v0.5 (by the user, branch `dev`). v0.6 is uncommitted; ask before committing |
 
 ## 3. Commands
 
@@ -62,8 +64,9 @@ npm test               # vitest only
   (`C:/Program Files/Google/Chrome/Application/chrome.exe`) from a scratch folder, against
   `npm run build && npx next start -p 3200`. Scripts: `v5func.mjs` (whole app), `v5all3d.mjs` (every product in
   3D, optional args: start index and a label filter; launch Chrome with `--use-angle=swiftshader --enable-unsafe-swiftshader`, about 13 s per product, so run it
-  in the background), `v4shots.mjs` and `v5shots.mjs` (README screenshots →
-  `docs/images/`; 3D gallery via `contact.mjs`). `localStorage["sheetfit:onboarded"]`
+  in the background), `v4shots.mjs`, `v5shots.mjs` and `v6readme.mjs` (README screenshots →
+  `docs/images/`; 3D gallery via `contact.mjs`), `v6shots.mjs <widths…>` (home page at several widths; full-page
+  captures use reduced motion so no section is mid-reveal), `v6func.mjs` (home page and `?product=` links). `localStorage["sheetfit:onboarded"]`
   controls the start dialog. In scripts: clicking the active rail tab closes its panel; accept the unsaved-changes
   `beforeunload` prompt; restart `next start` after every rebuild; clipped `page.screenshot` came back stale, use
   full-viewport or element screenshots; the product panel filters to the page's process, click "All" first.
@@ -92,6 +95,9 @@ npm test               # vitest only
 14. 3D: three.js only through `Product3D` (next/dynamic). Builders in `lib/three/product-model.ts` stay pure (no
     DOM) so they run in Vitest; textures come from `lib/three/print-textures.ts` in the browser (ADR 0010).
 15. Dialogs that skip auto-focus must use `focusDialogItself`, so focus (and Escape) stays inside the dialog.
+16. Home page styles live under `.studio` (tokens `paper`, `graphite`, `lime`, `coral`, `stone`, `hairline`) and must
+    not leak into the editor. Every sheet pictured there comes from `lib/landing/sheet-demos.ts` (real catalogue +
+    packer); every action links to a real editor flow (`lib/editor-link.ts`). No invented numbers or features.
 
 ## 5. File map
 
@@ -135,9 +141,11 @@ npm test               # vitest only
 | `src/components/settings/*` | `SheetSelect` (dropdown), `SheetPanel`, `SheetDialog`, `DimensionControls`, `NumberField`, `Section` |
 | `src/components/export/ExportDialog.tsx` | Export/print for all pages or one, page-by-page preview, preflight per page, mirror badge |
 | `src/components/ui/*` | Radix/shadcn-style primitives incl. popover, context-menu, toolbar |
-| `src/app/page.tsx`, `src/components/landing/*` | Landing page: `HeroSheet` (transfers settle on a sheet), `ColorDemo` (flat/3D), `photos.ts` (credits) |
+| `src/app/page.tsx`, `src/components/landing/*` | Home page: `StudioNav`, `StudioMotion` (reveals, parallax), `HeroComposition`, `ProductShowcase`, `Workflow`, `SheetDemo` (interactive), `ColorDemo` (3D/flat), `SpecSheet`, `demo-art.ts`, `photos.ts` (credits) |
+| `src/lib/landing/sheet-demos.ts` | Example sheets built with the real packer, margins and slot sizes |
+| `src/lib/editor-link.ts` | `parseEditorLink` (`?sample`, `?product=`, `&process=`), `productHref` |
 | `src/assets/photos/` | 13 landing photos (Unsplash/Pexels) and `CREDITS.md` |
-| `tests/*` | Vitest suites incl. `v03-pages-mockups`, `v04-product-flow`, `v05-3d-models` (every product built in 3D) |
+| `tests/*` | Vitest suites incl. `v03-pages-mockups`, `v04-product-flow`, `v05-3d-models` (every product built in 3D), `v06-studio-home` (demo sheets, editor links) |
 | `docs/` | Design doc, ADRs 0001–0010, learning path, printing guide, screenshots |
 
 ## 6. Plan
@@ -171,8 +179,13 @@ v0.5 phases (all done 2026-10-27):
 - [x] S3 Entry points: card 3D, dock 3D, 3D/Flat in the large preview, landing demo
 - [x] S4 Quality: unit tests (all products built, sizes, contrast), browser render of every product
 
-Next (v0.6 candidates, in suggested order):
-1. Commit the work (ask the user first; current branch `dev`, main branch `main`).
+v0.6 phases (all done 2026-10-28):
+- [x] T1 Studio tokens, nav, hero with a real-layout sheet
+- [x] T2 Product showcase linked to templates (`?product=`), workflow, interactive sheet demo
+- [x] T3 3D section (lazy), spec sheet, closing CTA, footer; responsive and reduced-motion checks
+
+Next (v0.7 candidates, in suggested order):
+1. Commit v0.6 (ask the user first; current branch `dev`, main branch `main`).
 2. Playwright e2e in CI (port `v5func.mjs`; 3D needs SwiftShader flags).
 3. Page reordering (drag in the page strip); page names.
 4. DTF auto-pack with per-image quantity and 90° rotation; separate edge margin vs gap.
@@ -204,6 +217,17 @@ Next (v0.6 candidates, in suggested order):
 - `research_notes/` and `reports/` are in the repo root; decide with the user whether to keep them committed.
 
 ## 8. Update log
+
+- **2026-10-28**: v0.6.0. User pasted a master prompt for a premium "print studio" home page (palette paper
+  #F6F3ED, ink #22231F, lime #D7F36A, coral #F36B4F, stone #E9E3D9). Done: page rebuilt from scoped components;
+  hero and demo sheets computed by the real packer; product tiles open templates via new `/editor?product=` links;
+  interactive sheet demo uses `snapRect`/`measureGaps`/`sheetUtilisation`; 3D section loads lazily and offers only
+  supported processes (the old demo allowed DTF on mugs). Found and fixed while verifying: lime highlight hid the
+  "y" descender, mug photo hidden behind the sheet, tile sizes truncated, reveals skipped by fast jumps, a third A3
+  keychain that did not fit (caught by a test). Measured: `npm run check` green (192 tests, 14 files; coverage
+  92.96 % lines, 90.96 % statements, 80.25 % branches, 91.81 % functions); `v6func.mjs` 24/24; `v5func.mjs` 48/48
+  (two old landing assertions updated to the new page); no overflow or console errors at 1440/1024/768/390/320 px.
+  No dependencies added.
 
 - **2026-10-27**: CI typechecking failed on a clean checkout because `next-env.d.ts` and route-aware helpers are
   generated and ignored. Updated `npm run typecheck` to run `next typegen` before `tsc --noEmit`, which also

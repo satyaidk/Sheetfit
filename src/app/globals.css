@@ -63,6 +63,15 @@
   --color-process-cyan: var(--process-cyan);
   --color-process-magenta: var(--process-magenta);
   --color-process-yellow: var(--process-yellow);
+  /* Home page ("studio") palette; the variables are defined on .studio only. */
+  --color-paper: var(--studio-paper);
+  --color-paper-deep: var(--studio-paper-deep);
+  --color-stone: var(--studio-stone);
+  --color-graphite: var(--studio-graphite);
+  --color-graphite-soft: var(--studio-graphite-soft);
+  --color-hairline: var(--studio-line);
+  --color-lime: var(--studio-lime);
+  --color-coral: var(--studio-coral);
   --font-sans: var(--font-figtree), ui-sans-serif, system-ui, sans-serif;
   --font-display: var(--font-bricolage), var(--font-figtree), ui-sans-serif, system-ui, sans-serif;
   --radius-sm: 4px;
@@ -160,56 +169,163 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 
 /*
- * Landing hero: transfers settle onto the sheet one after another, then a
- * single heat-press sweep crosses the sheet. This is the page's one
- * orchestrated moment; everything else moves only in response to the user.
+ * Home page ("studio"). Scoped to .studio so nothing reaches the editor.
+ * Warm paper, ink, and two accents used sparingly: lime marks what is
+ * selected or ready (a highlighter on a proof), coral marks annotations.
+ * Coral never carries white text (about 3:1 contrast); ink on coral is 5:1.
  */
-@keyframes transfer-settle {
+.studio {
+  --studio-paper: #f6f3ed;
+  --studio-paper-deep: #eee9e0;
+  --studio-stone: #e9e3d9;
+  --studio-graphite: #22231f;
+  --studio-graphite-soft: #57584f;
+  --studio-line: rgb(34 35 31 / 0.14);
+  --studio-lime: #d7f36a;
+  --studio-coral: #f36b4f;
+  background: var(--studio-paper);
+  color: var(--studio-graphite);
+  font-size: 16px;
+}
+.studio :focus-visible {
+  outline: 2px solid var(--studio-graphite);
+  outline-offset: 3px;
+}
+/* Poster headline: Bricolage Grotesque, condensed and heavy. */
+.studio-display {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-stretch: 80%;
+  letter-spacing: -0.018em;
+  line-height: 0.95;
+}
+
+/* Hero entrance: the headline lines rise in turn, then the transfers settle
+   onto the sheet, then the annotations appear. One orchestrated moment. */
+@keyframes studio-rise {
   from {
     opacity: 0;
-    transform: translateY(-28px) rotate(calc(var(--tilt, 0deg) + 7deg)) scale(1.04);
-  }
-  70% {
-    opacity: 1;
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) rotate(var(--tilt, 0deg)) scale(1);
+    transform: translateY(0.45em);
   }
 }
-.transfer {
-  transform: rotate(var(--tilt, 0deg));
-  animation: transfer-settle 700ms var(--ease-out) both;
+.studio-rise {
+  animation: studio-rise 700ms var(--ease-out) both;
   animation-delay: var(--delay, 0ms);
 }
-@keyframes press-sweep {
-  from {
-    transform: translateX(-110%);
-    opacity: 0;
-  }
-  15% {
-    opacity: 1;
-  }
-  85% {
-    opacity: 1;
-  }
-  to {
-    transform: translateX(110%);
-    opacity: 0;
-  }
-}
-.press-sweep {
-  animation: press-sweep 1400ms cubic-bezier(0.45, 0, 0.25, 1) 1500ms both;
-}
-@keyframes hero-copy {
+@keyframes studio-settle {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(-14px) rotate(-3deg) scale(1.05);
+  }
+  60% {
+    opacity: 1;
   }
 }
-.hero-copy {
-  animation: hero-copy 600ms var(--ease-out) both;
+.studio-settle {
+  animation: studio-settle 650ms var(--ease-out) both;
   animation-delay: var(--delay, 0ms);
+}
+@keyframes studio-fade {
+  from {
+    opacity: 0;
+  }
+}
+.studio-fade {
+  animation: studio-fade 500ms var(--ease-out) both;
+  animation-delay: var(--delay, 0ms);
+}
+/* Annotations drift by 3 px, slowly, so the sheet reads as a live workspace. */
+@keyframes studio-float {
+  to {
+    transform: translateY(-3px);
+  }
+}
+.studio-float {
+  animation: studio-float 3.2s ease-in-out infinite alternate;
+  animation-delay: var(--delay, 0ms);
+}
+
+/* Scroll reveals (StudioMotion marks sections below the fold as hidden, then shown). */
+.studio [data-reveal] {
+  transition:
+    opacity 700ms var(--ease-out),
+    transform 700ms var(--ease-out);
+}
+.studio [data-reveal="hidden"] {
+  opacity: 0;
+  transform: translateY(28px);
+}
+.studio [data-parallax] {
+  transform: translate3d(0, var(--parallax, 0px), 0);
+}
+
+/* Workflow steps: each illustration plays once when its step is revealed. */
+@keyframes wf-drop {
+  from {
+    opacity: 0;
+    transform: translate(-30%, -60%) rotate(-8deg);
+  }
+}
+@keyframes wf-draw {
+  from {
+    transform: scaleX(0);
+  }
+}
+@keyframes wf-draw-y {
+  from {
+    transform: scaleY(0);
+  }
+}
+@keyframes wf-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+}
+.studio [data-reveal="shown"] .wf-drop {
+  animation: wf-drop 800ms var(--ease-out) 250ms both;
+}
+.studio [data-reveal="shown"] .wf-draw {
+  transform-origin: left;
+  animation: wf-draw 700ms var(--ease-out) var(--delay, 300ms) both;
+}
+.studio [data-reveal="shown"] .wf-draw-y {
+  transform-origin: top;
+  animation: wf-draw-y 700ms var(--ease-out) var(--delay, 300ms) both;
+}
+.studio [data-reveal="shown"] .wf-pop {
+  animation: wf-pop 450ms var(--ease-out) var(--delay, 600ms) both;
+}
+
+/* Product tiles: the photo gives way to the template's print area on hover or focus. */
+.studio-tile .tile-photo,
+.studio-tile .tile-template {
+  transition:
+    opacity 450ms var(--ease-out),
+    transform 600ms var(--ease-out);
+}
+.studio-tile .tile-template {
+  opacity: 0;
+  transform: scale(0.96);
+}
+.studio-tile:hover .tile-photo,
+.studio-tile:focus-within .tile-photo {
+  opacity: 0;
+  transform: scale(1.04);
+}
+.studio-tile:hover .tile-template,
+.studio-tile:focus-within .tile-template {
+  opacity: 1;
+  transform: scale(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .studio-float {
+    animation: none;
+  }
+  .studio [data-parallax] {
+    transform: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

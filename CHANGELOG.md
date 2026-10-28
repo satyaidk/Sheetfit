@@ -4,6 +4,28 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-28
+
+### Added
+
+- Home page redesign as a print studio: warm paper, ink, lime and coral, scoped to the home page so the editor is
+  unchanged. The hero shows an A4 sublimation sheet with a selected mug wrap, its size and a measured gap, beside
+  photos of printed products.
+- Product showcase with real catalogue tiles; photos cross-fade to the template's print area on hover or focus,
+  and every tile opens that template in the editor.
+- "From artwork to print-ready": four connected steps with small animations that play once.
+- Interactive sheet demo with three real example sheets (A4 mug and coasters, A3 tumbler, 22 × 24 in DTF gang
+  sheet), laid out by the editor's own packing, snapping and measuring code. Drag or nudge transfers to see guides,
+  live gaps, overlaps and sheet usage.
+- The 3D preview section loads three.js only when it is reached, offers only the processes a product supports, and
+  links to the product's template.
+- Editor links: `/editor?product=<id>` opens a product template, with an optional `&process=dtf|sublimation`.
+- Responsive navigation with a phone menu; scroll reveals and a gentle parallax that respect reduced motion.
+
+### Removed
+
+- The old landing hero (`HeroSheet`), the Sublimation-or-DTF section and the unused `public/editor-preview.png`.
+
 ## [0.5.0] - 2026-10-27
 
 ### Added
