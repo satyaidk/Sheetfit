@@ -47,7 +47,7 @@ all of this with real layouts and links straight into templates (`/editor?produc
 | v0.7 rendered product pictures (cards, lists, dialogs), 3D dock, 3D toolbar (views, zoom, full screen), back prints on the back, "Night press" home page | Done, tested, verified in Chrome |
 | Quality gate `npm run check` | See section 8 for the latest numbers |
 | Browser checks | `v5func.mjs` (48 whole-app checks incl. 3D dock), `v6func.mjs` (32 home page and link checks), `v5all3d.mjs` (every product in 3D); see section 8 |
-| Committed to git | Up to v0.6 (by the user, branch `dev`). v0.7 is uncommitted; ask before committing |
+| Committed to git | Up to v0.7 (by the user). Studio HDRI lighting on branch `ccr-5ba9bb88-hczjxd` |
 
 ## 3. Commands
 
@@ -148,6 +148,7 @@ npm test               # vitest only
 | `src/components/ui/*` | Radix/shadcn-style primitives incl. popover, context-menu, toolbar |
 | `src/app/page.tsx`, `src/components/landing/*` | Home page: `HomeNav` (scroll progress), `StudioMotion` (reveals, parallax), `HeroShowcase`, `ProductMarquee`, `StoryWorkflow` (pinned scroll story), `SheetDemo`, `ColorDemo` (3D), `HomeSections` (features, Sublimation vs DTF, FAQ), `demo-art.ts`, `photos.ts` |
 | `public/products/` | 52 rendered product pictures and 9 detail crops (WebP) |
+| `public/env/` | Studio HDRI for 3D lighting and reflections (CC0, Poly Haven) and `CREDITS.md` |
 | `src/lib/landing/sheet-demos.ts` | Example sheets built with the real packer, margins and slot sizes |
 | `src/lib/editor-link.ts` | `parseEditorLink` (`?sample`, `?product=`, `&process=`), `productHref` |
 | `src/assets/photos/` | 13 landing photos (Unsplash/Pexels) and `CREDITS.md` |
@@ -197,7 +198,8 @@ v0.7 phases (all done 2026-10-28):
 - [x] U3 "Night press" home page; README, CHANGELOG 0.7.0, ADR 0011, design doc 17-18
 
 Next (v0.8 candidates, in suggested order):
-1. Commit v0.7 (ask the user first; current branch `dev`, main branch `main`).
+1. 3D realism step 2: licensed glTF models (CC0, bought with a clear licence, or our own Blender work) for the
+   mug, tumbler and T-shirt; needs an ADR (changes rule 14). Step 3: baked contact shadows, glaze/weave detail maps.
 2. Move the picture render scripts into the repo (`scripts/`) so CI can check the pictures are current.
 2. Playwright e2e in CI (port `v5func.mjs`; 3D needs SwiftShader flags).
 3. Page reordering (drag in the page strip); page names.
@@ -218,6 +220,8 @@ Next (v0.8 candidates, in suggested order):
 - The 3D dock rebuilds the model on the main thread when the design changes; under software WebGL (headless,
   machines without a GPU) that takes seconds, so the large preview opened 4+ s late in tests. Real GPUs are fast.
 - Product pictures are not regenerated automatically; the render scripts live in the scratchpad, not the repo.
+  They were rendered before the studio HDRI lighting, so they look flatter than the live 3D viewer until re-rendered.
+- The studio HDRI's floor is slightly blue, so black and dark blanks take a faint cool tint in 3D.
 - Handled mugs open facing the print (centre 24° off-axis, `viewAzimuth` -1.15), so the handle is behind the body
   until the user turns the mug or auto-rotate runs. A centred emblem covers about 120° of a mug; showing both the
   whole print and the handle from one angle is not possible.
@@ -233,6 +237,16 @@ Next (v0.8 candidates, in suggested order):
 - `research_notes/` and `reports/` are in the repo root; decide with the user whether to keep them committed.
 
 ## 8. Update log
+
+- **2026-10-28**: User compared our 3D models with Pacdora's mockups (pacdora.com) and asked to add them. Their
+  models are proprietary and not downloadable (images/video only; a paid Editor API exists), so extracting them was
+  declined. Agreed plan: (1) real studio HDRI lighting, (2) licensed glTF models for the weakest products, (3) baked
+  contact shadows and detail maps. Done (1): `Product3DView` loads `public/env/studio_small_03_1k.hdr` (CC0, Greg
+  Zaal) through `HDRLoader` + PMREM, rotation -0.8 rad, environment 0.7, key light 1.3; `RoomEnvironment` remains
+  the fallback. Tried "Studio Small 09" first: its white cove washed glossy prints out. Tuned by before/after
+  renders of the mug, 20 oz tumbler and T-shirt (white and black) in headless Chromium (SwiftShader, canvas
+  readback). `npm run check` green (196 tests, 14 files; coverage 92.97 % lines, 90.97 % statements, 80.44 %
+  branches, 91.81 % functions). No dependencies added.
 
 - **2026-10-28**: v0.7.0. User asked to use images from a `Sublimation & DTF images` folder (33 files), replace
   flat product images with realistic previews, improve the 3D preview, and redesign the home page again. The
