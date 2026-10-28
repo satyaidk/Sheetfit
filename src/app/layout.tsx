@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Bricolage_Grotesque, Figtree } from "next/font/google";
+import { Bricolage_Grotesque, Figtree, Sora } from "next/font/google";
 import { Toaster } from "sonner";
 import "./globals.css";
 
@@ -15,6 +15,13 @@ const bricolage = Bricolage_Grotesque({
   axes: ["opsz", "wdth"],
 });
 
+/** Headline face for the home page (geometric, modern); the editor stays on Figtree. */
+const sora = Sora({
+  variable: "--font-sora",
+  subsets: ["latin"],
+  weight: ["600", "700"],
+});
+
 export const metadata: Metadata = {
   title: "Sheetfit: sublimation and DTF print layouts",
   description:
@@ -27,7 +34,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${figtree.variable} ${bricolage.variable} h-full`}>
+    <html lang="en" className={`${figtree.variable} ${bricolage.variable} ${sora.variable} h-full`}>
       <body className="min-h-full">
         {children}
         <Toaster

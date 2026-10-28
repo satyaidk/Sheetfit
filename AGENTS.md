@@ -15,7 +15,7 @@ Every agent (and human) reads it before starting work and updates it **in the sa
 feature, plan or known-issue change. Keep entries short and factual. Newest entries go at the top of the
 update log (section 8).
 
-Last updated: 2026-10-28 (v0.6.0)
+Last updated: 2026-10-28 (v0.7.0)
 
 ## 1. Product in one paragraph
 
@@ -43,10 +43,11 @@ all of this with real layouts and links straight into templates (`/editor?produc
 | v0.3 product previews (colours, wrap turning, PNG download), sample designs, product cards redesign | Done, verified in Chrome |
 | v0.4 new design per product + save/discard dialog, live preview dock, sheet dropdowns, card visibility, landing page with real photos | Done, tested, verified in Chrome |
 | v0.5 3D models for all 52 products (three.js, procedural, real size), adaptive backdrop, catalogue 3D viewer | Done, tested; every product rendered in headless Chrome |
-| v0.6 home page redesign (studio palette, real-layout hero, product tiles → templates, workflow, interactive sheet demo, 3D section, spec sheet), `?product=` editor links | Done, tested, verified in Chrome at 1440/1024/768/390/320 px |
+| v0.6 studio home page, `?product=` editor links | Done; superseded by the v0.7 home page |
+| v0.7 rendered product pictures (cards, lists, dialogs), 3D dock, 3D toolbar (views, zoom, full screen), back prints on the back, "Night press" home page | Done, tested, verified in Chrome |
 | Quality gate `npm run check` | See section 8 for the latest numbers |
-| Browser checks | `v5func.mjs` (48 whole-app checks incl. 3D), `v6func.mjs` (24 home page checks), `v5all3d.mjs` (every product in 3D); see section 8 |
-| Committed to git | Up to v0.5 (by the user, branch `dev`). v0.6 is uncommitted; ask before committing |
+| Browser checks | `v5func.mjs` (48 whole-app checks incl. 3D dock), `v6func.mjs` (32 home page and link checks), `v5all3d.mjs` (every product in 3D); see section 8 |
+| Committed to git | Up to v0.6 (by the user, branch `dev`). v0.7 is uncommitted; ask before committing |
 
 ## 3. Commands
 
@@ -95,9 +96,13 @@ npm test               # vitest only
 14. 3D: three.js only through `Product3D` (next/dynamic). Builders in `lib/three/product-model.ts` stay pure (no
     DOM) so they run in Vitest; textures come from `lib/three/print-textures.ts` in the browser (ADR 0010).
 15. Dialogs that skip auto-focus must use `focusDialogItself`, so focus (and Escape) stays inside the dialog.
-16. Home page styles live under `.studio` (tokens `paper`, `graphite`, `lime`, `coral`, `stone`, `hairline`) and must
-    not leak into the editor. Every sheet pictured there comes from `lib/landing/sheet-demos.ts` (real catalogue +
+16. Home page styles live under `.home` (tokens `night`, `night-2`, `mist`, `mist-2`, `muted`, `hairline`, plus the
+    existing `process-*` inks) and must not leak into the editor. Every sheet pictured there comes from `lib/landing/sheet-demos.ts` (real catalogue +
     packer); every action links to a real editor flow (`lib/editor-link.ts`). No invented numbers or features.
+17. Product pictures are build artefacts in `public/products/<id>.webp` (+ `-detail.webp` for small placements),
+    rendered from the 3D models (ADR 0011, design doc section 18). Re-render them whenever a model or the sample
+    designs change; `tests/v06-studio-home.test.ts` fails if any product lacks its picture. Never ship images whose
+    licence is unknown (the user's `Sublimation & DTF images/` folder is git-ignored and must stay out).
 
 ## 5. File map
 
@@ -137,11 +142,12 @@ npm test               # vitest only
 | `src/components/products/MockupPreview.tsx` | `MockupDialog` (3D / Flat switch), `ProductSection`, `ColorSwatches`, `SampleStrip` |
 | `src/components/products/LivePreviewDock.tsx` | Live preview docked on the canvas (colours, 3D, large preview, collapse) |
 | `src/components/products/Product3D.tsx`, `Product3DView.tsx`, `Product3DDialog.tsx` | Lazy 3D viewer (renderer, studio light, orbit, adaptive backdrop, capture) and the catalogue 3D dialog |
-| `src/components/products/*Panel.tsx`, `ProductArt.tsx`, `design-image.ts`, `sample-url.ts` | Products and Designs panels, plain illustration, slot render for previews, blob-URL cache |
+| `src/components/products/*Panel.tsx`, `ProductArt.tsx`, `design-image.ts`, `sample-url.ts` | Products and Designs panels; `ProductArt` (rendered product picture, `productPhotoSrc`, `hasDetailPhoto`, `ProductDetail`); slot render for previews; blob-URL cache |
 | `src/components/settings/*` | `SheetSelect` (dropdown), `SheetPanel`, `SheetDialog`, `DimensionControls`, `NumberField`, `Section` |
 | `src/components/export/ExportDialog.tsx` | Export/print for all pages or one, page-by-page preview, preflight per page, mirror badge |
 | `src/components/ui/*` | Radix/shadcn-style primitives incl. popover, context-menu, toolbar |
-| `src/app/page.tsx`, `src/components/landing/*` | Home page: `StudioNav`, `StudioMotion` (reveals, parallax), `HeroComposition`, `ProductShowcase`, `Workflow`, `SheetDemo` (interactive), `ColorDemo` (3D/flat), `SpecSheet`, `demo-art.ts`, `photos.ts` (credits) |
+| `src/app/page.tsx`, `src/components/landing/*` | Home page: `HomeNav` (scroll progress), `StudioMotion` (reveals, parallax), `HeroShowcase`, `ProductMarquee`, `StoryWorkflow` (pinned scroll story), `SheetDemo`, `ColorDemo` (3D), `HomeSections` (features, Sublimation vs DTF, FAQ), `demo-art.ts`, `photos.ts` |
+| `public/products/` | 52 rendered product pictures and 9 detail crops (WebP) |
 | `src/lib/landing/sheet-demos.ts` | Example sheets built with the real packer, margins and slot sizes |
 | `src/lib/editor-link.ts` | `parseEditorLink` (`?sample`, `?product=`, `&process=`), `productHref` |
 | `src/assets/photos/` | 13 landing photos (Unsplash/Pexels) and `CREDITS.md` |
@@ -184,8 +190,15 @@ v0.6 phases (all done 2026-10-28):
 - [x] T2 Product showcase linked to templates (`?product=`), workflow, interactive sheet demo
 - [x] T3 3D section (lazy), spec sheet, closing CTA, footer; responsive and reduced-motion checks
 
-Next (v0.7 candidates, in suggested order):
-1. Commit v0.6 (ask the user first; current branch `dev`, main branch `main`).
+v0.7 phases (all done 2026-10-28):
+- [x] U1 Rendered product pictures for all 52 templates, detail crops, `ProductArt` everywhere
+- [x] U2 3D: toolbar (Front/Side/Back, zoom, full screen), on-demand rendering, rim light, supersampling, live 3D dock,
+  back prints on the back (`side: "back"`), `frontAzimuth`
+- [x] U3 "Night press" home page; README, CHANGELOG 0.7.0, ADR 0011, design doc 17-18
+
+Next (v0.8 candidates, in suggested order):
+1. Commit v0.7 (ask the user first; current branch `dev`, main branch `main`).
+2. Move the picture render scripts into the repo (`scripts/`) so CI can check the pictures are current.
 2. Playwright e2e in CI (port `v5func.mjs`; 3D needs SwiftShader flags).
 3. Page reordering (drag in the page strip); page names.
 4. DTF auto-pack with per-image quantity and 90° rotation; separate edge margin vs gap.
@@ -202,6 +215,9 @@ Next (v0.7 candidates, in suggested order):
 - Undo is per page; deleting a page cannot be undone (it asks first). Pages cannot be reordered yet.
 - 3D models are procedural and stylised (no scanned textures); headless software rendering is slow (about 13 s
   per product), real GPUs are fast. Tapered latte mugs still have no template.
+- The 3D dock rebuilds the model on the main thread when the design changes; under software WebGL (headless,
+  machines without a GPU) that takes seconds, so the large preview opened 4+ s late in tests. Real GPUs are fast.
+- Product pictures are not regenerated automatically; the render scripts live in the scratchpad, not the repo.
 - Handled mugs open facing the print (centre 24° off-axis, `viewAzimuth` -1.15), so the handle is behind the body
   until the user turns the mug or auto-rotate runs. A centred emblem covers about 120° of a mug; showing both the
   whole print and the handle from one angle is not possible.
@@ -217,6 +233,18 @@ Next (v0.7 candidates, in suggested order):
 - `research_notes/` and `reports/` are in the repo root; decide with the user whether to keep them committed.
 
 ## 8. Update log
+
+- **2026-10-28**: v0.7.0. User asked to use images from a `Sublimation & DTF images` folder (33 files), replace
+  flat product images with realistic previews, improve the 3D preview, and redesign the home page again. The
+  folder holds third-party characters and trademarks (One Piece, Dragon Ball, Hello Kitty, Gundam, Tom & Jerry,
+  Evangelion, Mercedes, Porsche, Nissan, Spotify UI), a watermark and real people's faces; declined, not used, and the
+  user git-ignored it. Done instead: every product rendered from its own 3D model (52 WebP, 884 KB; 9 detail
+  crops), `ProductArt` used by cards, lists and dialogs; dock shows the design in 3D; 3D toolbar and on-demand
+  rendering; found and fixed back placements printed on the front; new "Night press" home page. Measured:
+  `npm run check` green (196 tests, 14 files; coverage 92.97 % lines, 90.97 % statements, 80.44 % branches,
+  91.81 % functions); `v6func.mjs` 32/32; `v5func.mjs` 48/48 (three old landing selectors updated, dock check now
+  reads the 3D canvas, large-preview wait raised from 4 s to 30 s for software WebGL); no overflow or console errors
+  at 1440 and 390 px. No dependencies added (Sora via `next/font`).
 
 - **2026-10-28**: v0.6.0. User pasted a master prompt for a premium "print studio" home page (palette paper
   #F6F3ED, ink #22231F, lime #D7F36A, coral #F36B4F, stone #E9E3D9). Done: page rebuilt from scoped components;

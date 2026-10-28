@@ -41,7 +41,7 @@ function subscribeReduced(onChange: () => void) {
 }
 
 const chip = (on: boolean) =>
-  cn("rounded-full px-3.5 py-2 text-[13.5px] font-semibold transition-colors", on ? "bg-graphite text-paper" : "bg-paper text-graphite ring-1 ring-hairline hover:bg-white");
+  cn("rounded-full px-3.5 py-2 text-[13.5px] font-semibold transition-colors", on ? "bg-night text-white" : "bg-white text-night ring-1 ring-hairline hover:bg-white");
 
 export function ColorDemo() {
   const [productId, setProductId] = useState(CHOICES[0].id);
@@ -50,6 +50,7 @@ export function ColorDemo() {
   const [seed, setSeed] = useState(3);
   const [view, setView] = useState<"flat" | "3d">("3d");
   const [near, setNear] = useState(false);
+  const [spin, setSpin] = useState(true);
   const stageRef = useRef<HTMLDivElement>(null);
   const reduced = useSyncExternalStore(subscribeReduced, () => window.matchMedia(REDUCED).matches, () => false);
 
@@ -79,10 +80,10 @@ export function ColorDemo() {
   const show3d = view === "3d" && near;
 
   return (
-    <div className="grid overflow-hidden rounded-[18px] border border-hairline bg-paper lg:grid-cols-[1fr_340px]">
-      <div ref={stageRef} className="relative aspect-square bg-stone sm:aspect-[4/3]">
+    <div className="grid overflow-hidden rounded-[18px] border border-hairline bg-white lg:grid-cols-[1fr_340px]">
+      <div ref={stageRef} className="relative aspect-square bg-mist-2 sm:aspect-[4/3]">
         {show3d ? (
-          <Product3D product={product} color={color.hex} designUrl={design} process={process} autoRotate={!reduced} />
+          <Product3D product={product} color={color.hex} designUrl={design} process={process} autoRotate={spin && !reduced} onInteract={() => setSpin(false)} />
         ) : (
           <div className="flex size-full items-center justify-center p-8">
             <ProductMockup
@@ -95,7 +96,7 @@ export function ColorDemo() {
             />
           </div>
         )}
-        <div role="radiogroup" aria-label="Preview type" className="absolute top-3 left-3 z-10 flex rounded-full bg-paper p-1 shadow-sm ring-1 ring-hairline">
+        <div role="radiogroup" aria-label="Preview type" className="absolute top-3 left-3 z-10 flex rounded-full bg-white p-1 shadow-sm ring-1 ring-hairline">
           {(["3d", "flat"] as const).map((v) => (
             <button
               key={v}
@@ -105,7 +106,7 @@ export function ColorDemo() {
               onClick={() => setView(v)}
               className={cn(
                 "flex h-8 items-center gap-1.5 rounded-full px-3 text-[13px] font-semibold transition-colors [&_svg]:size-3.5",
-                view === v ? "bg-graphite text-paper" : "text-graphite-soft hover:text-graphite",
+                view === v ? "bg-night text-white" : "text-muted hover:text-night",
               )}
             >
               {v === "3d" ? <Box /> : <ImageIcon />}
@@ -117,7 +118,7 @@ export function ColorDemo() {
 
       <div className="flex flex-col gap-6 border-t border-hairline p-5 sm:p-6 lg:border-t-0 lg:border-l">
         <fieldset>
-          <legend className="mb-2 text-[13px] font-semibold text-graphite-soft">Product</legend>
+          <legend className="mb-2 text-[13px] font-semibold text-muted">Product</legend>
           <div className="flex flex-wrap gap-1.5">
             {CHOICES.map((c) => (
               <button key={c.id} type="button" aria-pressed={productId === c.id} onClick={() => setProductId(c.id)} className={chip(productId === c.id)}>
@@ -127,8 +128,8 @@ export function ColorDemo() {
           </div>
         </fieldset>
         <fieldset>
-          <legend className="mb-2 text-[13px] font-semibold text-graphite-soft">
-            Blank colour <span className="text-graphite">{color.name}</span>
+          <legend className="mb-2 text-[13px] font-semibold text-muted">
+            Blank colour <span className="text-night">{color.name}</span>
           </legend>
           <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Blank colour">
             {colors.map((c) => (
@@ -139,14 +140,14 @@ export function ColorDemo() {
                 aria-checked={c.id === color.id}
                 aria-label={c.name}
                 onClick={() => setColorId(c.id)}
-                className={cn("size-8 rounded-full ring-1 ring-graphite/20 transition-transform hover:scale-110", c.id === color.id && "ring-2 ring-graphite ring-offset-2 ring-offset-paper")}
+                className={cn("size-8 rounded-full ring-1 ring-night/20 transition-transform hover:scale-110", c.id === color.id && "ring-2 ring-night ring-offset-2 ring-offset-white")}
                 style={{ background: c.hex }}
               />
             ))}
           </div>
         </fieldset>
         <fieldset>
-          <legend className="mb-2 text-[13px] font-semibold text-graphite-soft">Print process</legend>
+          <legend className="mb-2 text-[13px] font-semibold text-muted">Print process</legend>
           <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Print process">
             {product.processes.map((v) => (
               <button key={v} type="button" role="radio" aria-checked={process === v} onClick={() => setWanted(v)} className={chip(process === v)}>
@@ -154,19 +155,19 @@ export function ColorDemo() {
               </button>
             ))}
           </div>
-          {product.processes.length === 1 && <p className="mt-2 text-[13px] text-graphite-soft">{product.name} blanks are {process === "dtf" ? "printed with DTF" : "sublimated"} only.</p>}
+          {product.processes.length === 1 && <p className="mt-2 text-[13px] text-muted">{product.name} blanks are {process === "dtf" ? "printed with DTF" : "sublimated"} only.</p>}
         </fieldset>
         {process === "sublimation" && color.dark && (
-          <p className="flex gap-2 rounded-[10px] bg-stone px-3 py-2.5 text-[13px] leading-snug">
-            <TriangleAlert className="mt-0.5 size-4 shrink-0 text-coral" />
+          <p className="flex gap-2 rounded-[10px] bg-mist-2 px-3 py-2.5 text-[13px] leading-snug">
+            <TriangleAlert className="mt-0.5 size-4 shrink-0 text-process-magenta" />
             Sublimation dye is see-through, so it fades into dark blanks. Use DTF for dark garments.
           </p>
         )}
         <div className="mt-auto flex flex-wrap gap-2">
-          <button type="button" onClick={() => setSeed((s) => s + 1)} className="flex items-center gap-1.5 rounded-full bg-paper px-4 py-2.5 text-[13.5px] font-semibold ring-1 ring-hairline hover:bg-white">
+          <button type="button" onClick={() => setSeed((s) => s + 1)} className="flex items-center gap-1.5 rounded-full bg-white px-4 py-2.5 text-[13.5px] font-semibold ring-1 ring-hairline hover:bg-white">
             <Shuffle className="size-4" /> New design
           </button>
-          <Link href={productHref(product.id, process)} className="rounded-full bg-graphite px-4 py-2.5 text-[13.5px] font-semibold text-paper hover:bg-graphite/88">
+          <Link href={productHref(product.id, process)} className="rounded-full bg-night px-4 py-2.5 text-[13.5px] font-semibold text-white hover:bg-night/88">
             Design this {CHOICES.find((c) => c.id === productId)!.label.toLowerCase()}
           </Link>
         </div>

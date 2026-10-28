@@ -15,7 +15,7 @@
 
 [Overview](#overview) · [Features](#key-features) · [Architecture](#architecture) · [Getting started](#getting-started) · [Testing](#testing--quality) · [Design decisions](#design-decisions-adrs) · [Docs](#documentation) · [Status](AGENTS.md)
 
-<img src="docs/images/editor.png" alt="Sheetfit editor: a T-shirt full-front design on its A3 sheet, the live product preview docked beside it showing the design on a black T-shirt, product cards with sample designs on the left and blank colours in the properties panel" width="900" />
+<img src="docs/images/editor.png" alt="Sheetfit editor: the sample A4 sheet with a mug wrap selected, the live 3D preview of the mug docked beside it, product cards showing rendered 3D products on the left and the properties panel on the right" width="900" />
 
 </div>
 
@@ -41,7 +41,8 @@ Everything runs in the browser. There is no account, no server and no upload: im
 - **Live product preview.** A preview docked on the canvas shows the selected product (or the first one on the page) with the design on it, in the chosen blank colour, and stays visible while designing.
 - **Sheet size dropdown.** A grouped dropdown (paper, DTF gang sheets and rolls, custom) in the header, the Sheet panel and the start dialog, with each sheet's size and typical use. If designs end up off a smaller sheet, a notice offers Undo.
 - **Pages, each with its own sheet.** A4, US Letter, US Legal, A3, A3+ and 22 in DTF gang sheets, or a custom size, per page. A template goes into the first free spot on the current page; one that is too big, or printed with the other process, gets a new page with the smallest sheet that holds it, so other designs never change sheet. Pages can be added, duplicated and deleted from the page strip, and designs moved between them from the right-click menu.
-- **3D model of every product.** All 52 templates have a procedural 3D model at real size (three.js): glazed mugs with handles, steel tumblers with lids and straws, glass cans, bottles, bevelled coasters with cork backs, tags on rings, aluminium panels, padded fabric T-shirts and hoodies with drape, caps with the print on the crown, totes and flags. The design is applied the way each process prints (sublimation dye blends into the blank, DTF sits on top as a film). Drag to turn, scroll to zoom, auto-rotate, save an image; the backdrop adapts to the blank colour for contrast. three.js loads only when a 3D view opens.
+- **Realistic product pictures.** Every card, list and dialog shows a render of the product's own 3D model with a sample design, not a line drawing; small placements (left chest, sleeve, pocket, neck label, cap front) add a detail inset. The editor's live preview shows your design on the 3D model as you work.
+- **3D model of every product.** All 52 templates have a procedural 3D model at real size (three.js): glazed mugs with handles, steel tumblers with lids and straws, glass cans, bottles, bevelled coasters with cork backs, tags on rings, aluminium panels, padded fabric T-shirts and hoodies with drape, caps with the print on the crown, totes and flags. The design is applied the way each process prints (sublimation dye blends into the blank, DTF sits on top as a film). Drag to turn, scroll to zoom, jump to the front, side or back, go full screen, auto-rotate, save an image; the backdrop adapts to the blank colour for contrast. three.js loads only when a 3D view opens.
 - **Large product previews.** See a product box on the mug, tumbler, shirt, cap or tote in any blank colour, turn a wrap around 360°, show the print area, and download the preview as a 1600 × 1600 px PNG for a customer. Sublimation previews blend the design with the blank colour (the dye is transparent) and warn on dark blanks; DTF previews print opaque.
 - **Sample designs.** Original emblems and patterns generated in the browser (no network, free to print), redrawn at the shape of the selected box. Fill a product box with one click from the Designs panel or the properties panel.
 - **Processes.** Sublimation turns output mirroring on; DTF turns it off.
@@ -62,15 +63,15 @@ Everything runs in the browser. There is no account, no server and no upload: im
 
 | Live preview while designing | Switching product asks first | Sheet size dropdown |
 | --- | --- | --- |
-| <img src="docs/images/editor.png" alt="T-shirt design with the live preview docked on the canvas" width="300" /> | <img src="docs/images/leave-dialog.png" alt="Dialog: Start a new design for mug 11 oz? with Cancel, Add to this sheet, Discard and open, Save and open" width="300" /> | <img src="docs/images/sheet-dropdown.png" alt="Sheet size dropdown grouped into paper and DTF gang sheets, each with its size and typical use" width="300" /> |
+| <img src="docs/images/editor.png" alt="Mug wrap with the live 3D preview docked on the canvas" width="300" /> | <img src="docs/images/leave-dialog.png" alt="Dialog: Start a new design for mug 11 oz? with Cancel, Add to this sheet, Discard and open, Save and open" width="300" /> | <img src="docs/images/sheet-dropdown.png" alt="Sheet size dropdown grouped into paper and DTF gang sheets, each with its size and typical use" width="300" /> |
 
 | Product templates | New product design | Large preview, tumbler turned |
 | --- | --- | --- |
-| <img src="docs/images/products-panel.png" alt="Apparel cards: T-shirts in different colours with sample designs, size badges in inches and close-ups of small print areas" width="300" /> | <img src="docs/images/product-slot.png" alt="Empty T-shirt full-front box zoomed to fill the canvas, labelled with its size, and the live preview" width="300" /> | <img src="docs/images/mockup.png" alt="Large preview of a 30 oz tumbler in mint with a pattern wrapped around it and a turn slider" width="300" /> |
+| <img src="docs/images/products-panel.png" alt="Product cards showing renders of each product's 3D model with a sample design, size badges in inches and the sheet each needs" width="300" /> | <img src="docs/images/product-slot.png" alt="Empty T-shirt full-front box zoomed to fill the canvas, labelled with its size, and the live preview" width="300" /> | <img src="docs/images/mockup.png" alt="Large preview of a 30 oz tumbler in mint with a pattern wrapped around it and a turn slider" width="300" /> |
 
 | Home page | How it works | Try the sheet |
 | --- | --- | --- |
-| <img src="docs/images/landing.png" alt="Home page hero: the headline Your designs. Perfectly sized. Print-ready. beside an A4 sublimation sheet with a selected mug wrap, its size and a measured gap, and photos of a printed mug and T-shirt" width="300" /> | <img src="docs/images/landing-how.png" alt="From artwork to print-ready: four connected steps, choose a product, add artwork, fit and arrange, export and print" width="300" /> | <img src="docs/images/landing-sheet.png" alt="Interactive miniature sheet on the home page with a selected fridge magnet, live gaps in millimetres and the sheet usage" width="300" /> |
+| <img src="docs/images/landing.png" alt="Home page hero on a dark ink background: the headline Print-ready layouts, sized to the millimetre, beside a rendered mug with a spec card giving its print area, sheet and process" width="300" /> | <img src="docs/images/landing-how.png" alt="How it works as a scroll story: step 2 of 4, Add your artwork, with the pinned drawing of artwork fitted into a mug wrap print area" width="300" /> | <img src="docs/images/landing-sheet.png" alt="Interactive miniature sheet on the home page with a selected fridge magnet, live gaps in millimetres and the sheet usage" width="300" /> |
 
 | Download every page | Pages | Mobile |
 | --- | --- | --- |
@@ -196,11 +197,11 @@ npm run test:coverage  # Vitest with V8 coverage and thresholds
 npm run check          # all of the above plus a production build
 ```
 
-The suite has 192 tests across the home page's example sheets and editor links, 3D models (every product built and size-checked, print mapping, backdrop contrast for every blank colour), fitting, units, sheets, the product catalogue, product placement and free-spot search, product designs and the save-or-discard rules, pages with per-page history, layout, snapping, live gaps, distribution, auto-arrange, the render plan with mirroring and flips, single- and multi-page PDF export, print page rules, DPI metadata, the pre-print check, sample designs, blank colours, file validation, migrations, IndexedDB storage, project files and the editor store. It includes every scenario listed in the original specification, for example a square logo in a 90 × 60 mm box, an extremely wide logo, a low-resolution image at 300 DPI, A4 portrait and landscape PDFs, and an image placed at a known coordinate. A property-style test checks that no non-distorting mode ever places image pixels outside the box.
+The suite has 196 tests across product pictures (one per template, detail crops for small placements), the home page's example sheets and editor links, 3D models (every product built and size-checked, print mapping, backdrop contrast for every blank colour), fitting, units, sheets, the product catalogue, product placement and free-spot search, product designs and the save-or-discard rules, pages with per-page history, layout, snapping, live gaps, distribution, auto-arrange, the render plan with mirroring and flips, single- and multi-page PDF export, print page rules, DPI metadata, the pre-print check, sample designs, blank colours, file validation, migrations, IndexedDB storage, project files and the editor store. It includes every scenario listed in the original specification, for example a square logo in a 90 × 60 mm box, an extremely wide logo, a low-resolution image at 300 DPI, A4 portrait and landscape PDFs, and an image placed at a known coordinate. A property-style test checks that no non-distorting mode ever places image pixels outside the box.
 
-Coverage is measured over the domain, export and store layers (`src/lib`, `src/store`), excluding browser-only glue that needs a real DOM canvas: 93.0% of lines, 91.0% of statements and 80.3% of branches. CI enforces minimums of 80% lines, statements and functions and 65% branches.
+Coverage is measured over the domain, export and store layers (`src/lib`, `src/store`), excluding browser-only glue that needs a real DOM canvas: 93.0% of lines, 91.0% of statements and 80.4% of branches. CI enforces minimums of 80% lines, statements and functions and 65% branches.
 
-Browser-only paths (landing page, Konva interaction, canvas export, file upload, IndexedDB round trip, printing, previews, 3D viewer, dialogs and dropdowns) were verified end to end in headless Chrome against the production build: 48 scripted checks for the whole app and 24 for the home page, all passing, with no console errors. A third script opens the 3D view of all 52 products and checks that each one renders. See [Evaluation](#evaluation).
+Browser-only paths (landing page, Konva interaction, canvas export, file upload, IndexedDB round trip, printing, previews, 3D viewer, dialogs and dropdowns) were verified end to end in headless Chrome against the production build: 48 scripted checks for the whole app and 32 for the home page, all passing, with no console errors. A third script opens the 3D view of all 52 products and checks that each one renders. See [Evaluation](#evaluation).
 
 ## Evaluation
 
@@ -230,6 +231,10 @@ Measured in headless Chrome against `npm run build && npm run start`, on the sam
 | v0.4: landing page | 18 images load, none broken; no horizontal overflow at 390 px |
 | v0.6: home page at 1440, 1024, 768, 390 and 320 px | No horizontal overflow, no console errors; phone menu opens and closes with Escape |
 | v0.6: product tiles and links | `/editor?product=tee-full-front&process=dtf` opens the T-shirt template on A3 with DTF selected; `?product=mug-11oz` opens the mug on A4; an unknown product opens the empty editor |
+| v0.7: product pictures | 52 renders (720 px WebP with alpha) and 9 detail crops, 884 KB for the 52; editor cards load them with none broken |
+| v0.7: live preview dock | Shows the sample's mug wrap on the 3D model (model and shadow cover 25.1 % of the dock canvas) |
+| v0.7: 3D toolbar | Front, Side, Back, zoom and full screen present; Side view turns the model |
+| v0.7: home page at 1440 and 390 px | No horizontal overflow, no console errors; the scroll story activates the step in view; FAQ answers open |
 | v0.6: home page sheet demo | Arrow keys move a transfer 1 mm (Shift 10 mm); dragging shows guides and live gaps; the DTF gang sheet packs 12 transfers with a 6.35 mm gap |
 | v0.2: fill an empty product box, save, reopen | Box filled through the inspector; all designs restored; no console errors |
 | v0.5: open the 3D view of every product | 52 of 52 render a model (the model and its shadow cover 7.5 % to 27.2 % of the canvas); no console errors (software WebGL, about 13 s per product) |
@@ -252,6 +257,7 @@ Measured in headless Chrome against `npm run build && npm run start`, on the sam
 | [0008](docs/adr/0008-pages-previews-and-sample-designs.md) | Pages with their own sheets, product previews, generated sample designs |
 | [0009](docs/adr/0009-one-design-per-product.md) | A new design per product, with save or discard before replacing work |
 | [0010](docs/adr/0010-procedural-3d-product-models.md) | Procedural 3D product models with three.js |
+| [0011](docs/adr/0011-rendered-product-pictures.md) | Rendered product pictures instead of line drawings |
 
 ## Documentation
 

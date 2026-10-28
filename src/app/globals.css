@@ -63,15 +63,13 @@
   --color-process-cyan: var(--process-cyan);
   --color-process-magenta: var(--process-magenta);
   --color-process-yellow: var(--process-yellow);
-  /* Home page ("studio") palette; the variables are defined on .studio only. */
-  --color-paper: var(--studio-paper);
-  --color-paper-deep: var(--studio-paper-deep);
-  --color-stone: var(--studio-stone);
-  --color-graphite: var(--studio-graphite);
-  --color-graphite-soft: var(--studio-graphite-soft);
-  --color-hairline: var(--studio-line);
-  --color-lime: var(--studio-lime);
-  --color-coral: var(--studio-coral);
+  /* Home page palette; the variables are defined on .home only. */
+  --color-night: var(--home-night);
+  --color-night-2: var(--home-night-2);
+  --color-mist: var(--home-mist);
+  --color-mist-2: var(--home-mist-2);
+  --color-muted: var(--home-muted);
+  --color-hairline: var(--home-line);
   --font-sans: var(--font-figtree), ui-sans-serif, system-ui, sans-serif;
   --font-display: var(--font-bricolage), var(--font-figtree), ui-sans-serif, system-ui, sans-serif;
   --radius-sm: 4px;
@@ -169,97 +167,107 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 
 /*
- * Home page ("studio"). Scoped to .studio so nothing reaches the editor.
- * Warm paper, ink, and two accents used sparingly: lime marks what is
- * selected or ready (a highlighter on a proof), coral marks annotations.
- * Coral never carries white text (about 3:1 contrast); ink on coral is 5:1.
+ * Home page. Scoped to .home so nothing reaches the editor.
+ * "Night press": deep ink sections for the story, cool light sections for
+ * reading, and the printer's own process inks (cyan, magenta, yellow, from the
+ * tokens above) as the only accents. Magenta text on white and white on
+ * magenta are both above 4.5:1; yellow always carries dark text.
  */
-.studio {
-  --studio-paper: #f6f3ed;
-  --studio-paper-deep: #eee9e0;
-  --studio-stone: #e9e3d9;
-  --studio-graphite: #22231f;
-  --studio-graphite-soft: #57584f;
-  --studio-line: rgb(34 35 31 / 0.14);
-  --studio-lime: #d7f36a;
-  --studio-coral: #f36b4f;
-  background: var(--studio-paper);
-  color: var(--studio-graphite);
+.home {
+  --home-night: #0d0c22;
+  --home-night-2: #18163a;
+  --home-mist: #f4f5fa;
+  --home-mist-2: #e8eaf3;
+  --home-muted: #555a70;
+  --home-line: rgb(13 12 34 / 0.12);
+  background: var(--home-mist);
+  color: var(--home-night);
   font-size: 16px;
 }
-.studio :focus-visible {
-  outline: 2px solid var(--studio-graphite);
+.home :focus-visible {
+  outline: 2px solid var(--process-cyan);
   outline-offset: 3px;
 }
-/* Poster headline: Bricolage Grotesque, condensed and heavy. */
-.studio-display {
-  font-family: var(--font-display);
-  font-weight: 800;
-  font-stretch: 80%;
-  letter-spacing: -0.018em;
-  line-height: 0.95;
+.home-display {
+  font-family: var(--font-sora), var(--font-figtree), ui-sans-serif, system-ui, sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  line-height: 1.02;
+}
+/* A thin CMY rule: the colour bar printed at the edge of a press sheet. */
+.home-inkbar {
+  background: linear-gradient(90deg, var(--process-cyan) 0 33.3%, var(--process-magenta) 0 66.6%, var(--process-yellow) 0);
 }
 
-/* Hero entrance: the headline lines rise in turn, then the transfers settle
-   onto the sheet, then the annotations appear. One orchestrated moment. */
-@keyframes studio-rise {
+/* Entrance: headline lines rise in turn, then the product stage fades up. */
+@keyframes home-rise {
   from {
     opacity: 0;
-    transform: translateY(0.45em);
+    transform: translateY(18px);
   }
 }
-.studio-rise {
-  animation: studio-rise 700ms var(--ease-out) both;
+.home-rise {
+  animation: home-rise 800ms var(--ease-out) both;
   animation-delay: var(--delay, 0ms);
 }
-@keyframes studio-settle {
-  from {
-    opacity: 0;
-    transform: translateY(-14px) rotate(-3deg) scale(1.05);
-  }
-  60% {
-    opacity: 1;
-  }
-}
-.studio-settle {
-  animation: studio-settle 650ms var(--ease-out) both;
-  animation-delay: var(--delay, 0ms);
-}
-@keyframes studio-fade {
+@keyframes home-fade {
   from {
     opacity: 0;
   }
 }
-.studio-fade {
-  animation: studio-fade 500ms var(--ease-out) both;
+.home-fade {
+  animation: home-fade 600ms var(--ease-out) both;
   animation-delay: var(--delay, 0ms);
 }
-/* Annotations drift by 3 px, slowly, so the sheet reads as a live workspace. */
-@keyframes studio-float {
+/* The showcased product breathes by a few pixels. */
+@keyframes home-float {
   to {
-    transform: translateY(-3px);
+    transform: translateY(-8px);
   }
 }
-.studio-float {
-  animation: studio-float 3.2s ease-in-out infinite alternate;
-  animation-delay: var(--delay, 0ms);
+.home-float {
+  animation: home-float 3.6s ease-in-out infinite alternate;
+}
+/* Slow glow behind the hero product. */
+@keyframes home-glow {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.home-glow {
+  animation: home-glow 24s linear infinite;
 }
 
-/* Scroll reveals (StudioMotion marks sections below the fold as hidden, then shown). */
-.studio [data-reveal] {
+/* Catalogue marquee: two copies of the list slide by one copy's width. */
+@keyframes home-marquee {
+  to {
+    transform: translateX(-50%);
+  }
+}
+.home-marquee {
+  animation: home-marquee var(--duration, 60s) linear infinite;
+  animation-direction: var(--direction, normal);
+}
+.home-marquee-host:hover .home-marquee,
+.home-marquee-host:focus-within .home-marquee {
+  animation-play-state: paused;
+}
+
+/* Scroll reveals (StudioMotion marks sections below the fold hidden, then shown). */
+.home [data-reveal] {
   transition:
-    opacity 700ms var(--ease-out),
-    transform 700ms var(--ease-out);
+    opacity 800ms var(--ease-out),
+    transform 800ms var(--ease-out);
 }
-.studio [data-reveal="hidden"] {
+.home [data-reveal="hidden"] {
   opacity: 0;
-  transform: translateY(28px);
+  transform: translateY(32px);
 }
-.studio [data-parallax] {
+.home [data-parallax] {
   transform: translate3d(0, var(--parallax, 0px), 0);
 }
 
-/* Workflow steps: each illustration plays once when its step is revealed. */
+/* Workflow illustrations play when their step becomes active. */
 @keyframes wf-drop {
   from {
     opacity: 0;
@@ -271,59 +279,30 @@ input[type="number"]::-webkit-outer-spin-button {
     transform: scaleX(0);
   }
 }
-@keyframes wf-draw-y {
-  from {
-    transform: scaleY(0);
-  }
-}
 @keyframes wf-pop {
   from {
     opacity: 0;
     transform: scale(0.85);
   }
 }
-.studio [data-reveal="shown"] .wf-drop {
-  animation: wf-drop 800ms var(--ease-out) 250ms both;
+.home [data-active="true"] .wf-drop {
+  animation: wf-drop 800ms var(--ease-out) 150ms both;
 }
-.studio [data-reveal="shown"] .wf-draw {
+.home [data-active="true"] .wf-draw {
   transform-origin: left;
   animation: wf-draw 700ms var(--ease-out) var(--delay, 300ms) both;
 }
-.studio [data-reveal="shown"] .wf-draw-y {
-  transform-origin: top;
-  animation: wf-draw-y 700ms var(--ease-out) var(--delay, 300ms) both;
-}
-.studio [data-reveal="shown"] .wf-pop {
-  animation: wf-pop 450ms var(--ease-out) var(--delay, 600ms) both;
-}
-
-/* Product tiles: the photo gives way to the template's print area on hover or focus. */
-.studio-tile .tile-photo,
-.studio-tile .tile-template {
-  transition:
-    opacity 450ms var(--ease-out),
-    transform 600ms var(--ease-out);
-}
-.studio-tile .tile-template {
-  opacity: 0;
-  transform: scale(0.96);
-}
-.studio-tile:hover .tile-photo,
-.studio-tile:focus-within .tile-photo {
-  opacity: 0;
-  transform: scale(1.04);
-}
-.studio-tile:hover .tile-template,
-.studio-tile:focus-within .tile-template {
-  opacity: 1;
-  transform: scale(1);
+.home [data-active="true"] .wf-pop {
+  animation: wf-pop 450ms var(--ease-out) var(--delay, 500ms) both;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .studio-float {
+  .home-float,
+  .home-glow,
+  .home-marquee {
     animation: none;
   }
-  .studio [data-parallax] {
+  .home [data-parallax] {
     transform: none;
   }
 }

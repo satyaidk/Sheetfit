@@ -29,7 +29,7 @@ import { shade } from "@/lib/catalogue/colors";
 import { OUTLINES, parsePath } from "@/lib/catalogue/outlines";
 import type { PrintProcess } from "@/types/editor";
 
-export type ModelProduct = Pick<ProductPreset, "id" | "art" | "artArea" | "wrap" | "width" | "height" | "bleed" | "group" | "shape">;
+export type ModelProduct = Pick<ProductPreset, "id" | "art" | "artArea" | "wrap" | "width" | "height" | "bleed" | "group" | "shape" | "side">;
 
 /** How the design reaches the model: baked into an opaque print texture, or laid over fabric. */
 export type PrintStyle = "wrap" | "face" | "overlay";
@@ -84,6 +84,8 @@ export interface ProductModel {
   printMeshes: THREE.Mesh[];
   /** Camera angle around the vertical axis (rad from +Z) that shows the print best. */
   viewAzimuth: number;
+  /** Azimuth that faces the centre of the print (Front view); 0 unless the print is turned away, as on handled mugs. */
+  frontAzimuth?: number;
 }
 
 // ---------------------------------------------------------------- materials
@@ -394,7 +396,7 @@ function buildDrinkware(p: ModelProduct, o: ModelOptions): ProductModel {
   }
   const band = mesh(bandGeometry(spec.outer, spec.bandY[0], spec.bandY[1], phiStart, spec.bandAngle), bandMat);
   group.add(band, ...spec.extras);
-  return { group, family: "drinkware", printMeshes: [band], viewAzimuth: handled ? -1.15 : 0.3 };
+  return { group, family: "drinkware", printMeshes: [band], viewAzimuth: handled ? -1.15 : 0.3, frontAzimuth: handled ? -Math.PI / 2 : 0 };
 }
 
 // ---------------------------------------------------------------- flat goods
@@ -856,21 +858,29 @@ function buildGarment(p: ModelProduct, o: ModelOptions): ProductModel {
   }
 
   // The print at its true size, centred on the placement area, lying on the cloth.
+  // Back placements lie on the back sheet, facing backwards: the placement area
+  // is drawn as seen from behind, so its x is mirrored onto the model.
   const printMeshes: THREE.Mesh[] = [];
   const overlay = overlayMaterial(o);
+  const back = p.side === "back";
   if (overlay && p.artArea) {
     const c = toMm({ x: p.artArea.x + p.artArea.w / 2, y: p.artArea.y + p.artArea.h / 2 });
     const plane = new THREE.PlaneGeometry(p.width, p.height, 32, 32);
-    plane.translate(c.x, c.y, 0);
+    if (back) plane.rotateY(Math.PI);
+    plane.translate(back ? -c.x : c.x, c.y, 0);
     const pos = plane.getAttribute("position");
-    for (let i = 0; i < pos.count; i++) pos.setZ(i, surfaceZ(pos.getX(i), pos.getY(i)) + 0.9);
+    for (let i = 0; i < pos.count; i++) {
+      const h = surfaceZ(pos.getX(i), pos.getY(i));
+      pos.setZ(i, back ? -0.75 * h - 0.9 : h + 0.9);
+    }
     bend(plane, curvature);
     const print = mesh(plane, overlay, false);
     print.renderOrder = 2;
     group.add(print);
     printMeshes.push(print);
   }
-  return { group, family: "garment", printMeshes, viewAzimuth: 0.3 };
+  // Back placements open facing the back, where the print is.
+  return { group, family: "garment", printMeshes, viewAzimuth: back ? Math.PI + 0.3 : 0.3, frontAzimuth: back ? Math.PI : 0 };
 }
 
 function buildCap(p: ModelProduct, o: ModelOptions): ProductModel {

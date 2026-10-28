@@ -48,6 +48,27 @@ describe("3D models", () => {
     expect(body.z).toBeLessThan(85);
   });
 
+  it("faces the print centre in the Front view: opposite the handle on mugs", () => {
+    const mug = buildProductModel(findProduct("mug-11oz")!, { color: "#ffffff", process: "sublimation", textures });
+    expect(mug.frontAzimuth).toBeCloseTo(-Math.PI / 2);
+    // The opening view is turned from the print centre so the mug reads as a mug, but keeps the print in view.
+    expect(Math.abs(mug.viewAzimuth - mug.frontAzimuth!)).toBeLessThan(Math.PI / 4);
+    const tumbler = buildProductModel(findProduct("tumbler-20oz")!, { color: "#ffffff", process: "sublimation", textures });
+    expect(tumbler.frontAzimuth).toBe(0);
+  });
+
+  it("prints back placements on the back of the shirt, front placements on the front", () => {
+    const centreZ = (id: string) => {
+      const m = buildProductModel(findProduct(id)!, { color: "#ffffff", process: "dtf", textures });
+      return { z: new THREE.Box3().setFromObject(m.printMeshes[0]).getCenter(new THREE.Vector3()).z, front: m.frontAzimuth };
+    };
+    expect(centreZ("tee-full-front").z).toBeGreaterThan(0);
+    const back = centreZ("tee-full-back");
+    expect(back.z).toBeLessThan(0);
+    expect(back.front).toBeCloseTo(Math.PI);
+    expect(centreZ("tee-back-neck").z).toBeLessThan(0);
+  });
+
   it("puts a left-chest print at its true size on the shirt", () => {
     const p = findProduct("tee-left-chest")!;
     const model = buildProductModel(p, { color: "#1c1d20", process: "dtf", textures });

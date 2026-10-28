@@ -166,19 +166,34 @@ Clicking a product card calls `requestProduct`: if the current design has an ima
 
 Textures come from `lib/three/print-textures.ts`: the print composite (blank colour, then the design multiplied for sublimation or drawn over for DTF, with bleed and seam overlap cropped and other shapes fitted whole), a procedural plain-weave normal map, and cork. The overlay material for garments multiplies (sublimation, unlit, not tone-mapped so white stays "no ink") or lays a semi-gloss film (DTF). The viewer (`Product3DView`) uses ACES tone mapping, a PMREM room environment, a key light with a blurred variance shadow on an invisible floor, orbit controls, and a CSS gradient backdrop from `backdropFor`, chosen so the blank always contrasts with it.
 
-## 17. Home page (0.6)
+## 17. Home page (0.7)
 
-The home page is a separate visual system, scoped to a `.studio` wrapper so none of it reaches the editor: warm paper (`#f6f3ed`), ink (`#22231f`), lime (`#d7f36a`) for what is selected or ready, coral (`#f36b4f`) for annotations, and the editor's magenta for guides. Headlines use Bricolage Grotesque condensed (`font-stretch: 80%`); body text stays on Figtree.
-
-The page shows the product rather than describing it, and every picture of a sheet is computed, not drawn:
+The home page is a separate visual system scoped to a `.home` wrapper, so none of it reaches the editor: deep ink sections (`#0d0c22`) for the story, cool light sections (`#f4f5fa`) for reading, and the process inks already used in the app (cyan, magenta, yellow) as the only accents. Headlines use Sora; body text stays on Figtree.
 
 | Section | Source of truth |
 | --- | --- |
-| Hero sheet, interactive sheet demo | `lib/landing/sheet-demos.ts`: real slot sizes (`slotSize`), real sheet sizes, the editor's 5 mm margins and `packShelves`; gaps from `measureGaps`, snapping from `snapRect`, usage from `sheetUtilisation` |
-| Product tiles | `PRODUCTS` and `ProductMockup`; each links to `/editor?product=<id>` |
+| Hero showcase, catalogue marquee | Product pictures (section 18) and `PRODUCTS`; spec cards use the catalogue sizes and `minSheetFor` |
+| How it works | A pinned scroll story: `position: sticky`, and an IntersectionObserver picks the step in the middle of the screen (no scroll hijacking) |
+| Interactive sheet | `lib/landing/sheet-demos.ts`: real slot sizes, sheet sizes, 5 mm margins and `packShelves`; `measureGaps`, `snapRect`, `sheetUtilisation` |
 | 3D preview | The editor's `Product3D`, loaded only when the section is near the viewport |
-| Spec sheet | Measured results from the evaluation table, or arithmetic shown next to the number |
+| Features, Sublimation vs DTF, FAQ | Catalogue counts and measured results (README, Evaluation) |
 
-`lib/editor-link.ts` parses `?sample`, `?product=` and `&process=`; unknown values fall back to the empty editor. `EditorLayout` opens the product with `openProductDesign`, or asks first through `requestProduct` if there is work to lose.
+Every action links into a real editor flow (`lib/editor-link.ts`: `?sample`, `?product=`, `&process=`). Motion is CSS, plus `StudioMotion` (scroll reveals and a gentle parallax) and the nav's scroll progress bar. Reduced motion turns off reveals, parallax, floating, the hero glow and the marquee.
 
-Motion is CSS, plus one small client component (`StudioMotion`) for scroll reveals and a gentle hero parallax. Sections below the fold are hidden only after the script has run, so nothing is invisible without scripts. Sections that a fast scroll jumps past are revealed too. Reduced motion turns off reveals, parallax and the floating annotations.
+## 18. Product pictures and the 3D toolbar (0.7)
+
+Product cards, dialogs and lists show a picture of each template's own 3D model with a sample design (`public/products/<id>.webp`), not a line drawing. The pictures come from the production build. A headless Chrome script opens each product's 3D dialog with a seeded `Math.random`, so the sample designs are the same on every run. It stops the rotation, clicks Front and saves the transparent canvas at 2x. A post-processing step then:
+
+- centres the product on its opaque pixels and pads it by 14 %;
+- fades the outer 12 %, so a long shadow dissolves instead of ending in an edge;
+- writes a 720 px WebP with alpha.
+
+Placements smaller than 520 units² on the 100 × 100 illustration grid (left chest, sleeve, pocket, neck label, cap front) also get a detail crop. The crop is found automatically as the coloured print on the white blank. A test checks that every catalogue product has its picture and every small placement its crop. The scripts live outside the repository; re-run them whenever the 3D models or sample designs change.
+
+`Product3DView` has a toolbar with Front, Side and Back views, zoom buttons and full screen. Each model reports `frontAzimuth`, the camera angle that faces the centre of the print:
+
+- opposite the handle on mugs;
+- the back of the shirt for back placements (`side: "back"` in the catalogue);
+- otherwise 0.
+
+Camera moves are eased over 650 ms the shortest way round, and are instant with reduced motion. The view renders on demand: OrbitControls `change` events, camera moves, resizes and model rebuilds mark it dirty, and the loop draws only then. So the editor's always-open 3D dock costs nothing at rest. Standard screens render at 1.5x for crisper edges.

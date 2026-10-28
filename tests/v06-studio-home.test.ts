@@ -65,3 +65,31 @@ describe("editor links", () => {
     expect(parseEditorLink(productHref("tote").split("?")[1])).toEqual({ kind: "product", productId: "tote" });
   });
 });
+
+describe("product pictures", () => {
+  it("has a rendered picture for every product in the catalogue", async () => {
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    const { PRODUCTS } = await import("@/lib/catalogue/products");
+    const { productPhotoSrc } = await import("@/components/products/ProductArt");
+    for (const p of PRODUCTS) {
+      const file = path.join(process.cwd(), "public", productPhotoSrc(p.id));
+      expect(fs.existsSync(file), p.id).toBe(true);
+      // WebP files start with "RIFF....WEBP".
+      const head = fs.readFileSync(file).subarray(0, 12).toString("latin1");
+      expect(head.startsWith("RIFF") && head.endsWith("WEBP"), p.id).toBe(true);
+    }
+  });
+});
+
+describe("product detail crops", () => {
+  it("has a detail crop for every small placement", async () => {
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    const { PRODUCTS } = await import("@/lib/catalogue/products");
+    const { hasDetailPhoto } = await import("@/components/products/ProductArt");
+    const small = PRODUCTS.filter(hasDetailPhoto);
+    expect(small.map((p) => p.id)).toContain("tee-left-chest");
+    for (const p of small) expect(fs.existsSync(path.join(process.cwd(), "public", "products", `${p.id}-detail.webp`)), p.id).toBe(true);
+  });
+});
