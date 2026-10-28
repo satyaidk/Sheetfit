@@ -10,11 +10,17 @@
  * framed to the product's size and re-framed only when the product changes,
  * so switching colours or designs keeps the angle the user chose.
  *
+ * A small toolbar gives Front, Side and Back views (animated, shortest way
+ * round), zoom buttons and full screen, so the print can be inspected without
+ * fiddly dragging. It renders on demand: only while the view moves, turns or
+ * changes, so a preview left open (the editor's dock) costs nothing at rest.
+ *
  * Loaded with `next/dynamic` (three.js is only downloaded when a 3D view
  * opens). WebGL failures fall back to a message rather than a blank box.
  */
 
 import { useEffect, useRef, useState } from "react";
+import { Maximize2, Minimize2, ZoomIn, ZoomOut } from "lucide-react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
@@ -42,6 +48,23 @@ export interface Product3DViewProps {
   className?: string;
   /** Called after each model build, with the number of print meshes (tests read it from the DOM). */
   onModel?: (info: { family: string; prints: number }) => void;
+  /** Show the view, zoom and full-screen toolbar (off for small docked previews). */
+  toolbar?: boolean;
+  /** Called when the user takes control (drags or uses the toolbar), e.g. to stop auto-rotation. */
+  onInteract?: () => void;
+}
+
+type View = "front" | "side" | "back";
+const VIEW_OFFSET: Record<View, number> = { front: 0, side: Math.PI / 2, back: Math.PI };
+/** Camera elevation used for framing and the preset views (radians above the horizon). */
+const ELEVATION = 0.2;
+
+interface CameraMove {
+  from: THREE.Spherical;
+  to: THREE.Spherical;
+  /** Frame time the move began; -1 until its first frame. */
+  start: number;
+  duration: number;
 }
 
 interface Stage {
@@ -56,6 +79,11 @@ interface Stage {
   weave: THREE.CanvasTexture;
   cork: THREE.CanvasTexture;
   framedFor: string | null;
+  /** Set whenever the picture may have changed; the loop renders only then. */
+  dirty: boolean;
+  move: CameraMove | null;
+  /** Framed distance, and the azimuth facing the print centre (Front view). */
+  home: { front: number; distance: number };
 }
 
 const NO_WEBGL = "3D preview needs WebGL, which this browser has turned off. The flat preview still works.";
@@ -69,8 +97,24 @@ function webglAvailable(): boolean {
   }
 }
 
-export default function Product3DView({ product, color, designUrl, process, autoRotate = false, captureRef, className, onModel }: Product3DViewProps) {
+const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
+
+export default function Product3DView({
+  product,
+  color,
+  designUrl,
+  process,
+  autoRotate = false,
+  captureRef,
+  className,
+  onModel,
+  toolbar = true,
+  onInteract,
+}: Product3DViewProps) {
+  const root = useRef<HTMLDivElement>(null);
   const host = useRef<HTMLDivElement>(null);
+  const interact = useRef(onInteract);
+  const [fullscreen, setFullscreen] = useState(false);
   const stage = useRef<Stage | null>(null);
   const [error, setError] = useState<string | null>(() => (webglAvailable() ? null : NO_WEBGL));
   const [loading, setLoading] = useState(true);
@@ -88,7 +132,8 @@ export default function Product3DView({ product, color, designUrl, process, auto
       queueMicrotask(() => setError(NO_WEBGL));
       return;
     }
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    // Supersample on standard screens (1.5x) for crisper edges and print detail; cap at 2x.
+    renderer.setPixelRatio(Math.min(Math.max(window.devicePixelRatio, 1.5), 2));
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.05;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -104,7 +149,7 @@ export default function Product3DView({ product, color, designUrl, process, auto
     const room = new RoomEnvironment();
     const env = pmrem.fromScene(room, 0.04).texture;
     scene.environment = env;
-    scene.environmentIntensity = 0.85;
+    scene.environmentIntensity = 0.9;
 
     const camera = new THREE.PerspectiveCamera(30, 1, 1, 50000);
     const key = new THREE.DirectionalLight("#ffffff", 1.7);
@@ -114,7 +159,10 @@ export default function Product3DView({ product, color, designUrl, process, auto
     key.shadow.bias = -0.0004;
     key.shadow.radius = 22;
     key.shadow.blurSamples = 24;
-    scene.add(key, key.target, new THREE.HemisphereLight("#ffffff", "#8a8f99", 0.35));
+    // A rim light from behind separates the silhouette from the backdrop.
+    const rim = new THREE.DirectionalLight("#ffffff", 0.55);
+    rim.position.set(-2, 1.4, -2.6);
+    scene.add(key, key.target, rim, new THREE.HemisphereLight("#ffffff", "#8a8f99", 0.35));
     const floor = new THREE.Mesh(new THREE.CircleGeometry(1, 64), new THREE.ShadowMaterial({ opacity: 0.35 }));
     floor.rotation.x = -Math.PI / 2;
     floor.receiveShadow = true;
@@ -126,9 +174,29 @@ export default function Product3DView({ product, color, designUrl, process, auto
     controls.enablePan = false;
     controls.maxPolarAngle = Math.PI * 0.56;
     controls.autoRotateSpeed = 1.4;
-    controls.addEventListener("start", () => setHint(false));
-
-    stage.current = { renderer, scene, camera, controls, key, floor, model: null, textures: [], weave: weaveNormalTexture(), cork: corkTexture(), framedFor: null };
+    const s: Stage = {
+      renderer,
+      scene,
+      camera,
+      controls,
+      key,
+      floor,
+      model: null,
+      textures: [],
+      weave: weaveNormalTexture(),
+      cork: corkTexture(),
+      framedFor: null,
+      dirty: true,
+      move: null,
+      home: { front: 0, distance: 1 },
+    };
+    stage.current = s;
+    controls.addEventListener("change", () => (s.dirty = true));
+    controls.addEventListener("start", () => {
+      setHint(false);
+      s.move = null;
+      interact.current?.();
+    });
 
     const resize = () => {
       const { clientWidth: w, clientHeight: h } = el;
@@ -136,18 +204,38 @@ export default function Product3DView({ product, color, designUrl, process, auto
       renderer.setSize(w, h, false);
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
+      s.dirty = true;
     };
     const ro = new ResizeObserver(resize);
     ro.observe(el);
     resize();
 
     let frame = 0;
-    const tick = () => {
+    const offset = new THREE.Vector3();
+    const tick = (now: number) => {
       frame = requestAnimationFrame(tick);
-      controls.update();
-      renderer.render(scene, camera);
+      if (s.move) {
+        const m = s.move;
+        if (m.start < 0) m.start = now;
+        const t = m.duration > 0 ? Math.min(1, (now - m.start) / m.duration) : 1;
+        const e = easeInOut(t);
+        const sph = new THREE.Spherical(
+          m.from.radius + (m.to.radius - m.from.radius) * e,
+          m.from.phi + (m.to.phi - m.from.phi) * e,
+          m.from.theta + (m.to.theta - m.from.theta) * e,
+        );
+        camera.position.copy(controls.target).add(offset.setFromSpherical(sph));
+        camera.lookAt(controls.target);
+        if (t >= 1) s.move = null;
+        s.dirty = true;
+      }
+      controls.update(); // emits "change" while damping or turning
+      if (s.dirty) {
+        s.dirty = false;
+        renderer.render(scene, camera);
+      }
     };
-    tick();
+    frame = requestAnimationFrame(tick);
 
     return () => {
       cancelAnimationFrame(frame);
@@ -227,12 +315,15 @@ export default function Product3DView({ product, color, designUrl, process, auto
       cam.far = R * 8;
       cam.updateProjectionMatrix();
       s.floor.scale.set(R * 3, R * 3, 1);
+      s.dirty = true;
 
       if (s.framedFor !== product.id) {
         const fov = (s.camera.fov * Math.PI) / 180;
         const dist = (R / Math.sin(fov / 2)) * 1.08;
         const az = model.viewAzimuth;
-        const el = 0.2;
+        const el = ELEVATION;
+        s.home = { front: model.frontAzimuth ?? 0, distance: dist };
+        s.move = null;
         const dir = new THREE.Vector3(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el));
         s.controls.target.copy(sphere.center);
         s.camera.position.copy(sphere.center).addScaledVector(dir, dist);
@@ -253,12 +344,61 @@ export default function Product3DView({ product, color, designUrl, process, auto
   }, [product, color, designUrl, process, onModel]);
 
   useEffect(() => {
+    interact.current = onInteract;
+  }, [onInteract]);
+
+  useEffect(() => {
     if (stage.current) stage.current.controls.autoRotate = autoRotate;
   }, [autoRotate]);
 
   useEffect(() => {
-    if (stage.current) stage.current.floor.material.opacity = backdrop.shadow;
+    const s = stage.current;
+    if (!s) return;
+    s.floor.material.opacity = backdrop.shadow;
+    s.dirty = true;
   }, [backdrop.shadow]);
+
+  useEffect(() => {
+    const onChange = () => setFullscreen(document.fullscreenElement === root.current);
+    document.addEventListener("fullscreenchange", onChange);
+    return () => document.removeEventListener("fullscreenchange", onChange);
+  }, []);
+
+  /** Animate the camera to a new position around the product (shortest way round). */
+  function moveTo(target: { theta?: number; phi?: number; radius?: number }) {
+    const s = stage.current;
+    if (!s) return;
+    setHint(false);
+    interact.current?.();
+    const from = new THREE.Spherical().setFromVector3(s.camera.position.clone().sub(s.controls.target));
+    const to = new THREE.Spherical(target.radius ?? from.radius, target.phi ?? from.phi, target.theta ?? from.theta);
+    let d = (to.theta - from.theta) % (Math.PI * 2);
+    if (d > Math.PI) d -= Math.PI * 2;
+    if (d < -Math.PI) d += Math.PI * 2;
+    to.theta = from.theta + d;
+    to.radius = Math.min(s.controls.maxDistance, Math.max(s.controls.minDistance, to.radius));
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    s.move = { from, to, start: -1, duration: reduced ? 0 : 650 };
+  }
+
+  function showView(view: View) {
+    const s = stage.current;
+    if (!s) return;
+    moveTo({ theta: s.home.front + VIEW_OFFSET[view], phi: Math.PI / 2 - ELEVATION, radius: s.home.distance });
+  }
+
+  function zoom(factor: number) {
+    const s = stage.current;
+    if (!s) return;
+    moveTo({ radius: s.camera.position.distanceTo(s.controls.target) * factor });
+  }
+
+  function toggleFullscreen() {
+    const el = root.current;
+    if (!el) return;
+    if (document.fullscreenElement === el) void document.exitFullscreen();
+    else void el.requestFullscreen?.().catch(() => undefined);
+  }
 
   // Saving composites the transparent render over the same backdrop gradient.
   useEffect(() => {
@@ -287,6 +427,7 @@ export default function Product3DView({ product, color, designUrl, process, auto
 
   return (
     <div
+      ref={root}
       className={cn("relative size-full overflow-hidden transition-[background] duration-500", className)}
       style={{ background: `radial-gradient(circle at 50% 38%, ${backdrop.inner} 0%, ${backdrop.outer} 100%)` }}
       data-testid="product-3d-view"
@@ -299,15 +440,54 @@ export default function Product3DView({ product, color, designUrl, process, auto
           Building the 3D model…
         </span>
       )}
-      {hint && !loading && !error && (
+      {hint && toolbar && !loading && !error && (
         <span
           className={cn(
-            "pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full px-3 py-1 text-[12px] font-medium whitespace-nowrap animate-fade",
+            "pointer-events-none absolute top-3 left-1/2 -translate-x-1/2 rounded-full px-3 py-1 text-[12px] font-medium whitespace-nowrap animate-fade",
             backdrop.dark ? "bg-white/15 text-white" : "bg-white/85 text-ink-muted shadow-sm",
           )}
         >
           Drag to turn. Scroll or pinch to zoom.
         </span>
+      )}
+      {toolbar && !error && (
+        <div
+          role="toolbar"
+          aria-label="3D view"
+          className={cn(
+            "absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-0.5 rounded-full p-1 shadow-sm ring-1 transition-opacity",
+            backdrop.dark ? "bg-black/35 text-white ring-white/15" : "bg-white/90 text-ink ring-black/10",
+            loading && "pointer-events-none opacity-40",
+          )}
+        >
+          {(["front", "side", "back"] as const).map((v) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => showView(v)}
+              aria-label={`${v[0].toUpperCase()}${v.slice(1)} view`}
+              className={cn("h-7 rounded-full px-2.5 text-[12px] font-semibold capitalize", backdrop.dark ? "hover:bg-white/15" : "hover:bg-black/6")}
+            >
+              {v}
+            </button>
+          ))}
+          <span aria-hidden className={cn("mx-1 h-4 w-px", backdrop.dark ? "bg-white/25" : "bg-black/15")} />
+          <button type="button" onClick={() => zoom(1.25)} aria-label="Zoom out" title="Zoom out" className={cn("flex size-7 items-center justify-center rounded-full [&_svg]:size-4", backdrop.dark ? "hover:bg-white/15" : "hover:bg-black/6")}>
+            <ZoomOut />
+          </button>
+          <button type="button" onClick={() => zoom(0.8)} aria-label="Zoom in" title="Zoom in" className={cn("flex size-7 items-center justify-center rounded-full [&_svg]:size-4", backdrop.dark ? "hover:bg-white/15" : "hover:bg-black/6")}>
+            <ZoomIn />
+          </button>
+          <button
+            type="button"
+            onClick={() => toggleFullscreen()}
+            aria-label={fullscreen ? "Exit full screen" : "Full screen"}
+            title={fullscreen ? "Exit full screen" : "Full screen"}
+            className={cn("flex size-7 items-center justify-center rounded-full [&_svg]:size-4", backdrop.dark ? "hover:bg-white/15" : "hover:bg-black/6")}
+          >
+            {fullscreen ? <Minimize2 /> : <Maximize2 />}
+          </button>
+        </div>
       )}
     </div>
   );

@@ -4,6 +4,33 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-28
+
+### Added
+
+- Realistic product pictures: every template's card, dialog and list picture is now a render of its own 3D model
+  with a sample design (`public/products/<id>.webp`, 720 px, transparent), replacing the flat line drawings. Small
+  placements (left chest, sleeve, pocket, neck label, cap front) also get a detail crop as an inset.
+- The editor's live preview dock shows the user's design on the 3D model instead of a flat drawing.
+- 3D viewer: Front, Side and Back views (animated, shortest way round; Front faces the print centre, Side shows a
+  mug's handle in profile), zoom buttons, full screen, a rim light and 1.5x supersampling on standard screens for
+  crisper edges. Dragging or using the toolbar stops auto-rotation. The view renders only when something changes,
+  so an open preview costs nothing at rest.
+- Home page rebuilt ("Night press"): ink and light sections with the process inks as accents, Sora headlines, a hero
+  product showcase with spec cards, "Why Sheetfit", a catalogue marquee of all 52 renders, a pinned scroll story
+  of the four steps, the interactive sheet, the 3D preview, a capability grid, Sublimation vs DTF, an FAQ and a
+  scroll progress bar.
+
+### Fixed
+
+- Back placements (full back, upper back, back neck label) were printed on the front of the 3D shirt. They now lie
+  on the back, read correctly from behind, and the view opens facing them (`side: "back"` in the catalogue).
+
+### Removed
+
+- The card "Shuffle sample designs" button (cards now show fixed renders; the 3D viewer still shuffles designs).
+- The v0.6 studio components and palette.
+
 ## [0.6.0] - 2026-10-28
 
 ### Added

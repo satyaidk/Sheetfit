@@ -118,7 +118,7 @@ export function SheetDemo() {
   }
 
   return (
-    <div className="grid overflow-hidden rounded-[18px] border border-hairline bg-paper-deep lg:grid-cols-[1fr_300px]">
+    <div className="grid overflow-hidden rounded-[18px] border border-hairline bg-mist lg:grid-cols-[1fr_300px]">
       <div className="min-w-0 p-4 sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div role="radiogroup" aria-label="Example sheet" className="flex flex-wrap gap-1.5">
@@ -131,7 +131,7 @@ export function SheetDemo() {
                 onClick={() => chooseSheet(s.id)}
                 className={cn(
                   "rounded-full px-3.5 py-2 text-[13.5px] font-semibold transition-colors",
-                  s.id === sheet.id ? "bg-graphite text-paper" : "bg-paper text-graphite ring-1 ring-hairline hover:bg-white",
+                  s.id === sheet.id ? "bg-night text-white" : "bg-white text-night ring-1 ring-hairline hover:bg-white",
                 )}
               >
                 {s.name}
@@ -139,7 +139,7 @@ export function SheetDemo() {
             ))}
           </div>
           <div className="flex gap-1.5">
-            <button type="button" onClick={() => setShuffle((n) => n + 1)} className="flex items-center gap-1.5 rounded-full bg-paper px-3 py-2 text-[13px] font-semibold ring-1 ring-hairline hover:bg-white">
+            <button type="button" onClick={() => setShuffle((n) => n + 1)} className="flex items-center gap-1.5 rounded-full bg-white px-3 py-2 text-[13px] font-semibold ring-1 ring-hairline hover:bg-white">
               <Shuffle className="size-3.5" /> New artwork
             </button>
             <button
@@ -148,7 +148,7 @@ export function SheetDemo() {
                 setMoved((m) => ({ ...m, [sheet.id]: {} }));
                 setSelected(null);
               }}
-              className="flex items-center gap-1.5 rounded-full bg-paper px-3 py-2 text-[13px] font-semibold ring-1 ring-hairline hover:bg-white"
+              className="flex items-center gap-1.5 rounded-full bg-white px-3 py-2 text-[13px] font-semibold ring-1 ring-hairline hover:bg-white"
             >
               <RotateCcw className="size-3.5" /> Reset
             </button>
@@ -158,16 +158,16 @@ export function SheetDemo() {
         <div className="mt-8 mb-4 flex justify-center">
           <div
             ref={sheetRef}
-            className="relative bg-white shadow-[0_1px_2px_rgb(34_35_31/0.08),0_30px_50px_-28px_rgb(34_35_31/0.5)] ring-1 ring-graphite/10"
+            className="relative bg-white shadow-[0_1px_2px_rgb(34_35_31/0.08),0_30px_50px_-28px_rgb(34_35_31/0.5)] ring-1 ring-night/10"
             style={{ aspectRatio: `${W} / ${H}`, width: `min(100%, ${Math.round((520 * W) / H)}px)` }}
             onPointerDown={(e) => e.target === e.currentTarget && setSelected(null)}
           >
-            <span className="tnum absolute -top-6 left-0 text-[12px] font-semibold text-graphite-soft">
+            <span className="tnum absolute -top-6 left-0 text-[12px] font-semibold text-muted">
               {sheet.sheetName}, {mm(W, H)}
             </span>
             <div
               aria-hidden
-              className="pointer-events-none absolute border border-dashed border-graphite/25"
+              className="pointer-events-none absolute border border-dashed border-night/25"
               style={{ left: pct(sheet.printable.x, W), top: pct(sheet.printable.y, H), width: pct(sheet.printable.width, W), height: pct(sheet.printable.height, H) }}
             />
             {items.map((item) => {
@@ -188,8 +188,8 @@ export function SheetDemo() {
                   className={cn(
                     "absolute cursor-grab outline-offset-2 active:cursor-grabbing",
                     item.shape === "circle" && "rounded-full",
-                    isSel ? "z-10 ring-2 ring-graphite" : "hover:ring-2 hover:ring-graphite/40",
-                    over && "ring-2 ring-coral",
+                    isSel ? "z-10 ring-2 ring-night" : "hover:ring-2 hover:ring-night/40",
+                    over && "ring-2 ring-process-magenta",
                   )}
                   style={{
                     left: pct(item.x, W),
@@ -237,48 +237,48 @@ export function SheetDemo() {
         </div>
       </div>
 
-      <aside aria-label="Sheet details" className="flex flex-col gap-5 border-t border-hairline bg-paper p-5 text-[14px] lg:border-t-0 lg:border-l">
+      <aside aria-label="Sheet details" className="flex flex-col gap-5 border-t border-hairline bg-white p-5 text-[14px] lg:border-t-0 lg:border-l">
         <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
-          <dt className="text-graphite-soft">Sheet</dt>
+          <dt className="text-muted">Sheet</dt>
           <dd className="tnum text-right font-semibold">{sheet.sheetName}</dd>
-          <dt className="text-graphite-soft">Process</dt>
+          <dt className="text-muted">Process</dt>
           <dd className="text-right font-semibold">{sheet.process === "dtf" ? "DTF, printed as seen" : "Sublimation, mirrored on export"}</dd>
-          <dt className="text-graphite-soft">Transfers</dt>
+          <dt className="text-muted">Transfers</dt>
           <dd className="tnum text-right font-semibold">{items.length}</dd>
-          <dt className="text-graphite-soft">Gap when packed</dt>
+          <dt className="text-muted">Gap when packed</dt>
           <dd className="tnum text-right font-semibold">{+sheet.gap.toFixed(2)} mm</dd>
         </dl>
         <div>
           <div className="flex items-baseline justify-between">
-            <span className="text-graphite-soft">Sheet used</span>
+            <span className="text-muted">Sheet used</span>
             <span className="tnum text-[22px] font-bold" aria-live="polite">
               {Math.round(used * 100)}%
             </span>
           </div>
-          <div className="mt-2 h-2 overflow-hidden rounded-full bg-stone">
-            <div className="h-full rounded-full bg-lime transition-[width] duration-300" style={{ width: `${used * 100}%` }} />
+          <div className="mt-2 h-2 overflow-hidden rounded-full bg-mist-2">
+            <div className="h-full rounded-full bg-process-yellow transition-[width] duration-300" style={{ width: `${used * 100}%` }} />
           </div>
         </div>
-        <div className="rounded-[12px] bg-paper-deep p-4" aria-live="polite">
+        <div className="rounded-[12px] bg-mist p-4" aria-live="polite">
           {current ? (
             <>
               <p className="font-semibold">{current.label}</p>
-              <p className="tnum mt-1 text-graphite-soft">
+              <p className="tnum mt-1 text-muted">
                 {mm(current.width, current.height)}, at {r1(current.x)}, {r1(current.y)} mm
               </p>
-              {overlapping.has(current.id) && <p className="mt-2 font-semibold text-graphite">Overlaps another transfer; the editor flags this too.</p>}
+              {overlapping.has(current.id) && <p className="mt-2 font-semibold text-night">Overlaps another transfer; the editor flags this too.</p>}
               <Link
                 href={productHref(current.productId, sheet.process)}
-                className="mt-3 inline-flex rounded-full bg-graphite px-4 py-2 text-[13.5px] font-semibold text-paper hover:bg-graphite/88"
+                className="mt-3 inline-flex rounded-full bg-night px-4 py-2 text-[13.5px] font-semibold text-white hover:bg-night/88"
               >
                 Open this template in the editor
               </Link>
             </>
           ) : (
-            <p className="text-graphite-soft">Select a transfer to see its size, position and gaps. Drag it, or use the arrow keys (Shift moves 10 mm).</p>
+            <p className="text-muted">Select a transfer to see its size, position and gaps. Drag it, or use the arrow keys (Shift moves 10 mm).</p>
           )}
         </div>
-        <p className="mt-auto text-[13px] leading-relaxed text-graphite-soft">
+        <p className="mt-auto text-[13px] leading-relaxed text-muted">
           Laid out by the editor&apos;s own packing, snapping and measuring code, with its default 5 mm margins.
         </p>
       </aside>

@@ -4,8 +4,10 @@
  * Live product preview docked on the canvas.
  *
  * While a page holds a product box, the product is always visible next to
- * the sheet with the design on it, updating as the design changes, so users
- * never have to look for the preview. It follows the selected product box (or
+ * the sheet as a 3D model with the design on it, updating as the design
+ * changes, so users never have to look for the preview. It can be turned by
+ * dragging; the 3D view renders only when something changes, so leaving the
+ * dock open costs nothing while the user works on the sheet. It follows the selected product box (or
  * a selected plain image, shown on a T-shirt), else the first product box on
  * the page. Blank colours can be switched right here; the expand button opens
  * the large preview. It collapses to a pill, and reserves its width on the
@@ -19,9 +21,8 @@ import { findProduct } from "@/lib/catalogue/products";
 import { colorsFor, resolveColor } from "@/lib/catalogue/colors";
 import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { ProductMockup } from "./ProductMockup";
+import { Product3D } from "./Product3D";
 import { designImageUrl } from "./design-image";
-import { blendFor } from "./MockupPreview";
 
 export function LivePreviewDock() {
   const designs = useEditor((s) => s.doc.designs);
@@ -52,7 +53,8 @@ export function LivePreviewDock() {
   const product = findProduct(target.productId) ?? findProduct("tee-full-front")!;
   const isProductBox = !!target.productId;
   const color = resolveColor(product, target.productColor);
-  const image = asset ? designImageUrl(target, asset, 480) : null;
+  // 1024 px keeps the print sharp on the model's 2048 px texture at dock size.
+  const image = asset ? designImageUrl(target, asset, 1024) : null;
 
   if (!shown) {
     return (
@@ -114,26 +116,14 @@ export function LivePreviewDock() {
           </button>
         </Tooltip>
       </div>
-      <button
-        type="button"
-        onClick={() => openMockup(target.id)}
-        className="relative mx-2 block w-[216px] rounded-xl bg-[radial-gradient(circle_at_50%_32%,var(--surface)_0%,var(--subtle-2)_75%)]"
-        aria-label={`${product.name} preview, click to enlarge`}
-      >
-        <ProductMockup
-          product={product}
-          color={color.hex}
-          design={image}
-          blend={blendFor(process)}
-          showArea={!image}
-          className="aspect-square w-full p-2 drop-shadow-[0_8px_10px_rgb(16_24_40/0.16)]"
-        />
+      <div className="relative mx-2 aspect-square w-[216px] overflow-hidden rounded-xl" aria-label={`${product.name} in 3D`}>
+        <Product3D product={product} color={color.hex} designUrl={image} process={process} toolbar={false} />
         {!image && (
-          <span className="absolute inset-x-3 bottom-2 rounded-md bg-surface/95 px-2 py-1 text-center text-[11px] font-medium text-ink-muted shadow-sm">
+          <span className="pointer-events-none absolute inset-x-3 bottom-2 rounded-md bg-surface/95 px-2 py-1 text-center text-[11px] font-medium text-ink-muted shadow-sm">
             Add a design to see it here
           </span>
         )}
-      </button>
+      </div>
       {isProductBox ? (
         <div role="radiogroup" aria-label="Product colour" className="flex flex-wrap gap-1 px-3 pt-2 pb-3">
           {colors.map((c) => (

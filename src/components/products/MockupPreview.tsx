@@ -272,7 +272,7 @@ function MockupBody() {
             />
           </div>
           {view === "3d" ? (
-            <Product3D product={product} color={color.hex} designUrl={image} process={process} autoRotate={spin} captureRef={capture} />
+            <Product3D product={product} color={color.hex} designUrl={image} process={process} autoRotate={spin} captureRef={capture} onInteract={() => setSpin(false)} />
           ) : (
           <div id="mockup-svg" className="aspect-square w-full max-w-[min(520px,60vh)] p-4">
             <ProductMockup

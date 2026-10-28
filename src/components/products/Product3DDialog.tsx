@@ -74,7 +74,7 @@ function Viewer3DBody({ productId }: { productId: string }) {
       </DialogHeader>
       <div className="grid min-h-0 flex-1 overflow-y-auto md:grid-cols-[1fr_300px]">
         <div className="relative h-[min(560px,58vh)] min-h-[320px]">
-          <Product3D key={viewKey} product={product} color={color.hex} designUrl={design} process={process} autoRotate={spin} captureRef={capture} />
+          <Product3D key={viewKey} product={product} color={color.hex} designUrl={design} process={process} autoRotate={spin} captureRef={capture} onInteract={() => setSpin(false)} />
           <div className="absolute top-3 right-3 flex gap-1.5">
             <Tooltip label={spin ? "Stop turning" : "Turn automatically"}>
               <Button size="icon" className="bg-surface/95" aria-label={spin ? "Stop turning" : "Turn automatically"} onClick={() => setSpin(!spin)}>
