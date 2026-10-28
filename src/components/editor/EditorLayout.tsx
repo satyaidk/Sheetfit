@@ -32,6 +32,8 @@ import { SheetDialog } from "@/components/settings/SheetDialog";
 import { ExportDialog } from "@/components/export/ExportDialog";
 import { useEditorShortcuts } from "./use-editor-shortcuts";
 import { loadSampleSheet } from "@/lib/sample";
+import { parseEditorLink } from "@/lib/editor-link";
+import { hasWorkToLose, openProductDesign, requestProduct } from "@/lib/editor-actions";
 
 /**
  * True while the viewport is narrower than `px`. Panels are mounted for one
@@ -65,8 +67,15 @@ export default function EditorLayout() {
     // Small screens start with the canvas unobstructed.
     if (window.innerWidth < 1024) s.setInspectorOpen(false);
     if (window.innerWidth < 768) s.setPanelOpen(false);
-    if (new URLSearchParams(window.location.search).has("sample")) {
+    // Links from the home page: the sample project or a product template.
+    const link = parseEditorLink(window.location.search);
+    if (link.kind === "sample") {
       void loadSampleSheet();
+      return;
+    }
+    if (link.kind === "product") {
+      if (hasWorkToLose()) requestProduct(link.productId);
+      else openProductDesign(link.productId, { process: link.process });
       return;
     }
     let onboarded = false;

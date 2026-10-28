@@ -68,13 +68,13 @@ Everything runs in the browser. There is no account, no server and no upload: im
 | --- | --- | --- |
 | <img src="docs/images/products-panel.png" alt="Apparel cards: T-shirts in different colours with sample designs, size badges in inches and close-ups of small print areas" width="300" /> | <img src="docs/images/product-slot.png" alt="Empty T-shirt full-front box zoomed to fill the canvas, labelled with its size, and the live preview" width="300" /> | <img src="docs/images/mockup.png" alt="Large preview of a 30 oz tumbler in mint with a pattern wrapped around it and a turn slider" width="300" /> |
 
-| Landing page | How it works | Sublimation or DTF |
+| Home page | How it works | Try the sheet |
 | --- | --- | --- |
-| <img src="docs/images/landing.png" alt="Landing page hero: real printed mugs, tees, phone cases and a tote laid on a print sheet with crop marks and size tags" width="300" /> | <img src="docs/images/landing-how.png" alt="How it works: an interactive product preview with product, colour and process choices" width="300" /> | <img src="docs/images/landing-processes.png" alt="Sublimation and DTF compared side by side with photos" width="300" /> |
+| <img src="docs/images/landing.png" alt="Home page hero: the headline Your designs. Perfectly sized. Print-ready. beside an A4 sublimation sheet with a selected mug wrap, its size and a measured gap, and photos of a printed mug and T-shirt" width="300" /> | <img src="docs/images/landing-how.png" alt="From artwork to print-ready: four connected steps, choose a product, add artwork, fit and arrange, export and print" width="300" /> | <img src="docs/images/landing-sheet.png" alt="Interactive miniature sheet on the home page with a selected fridge magnet, live gaps in millimetres and the sheet usage" width="300" /> |
 
 | Download every page | Pages | Mobile |
 | --- | --- | --- |
-| <img src="docs/images/export-dialog.png" alt="Download dialog with every page selected, a page-by-page preview and the pre-print check" width="300" /> | <img src="docs/images/pages.png" alt="Page 2 of the sample, an A3 sheet holding the tumbler wrap, with the page strip below" width="300" /> | <img src="docs/images/landing-mobile.png" alt="Landing page on a phone" width="160" /> <img src="docs/images/mobile.png" alt="Editor on a phone" width="160" /> |
+| <img src="docs/images/export-dialog.png" alt="Download dialog with every page selected, a page-by-page preview and the pre-print check" width="300" /> | <img src="docs/images/pages.png" alt="Page 2 of the sample, an A3 sheet holding the tumbler wrap, with the page strip below" width="300" /> | <img src="docs/images/landing-mobile.png" alt="Home page on a phone" width="160" /> <img src="docs/images/mobile.png" alt="Editor on a phone" width="160" /> |
 
 Run the app locally and open `/editor?sample` for the sample project. Page 1 (A4) holds an 11 oz mug wrap with a very wide wordmark, two coasters with a round logo, a magnet with a 300 × 200 px photo that triggers the low-resolution warning, and an empty pet-tag box. Page 2 (A3) holds a 30 oz tumbler wrap with a sample pattern on a mint blank.
 
@@ -196,11 +196,11 @@ npm run test:coverage  # Vitest with V8 coverage and thresholds
 npm run check          # all of the above plus a production build
 ```
 
-The suite has 185 tests across 3D models (every product built and size-checked, print mapping, backdrop contrast for every blank colour), fitting, units, sheets, the product catalogue, product placement and free-spot search, product designs and the save-or-discard rules, pages with per-page history, layout, snapping, live gaps, distribution, auto-arrange, the render plan with mirroring and flips, single- and multi-page PDF export, print page rules, DPI metadata, the pre-print check, sample designs, blank colours, file validation, migrations, IndexedDB storage, project files and the editor store. It includes every scenario listed in the original specification, for example a square logo in a 90 × 60 mm box, an extremely wide logo, a low-resolution image at 300 DPI, A4 portrait and landscape PDFs, and an image placed at a known coordinate. A property-style test checks that no non-distorting mode ever places image pixels outside the box.
+The suite has 192 tests across the home page's example sheets and editor links, 3D models (every product built and size-checked, print mapping, backdrop contrast for every blank colour), fitting, units, sheets, the product catalogue, product placement and free-spot search, product designs and the save-or-discard rules, pages with per-page history, layout, snapping, live gaps, distribution, auto-arrange, the render plan with mirroring and flips, single- and multi-page PDF export, print page rules, DPI metadata, the pre-print check, sample designs, blank colours, file validation, migrations, IndexedDB storage, project files and the editor store. It includes every scenario listed in the original specification, for example a square logo in a 90 × 60 mm box, an extremely wide logo, a low-resolution image at 300 DPI, A4 portrait and landscape PDFs, and an image placed at a known coordinate. A property-style test checks that no non-distorting mode ever places image pixels outside the box.
 
-Coverage is measured over the domain, export and store layers (`src/lib`, `src/store`), excluding browser-only glue that needs a real DOM canvas: 92.9% of lines, 90.8% of statements and 79.9% of branches. CI enforces minimums of 80% lines, statements and functions and 65% branches.
+Coverage is measured over the domain, export and store layers (`src/lib`, `src/store`), excluding browser-only glue that needs a real DOM canvas: 93.0% of lines, 91.0% of statements and 80.3% of branches. CI enforces minimums of 80% lines, statements and functions and 65% branches.
 
-Browser-only paths (landing page, Konva interaction, canvas export, file upload, IndexedDB round trip, printing, previews, 3D viewer, dialogs and dropdowns) were verified end to end in headless Chrome against the production build: 48 scripted checks, all passing, with no console errors. A second script opens the 3D view of all 52 products and checks that each one renders. See [Evaluation](#evaluation).
+Browser-only paths (landing page, Konva interaction, canvas export, file upload, IndexedDB round trip, printing, previews, 3D viewer, dialogs and dropdowns) were verified end to end in headless Chrome against the production build: 48 scripted checks for the whole app and 24 for the home page, all passing, with no console errors. A third script opens the 3D view of all 52 products and checks that each one renders. See [Evaluation](#evaluation).
 
 ## Evaluation
 
@@ -228,6 +228,9 @@ Measured in headless Chrome against `npm run build && npm run start`, on the sam
 | v0.4: add a left-chest placement with "Add to this sheet" | Both placements on one DTF page; a sublimation-only mug would get its own page |
 | v0.4: header dropdown to US Letter with a 30 oz tumbler wrap | Notice that designs are off the sheet; Undo restores A3 |
 | v0.4: landing page | 18 images load, none broken; no horizontal overflow at 390 px |
+| v0.6: home page at 1440, 1024, 768, 390 and 320 px | No horizontal overflow, no console errors; phone menu opens and closes with Escape |
+| v0.6: product tiles and links | `/editor?product=tee-full-front&process=dtf` opens the T-shirt template on A3 with DTF selected; `?product=mug-11oz` opens the mug on A4; an unknown product opens the empty editor |
+| v0.6: home page sheet demo | Arrow keys move a transfer 1 mm (Shift 10 mm); dragging shows guides and live gaps; the DTF gang sheet packs 12 transfers with a 6.35 mm gap |
 | v0.2: fill an empty product box, save, reopen | Box filled through the inspector; all designs restored; no console errors |
 | v0.5: open the 3D view of every product | 52 of 52 render a model (the model and its shadow cover 7.5 % to 27.2 % of the canvas); no console errors (software WebGL, about 13 s per product) |
 | v0.5: 11 oz mug in white, then in black | Backdrop centre changes from blue-grey `#a8b1bd` (contrast 2.17 with white) to near-white `#f6f7f8` |
