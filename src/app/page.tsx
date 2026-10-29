@@ -7,6 +7,12 @@ import { PHOTOS, type PhotoKey } from "@/components/landing/photos";
 import { productPhotoSrc } from "@/components/products/ProductArt";
 import { findProduct, PRODUCTS } from "@/lib/catalogue/products";
 import { productHref } from "@/lib/editor-link";
+import sunglassesFace from "@/assets/designs/sunglasses-face.jpg";
+import passionFuel from "@/assets/designs/passion-fuel.jpg";
+import thinkBig from "@/assets/designs/think-big.jpg";
+import cherryBlossom from "@/assets/designs/cherry-blossom.jpg";
+import positive from "@/assets/designs/positive.jpg";
+import loveYourself from "@/assets/designs/love-yourself.jpg";
 
 /**
  * Home page: a short, plain walk through what Sheetfit does.
@@ -40,6 +46,16 @@ const STEPS: { photo: PhotoKey; title: string; body: string }[] = [
 ];
 
 const FEATURED = ["mug-11oz", "tumbler-20oz", "tumbler-40oz-top", "tee-full-front", "hoodie-front", "tote", "cap-front", "coaster-round"];
+
+/** Example designs supplied by the project owner (src/assets/designs/CREDITS.md). */
+const DESIGNS = [
+  { src: thinkBig, alt: "Bold Think Big lettering in cream on blue" },
+  { src: cherryBlossom, alt: "Pink cherry blossom branches on black" },
+  { src: passionFuel, alt: "Passion is the fuel to your success in colourful script" },
+  { src: sunglassesFace, alt: "Cartoon face with sunglasses and tongue out on blue" },
+  { src: positive, alt: "Positive typography with pink flowers on black" },
+  { src: loveYourself, alt: "Love yourself lettering with red roses on black" },
+];
 
 const GALLERY: PhotoKey[] = ["mugHeart", "teeCoffee", "toteDog", "phoneCases"];
 
@@ -199,6 +215,25 @@ export default function Home() {
           </div>
         </section>
 
+        {/* Example designs */}
+        <section aria-labelledby="designs-title">
+          <div className="mx-auto w-full max-w-[1200px] px-4 pb-20 sm:px-8">
+            <Heading
+              id="designs-title"
+              eyebrow="Bring your own design"
+              title="Any artwork, fitted whole."
+              body="Upload a PNG or JPEG, from a bold slogan to a full-colour illustration. Sheetfit keeps its proportions and never crops it to fit."
+            />
+            <ul className="grid grid-cols-3 gap-3 sm:gap-4 lg:grid-cols-6">
+              {DESIGNS.map((d) => (
+                <li key={d.alt} className="relative aspect-[3/4] overflow-hidden rounded-2xl bg-white ring-1 ring-hairline">
+                  <Image src={d.src} alt={d.alt} fill sizes="(min-width: 1024px) 16vw, 33vw" placeholder="blur" className="object-contain p-2" />
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+
         {/* Gallery */}
         <section aria-labelledby="gallery-title" className="bg-white">
           <div className="mx-auto w-full max-w-[1200px] px-4 py-20 sm:px-8">
@@ -271,7 +306,7 @@ export default function Home() {
                 {i < credits.length - 1 ? ", " : "."}
               </span>
             ))}{" "}
-            Product pictures are renders of Sheetfit&apos;s own 3D models.
+            Product pictures are renders of Sheetfit&apos;s own 3D models. Example designs supplied by the project owner.
           </p>
         </div>
       </footer>

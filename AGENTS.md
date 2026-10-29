@@ -103,7 +103,8 @@ npm test               # vitest only
 17. Product pictures are build artefacts in `public/products/<id>.webp` (+ `-detail.webp` for small placements),
     rendered from the 3D models (ADR 0011, design doc section 18). Re-render them whenever a model or the sample
     designs change; `tests/v06-studio-home.test.ts` fails if any product lacks its picture. Never ship images whose
-    licence is unknown (the user's `Sublimation & DTF images/` folder is git-ignored and must stay out).
+    licence is unknown. From the user's `Sublimation & DTF images/` folder only the six owner-approved designs in
+    `src/assets/designs/` (CREDITS.md) may be used; never its character, brand-logo or people images.
 
 ## 5. File map
 
@@ -242,6 +243,10 @@ Next (v0.8 candidates, in suggested order):
 - `research_notes/` and `reports/` are in the repo root; decide with the user whether to keep them committed.
 
 ## 8. Update log
+
+- **2026-10-29**: User said the folder images are publicly available and approved them for the UI. Added six
+  designs without characters, logos or people to `src/assets/designs/` (CREDITS.md) and a "Bring your own design"
+  home section; character, brand and people images still declined (trademark/copyright, not only availability).
 
 - **2026-10-29**: User found the "Night press" home page weird and asked for a simple, clean one using images from
   `Sublimation & DTF images/`. Re-checked all 33: characters (One Piece, Hello Kitty, Gundam, Tom & Jerry, Dragon
