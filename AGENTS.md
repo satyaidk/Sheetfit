@@ -15,7 +15,10 @@ Every agent (and human) reads it before starting work and updates it **in the sa
 feature, plan or known-issue change. Keep entries short and factual. Newest entries go at the top of the
 update log (section 8).
 
-Last updated: 2026-10-28 (v0.7.0)
+Last updated: 2026-10-29 (v0.7.0 + UX audit)
+
+> **Before any other work, read [`docs/MUST-FIX.md`](docs/MUST-FIX.md)** (UX and logic audit, 2026-10-29). Fix its
+> P0 items first, one ID per commit, tick them there and log them here. No new features until every P0 is ticked.
 
 ## 1. Product in one paragraph
 
@@ -155,7 +158,8 @@ npm test               # vitest only
 | `src/lib/editor-link.ts` | `parseEditorLink` (`?sample`, `?product=`, `&process=`), `productHref` |
 | `src/assets/photos/` | 13 landing photos (Unsplash/Pexels) and `CREDITS.md` |
 | `tests/*` | Vitest suites incl. `v03-pages-mockups`, `v04-product-flow`, `v05-3d-models` (every product built in 3D), `v06-studio-home` (demo sheets, editor links) |
-| `docs/` | Design doc, ADRs 0001–0012, learning path, printing guide, screenshots |
+| `docs/` | Design doc, ADRs 0001–0012, `MUST-FIX.md` (audit backlog), learning path, printing guide, screenshots (`images/audit/` = audit evidence) |
+| `scripts/ux-audit/` | `walk.js <w> <h> <tag>` (editor walkthrough + metrics), `mobile-probe.js` (phone download, preview, touch drag); Playwright, server on :3200, `OUT=<dir>`; not linted |
 
 ## 6. Plan
 
@@ -200,6 +204,7 @@ v0.7 phases (all done 2026-10-28):
 - [x] U3 "Night press" home page; README, CHANGELOG 0.7.0, ADR 0011, design doc 17-18
 
 Next (v0.8 candidates, in suggested order):
+0. **`docs/MUST-FIX.md`: P0 MF-01 to MF-06, then P1, then P2** (comes before everything below).
 1. 3D realism: drinkware geometry done (ADR 0012). Next: re-render product pictures; garments, caps and totes
    (cloth geometry); Pacdora-style viewer functions (hi-res PNG export, 360° video export, Top/three-quarter views,
    backdrop picker); baked contact shadows and glaze/weave detail maps.
@@ -213,6 +218,9 @@ Next (v0.8 candidates, in suggested order):
 8. Photographic mockups; optional Pinterest import via the official API (user's own boards, needs OAuth + backend).
 
 ## 7. Known issues / to fix
+
+- **UX and logic backlog: see `docs/MUST-FIX.md`** (24 items: data loss on import, no autosave, crowded canvas,
+  squeezed tablet layout, modal phone sheets, tiny text and unnamed buttons, small touch targets, ...).
 
 - Raster export of very long DTF sheets (22×60 in and longer at 300 DPI) exceeds browser canvas limits; PDF
   works. The export dialog explains it.
@@ -243,6 +251,15 @@ Next (v0.8 candidates, in suggested order):
 - `research_notes/` and `reports/` are in the repo root; decide with the user whether to keep them committed.
 
 ## 8. Update log
+
+- **2026-10-29**: User: mobile and desktop UX is very bad; audit the whole code base and write a must-fix file, do
+  not fix yet. Audited the production build in Playwright at 1440, 768 and 390 px (first run, sample, select, all
+  panels, Download, product link, phone preview, touch drag, File menu) with metrics (overflow, controls under
+  32 px, unnamed controls, text under 12 px), and read the editor, panel, product and dialog components, the store
+  and `editor-actions.ts`. Wrote `docs/MUST-FIX.md`: 6 P0 (import replaces work without asking, no autosave, canvas
+  crowded to 26 to 31 % zoom, tablet squeeze, modal phone sheets that block the header and ignore Escape, text under
+  12 px on 240 elements and an unnamed phone Download button), 13 P1, 5 P2, each with evidence and an acceptance
+  check. Evidence in `docs/images/audit/`, scripts in `scripts/ux-audit/` (excluded from ESLint). No app code changed.
 
 - **2026-10-29**: User said the folder images are publicly available and approved them for the UI. Added six
   designs without characters, logos or people to `src/assets/designs/` (CREDITS.md) and a "Bring your own design"

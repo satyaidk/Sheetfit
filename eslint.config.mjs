@@ -13,6 +13,8 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
     "coverage/**",
+    // Dev-only Playwright scripts (CommonJS, run with the global Playwright install).
+    "scripts/ux-audit/**",
   ]),
 ]);
 
