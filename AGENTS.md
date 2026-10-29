@@ -28,7 +28,8 @@ inspect every product as an interactive **3D model** in any blank colour, and
 export an exact-size multi-page PDF, PNG/JPEG per page with DPI metadata, a browser print at 100%, or a
 `.sheetfit` project file. Default fitting never crops or distorts. Sublimation output is mirrored; DTF is not.
 No backend; projects live in IndexedDB. The home page (`/`) is a separate "studio" design that demonstrates
-all of this with real layouts and links straight into templates (`/editor?product=<id>`).
+all of this in a short, plain page (hero, three steps, product templates, Sublimation vs DTF, FAQ) and links straight
+into templates (`/editor?product=<id>`).
 
 ## 2. Current status
 
@@ -97,8 +98,8 @@ npm test               # vitest only
     DOM) so they run in Vitest; textures come from `lib/three/print-textures.ts` in the browser (ADR 0010).
 15. Dialogs that skip auto-focus must use `focusDialogItself`, so focus (and Escape) stays inside the dialog.
 16. Home page styles live under `.home` (tokens `night`, `night-2`, `mist`, `mist-2`, `muted`, `hairline`, plus the
-    existing `process-*` inks) and must not leak into the editor. Every sheet pictured there comes from `lib/landing/sheet-demos.ts` (real catalogue +
-    packer); every action links to a real editor flow (`lib/editor-link.ts`). No invented numbers or features.
+    existing `process-*` inks) and must not leak into the editor. Every action links to a real editor flow
+    (`lib/editor-link.ts`). Only licensed photos (`landing/photos.ts`, credited) and our own renders. No invented numbers.
 17. Product pictures are build artefacts in `public/products/<id>.webp` (+ `-detail.webp` for small placements),
     rendered from the 3D models (ADR 0011, design doc section 18). Re-render them whenever a model or the sample
     designs change; `tests/v06-studio-home.test.ts` fails if any product lacks its picture. Never ship images whose
@@ -146,7 +147,7 @@ npm test               # vitest only
 | `src/components/settings/*` | `SheetSelect` (dropdown), `SheetPanel`, `SheetDialog`, `DimensionControls`, `NumberField`, `Section` |
 | `src/components/export/ExportDialog.tsx` | Export/print for all pages or one, page-by-page preview, preflight per page, mirror badge |
 | `src/components/ui/*` | Radix/shadcn-style primitives incl. popover, context-menu, toolbar |
-| `src/app/page.tsx`, `src/components/landing/*` | Home page: `HomeNav` (scroll progress), `StudioMotion` (reveals, parallax), `HeroShowcase`, `ProductMarquee`, `StoryWorkflow` (pinned scroll story), `SheetDemo`, `ColorDemo` (3D), `HomeSections` (features, Sublimation vs DTF, FAQ), `demo-art.ts`, `photos.ts` |
+| `src/app/page.tsx`, `src/components/landing/*` | Simple server-rendered home page (hero, 3 steps, 8 templates, gallery, Sublimation vs DTF, FAQ, CTA); `HomeSections` (`ProcessCompare`, `Faq`, unused `FeatureGrid`), `photos.ts` |
 | `public/products/` | 52 rendered product pictures and 9 detail crops (WebP) |
 | `public/env/` | Studio HDRI for 3D lighting and reflections (CC0, Poly Haven) and `CREDITS.md` |
 | `src/lib/landing/sheet-demos.ts` | Example sheets built with the real packer, margins and slot sizes |
@@ -236,9 +237,19 @@ Next (v0.8 candidates, in suggested order):
 - The quick-actions bar scrolls horizontally on narrow screens (by design).
 - Tapered products are omitted (no arc templates yet).
 - README badges assume GitHub repo `satyaidk/tool-bar` (no remote configured).
+- `Sublimation & DTF images/` (33 third-party images) is in `.gitignore` but committed; remove it from git
+  (`git rm -r --cached`) once the user agrees.
 - `research_notes/` and `reports/` are in the repo root; decide with the user whether to keep them committed.
 
 ## 8. Update log
+
+- **2026-10-29**: User found the "Night press" home page weird and asked for a simple, clean one using images from
+  `Sublimation & DTF images/`. Re-checked all 33: characters (One Piece, Hello Kitty, Gundam, Tom & Jerry, Dragon
+  Ball, Evangelion), car brands, a watermark, real faces; the text-only ones are still others' designs with no
+  licence. Not used (rule 17). Note: the folder is ignored but its 33 files are committed; decide with the user
+  whether to remove them from git. Done: new `page.tsx` with licensed photos and our renders, no client JS or scroll
+  effects; removed 7 landing components and `demo-art.ts`. `npm run check` green (198 tests); screenshots at 1440
+  and 390 px: no overflow, no console errors. `.home [data-reveal]`/`home-rise` CSS is now unused.
 
 - **2026-10-28**: User sent 9 Pacdora screenshots (mugs, 40 oz handled tumbler) and asked for models as realistic,
   from open-source sources or Pacdora. Pacdora models are proprietary (image/video export only) and were not taken;
