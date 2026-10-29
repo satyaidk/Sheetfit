@@ -4,6 +4,22 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Changed
+
+- 3D drinkware rebuilt in more detail (ADR 0012): mugs have a round lip, a soft foot with a recessed base, a flat
+  inside floor and a smooth C handle with a moulded, flared section; the 40 oz handled tumbler has a stepped base, a
+  satin steel rim band, a flat lid with a slider, a steel straw and a chunky D handle; skinny tumblers have a frosted
+  lid with a slider; espresso saucers and enamel-mug handles are rounded too.
+- 3D viewer lighting: products are lit by a photographed studio ("Studio Small 03", a CC0 HDRI from Poly Haven,
+  1.6 MB in `public/env/`) instead of three.js's synthetic room. Glaze, steel and glass now show a softbox
+  highlight and a darker far edge, as in a product photo; the studio is turned so the highlight sits near the edge
+  instead of washing out the print. The synthetic room stays as the fallback while the file loads or if it fails.
+
+### Fixed
+
+- The inside of every mug and tumbler was a cone (a single line from the floor centre to the rim). It is now a flat
+  floor with a fillet, and a test guards it.
+
 ## [0.7.0] - 2026-10-28
 
 ### Added

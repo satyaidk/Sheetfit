@@ -3,8 +3,9 @@
  *
  * Each product's illustration kind maps to a builder:
  *
- * - Drinkware is lathed from a radius profile (mugs, tumblers, cans, bottles),
- *   with handles, lids, straws and saucers added as separate parts. The
+ * - Drinkware is lathed from a filleted radius profile (mugs, tumblers, cans,
+ *   bottles): round lips, soft feet, a flat inside floor. Handles are swept
+ *   with a moulded section; lids, straws and saucers are separate parts. The
  *   circumference comes from the wrap width; for handled mugs a gap is added
  *   for the handle, which the wrap does not cover. The print band is a thin
  *   lathe just outside the body, so its texture follows tapers exactly.
@@ -202,18 +203,94 @@ function radiusAt(profile: Profile, y: number): number {
   return profile[profile.length - 1][0];
 }
 
-/** A closed wall: outer profile up, a rounded rim, the inner wall down, and the inside floor. */
-function vesselGeometry(outer: Profile, wall: number, segments = 96) {
-  const top = outer[outer.length - 1];
-  const inner: Profile = outer.filter(([, y]) => y >= wall * 2).map(([r, y]) => [Math.max(0.5, r - wall), y]);
-  const pts: THREE.Vector2[] = [
-    new THREE.Vector2(0.001, wall * 2),
-    ...inner.map(([r, y]) => new THREE.Vector2(r, y)),
-    new THREE.Vector2(top[0] - wall * 0.5, top[1] + wall * 0.35),
-    ...[...outer].reverse().map(([r, y]) => new THREE.Vector2(r, y)),
-    new THREE.Vector2(0.001, 0),
-  ];
+/** A profile corner: radius (x), height (y) and the fillet that rounds it (0 or absent = sharp). */
+type Corner = [x: number, y: number, round?: number];
+
+/**
+ * Rounds the corners of a 2D polyline with circular fillets, as a CAD fillet
+ * does. A fillet never takes more than half of either edge, so neighbouring
+ * fillets cannot overlap; the first and last points stay sharp.
+ */
+export function roundCorners(pts: Corner[], steps = 8): THREE.Vector2[] {
+  const out: THREE.Vector2[] = [];
+  const push = (v: THREE.Vector2) => {
+    const last = out[out.length - 1];
+    if (!last || last.distanceTo(v) > 1e-4) out.push(v);
+  };
+  pts.forEach(([x, y, round = 0], i) => {
+    const p = new THREE.Vector2(x, y);
+    if (round <= 0 || i === 0 || i === pts.length - 1) {
+      push(p);
+      return;
+    }
+    const a = new THREE.Vector2(pts[i - 1][0], pts[i - 1][1]).sub(p);
+    const b = new THREE.Vector2(pts[i + 1][0], pts[i + 1][1]).sub(p);
+    const la = a.length();
+    const lb = b.length();
+    a.normalize();
+    b.normalize();
+    const theta = Math.acos(THREE.MathUtils.clamp(a.dot(b), -1, 1));
+    if (theta < 1e-3 || Math.PI - theta < 1e-3) {
+      push(p);
+      return;
+    }
+    const d = Math.min(round / Math.tan(theta / 2), la / 2, lb / 2);
+    const r = d * Math.tan(theta / 2);
+    const t1 = p.clone().addScaledVector(a, d);
+    const t2 = p.clone().addScaledVector(b, d);
+    const c = p.clone().addScaledVector(a.clone().add(b).normalize(), r / Math.sin(theta / 2));
+    const a1 = Math.atan2(t1.y - c.y, t1.x - c.x);
+    let sweep = Math.atan2(t2.y - c.y, t2.x - c.x) - a1;
+    if (sweep > Math.PI) sweep -= Math.PI * 2;
+    if (sweep < -Math.PI) sweep += Math.PI * 2;
+    for (let k = 0; k <= steps; k++) {
+      const ang = a1 + (sweep * k) / steps;
+      push(new THREE.Vector2(c.x + r * Math.cos(ang), c.y + r * Math.sin(ang)));
+    }
+  });
+  return out;
+}
+
+interface VesselOptions {
+  /** Wall thickness at the rim; the lip is a half round of this width. */
+  wall: number;
+  /** Height of the inside floor (thick ceramic bases, insulated steel). */
+  floor: number;
+  /** Fillet on the outer bottom edge. */
+  foot: number;
+  /** Fillet where the inside wall meets the floor. */
+  inside: number;
+  /** Fillet on every other bend in the profile (tapers, shoulders). */
+  kink?: number;
+  /** Depth of the recess under the base, inside a foot ring (ceramic mugs); 0 for a flat base. */
+  recess?: number;
+}
+
+/**
+ * A closed vessel for the lathe, listed bottom to top so the normals face out:
+ * the base (with an optional foot ring), the outer wall, a round lip, the
+ * inside wall and a flat floor. Every bend is filleted; sharp corners would
+ * smear the shading (the old inside ran in one line from the floor centre to
+ * the rim, which drew a cone).
+ */
+function vesselGeometry(outer: Profile, o: VesselOptions, segments = 128) {
+  const kink = o.kink ?? 2;
+  const last = outer.length - 1;
+  const r0 = outer[0][0];
+  const base: Corner[] = o.recess ? [[0, o.recess], [r0 - 7, o.recess, 1.5], [r0 - 5, 0, 0.8]] : [[0, 0]];
+  const up: Corner[] = outer.map(([r, y], i) => [r, y, i === 0 ? o.foot : i === last ? o.wall / 2 : kink]);
+  const down: Corner[] = outer
+    .filter(([, y]) => y > o.floor + o.inside)
+    .map(([r, y], i, arr): Corner => [r - o.wall, y, i === arr.length - 1 ? o.wall / 2 : kink])
+    .reverse();
+  const floorR = radiusAt(outer, o.floor) - o.wall;
+  const pts = roundCorners([...base, ...up, ...down, [floorR, o.floor, o.inside], [0, o.floor]]);
   return new THREE.LatheGeometry(pts, segments);
+}
+
+/** A closed lathed part (lid, cap) from a profile listed bottom to top. */
+function latheClosed(profile: Corner[], material: THREE.Material, segments = 96) {
+  return mesh(new THREE.LatheGeometry(roundCorners(profile), segments), material);
 }
 
 /** The print band: a lathe slice just outside the body, following its shape. */
@@ -227,18 +304,95 @@ function bandGeometry(outer: Profile, y0: number, y1: number, phiStart: number, 
   return new THREE.LatheGeometry(pts, 160, phiStart, phiLength);
 }
 
-/** A C or D handle on the +X side, as a tube along a smooth curve. */
-function handle(r: number, yTop: number, yBottom: number, reach: number, thickness: number, material: THREE.Material) {
-  const mid = (yTop + yBottom) / 2;
-  const curve = new THREE.CatmullRomCurve3([
-    new THREE.Vector3(r - 2, yTop, 0),
-    new THREE.Vector3(r + reach * 0.55, yTop + thickness * 0.4, 0),
-    new THREE.Vector3(r + reach, mid + (yTop - yBottom) * 0.18, 0),
-    new THREE.Vector3(r + reach * 0.95, mid - (yTop - yBottom) * 0.2, 0),
-    new THREE.Vector3(r + reach * 0.5, yBottom - thickness * 0.3, 0),
-    new THREE.Vector3(r - 2, yBottom, 0),
-  ]);
-  return mesh(new THREE.TubeGeometry(curve, 80, thickness / 2, 20, false), material);
+/**
+ * Sweeps a rounded section along a curve in the XY plane. `a` is the half
+ * width across the plane (Z), `b` the half thickness within it; the section is
+ * a superellipse (exponent 2 is an ellipse, higher is squarer), which reads as
+ * a moulded part rather than bent wire. Normals are the section's own, so the
+ * seam where the section closes is invisible.
+ */
+function sweepGeometry(curve: THREE.Curve<THREE.Vector3>, section: (t: number) => { a: number; b: number }, exponent: number, steps = 120, around = 40) {
+  const position: number[] = [];
+  const normal: number[] = [];
+  const index: number[] = [];
+  const Z = new THREE.Vector3(0, 0, 1);
+  const N = new THREE.Vector3();
+  const n = new THREE.Vector3();
+  const pow = (x: number, e: number) => Math.sign(x) * Math.abs(x) ** e;
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const p = curve.getPointAt(t);
+    N.crossVectors(Z, curve.getTangentAt(t)).normalize();
+    const { a, b } = section(t);
+    for (let j = 0; j <= around; j++) {
+      const phi = (j / around) * Math.PI * 2;
+      const u = a * pow(Math.cos(phi), 2 / exponent);
+      const v = b * pow(Math.sin(phi), 2 / exponent);
+      position.push(p.x + N.x * v, p.y + N.y * v, p.z + u);
+      // Gradient of |u/a|^e + |v/b|^e: the outward normal of the section.
+      const gu = pow(u / a, exponent - 1) / a;
+      const gv = pow(v / b, exponent - 1) / b;
+      n.set(N.x * gv, N.y * gv, gu).normalize();
+      normal.push(n.x, n.y, n.z);
+    }
+  }
+  for (let i = 0; i < steps; i++) {
+    for (let j = 0; j < around; j++) {
+      const k = i * (around + 1) + j;
+      const k2 = k + around + 1;
+      index.push(k, k2, k + 1, k2, k2 + 1, k + 1);
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute("position", new THREE.Float32BufferAttribute(position, 3));
+  g.setAttribute("normal", new THREE.Float32BufferAttribute(normal, 3));
+  g.setIndex(index);
+  return g;
+}
+
+interface HandleSection {
+  /** Half width (across the handle's plane). */
+  a: number;
+  /** Half thickness (within the plane). */
+  b: number;
+  /** How much thicker the ends are where they join the body (0.35 = 35 %). */
+  flare?: number;
+  exponent?: number;
+}
+
+/**
+ * A handle on the +X side: a path through filleted corners, swept with a
+ * moulded section that thickens near the body, as a cast handle does. The ends
+ * sit inside the wall, so the joins need no caps.
+ */
+function handle(path: Corner[], section: HandleSection, material: THREE.Material) {
+  const points = roundCorners(path, 14).map((v) => new THREE.Vector3(v.x, v.y, 0));
+  const curve = new THREE.CatmullRomCurve3(points, false, "centripetal");
+  const flare = section.flare ?? 0.35;
+  const geometry = sweepGeometry(
+    curve,
+    (t) => {
+      const k = 1 + flare * Math.max(0, 1 - Math.min(t, 1 - t) / 0.12) ** 2;
+      return { a: section.a * k, b: section.b * k };
+    },
+    section.exponent ?? 2.6,
+  );
+  return mesh(geometry, material);
+}
+
+/**
+ * The classic mug handle: one continuous C, nearly level where it leaves the
+ * body at the top, rounding down an outer side that leans in a little, and
+ * returning low. Control points are in mm for a 96 mm mug (offset from the
+ * body, height) and scale with the mug; `rAt` gives the body radius at a
+ * height so tapered cups get their joins on the wall.
+ */
+function mugHandle(rAt: (y: number) => number, H: number, material: THREE.Material) {
+  const k = H / 96;
+  const C: [dx: number, y: number][] = [[-2.5, 80.5], [8, 84], [21, 82.5], [31, 73], [34.5, 57.5], [31.5, 40.5], [22, 28], [10, 22.5], [-2.5, 21]];
+  const R = rAt(H / 2);
+  const path: Corner[] = C.map(([dx, y], i) => [(i === 0 || i === C.length - 1 ? rAt(y * k) : R) + dx * k, y * k]);
+  return handle(path, { a: 9 * k, b: 4.2 * k, exponent: 2.4 }, material);
 }
 
 function cylinderPart(rTop: number, rBottom: number, h: number, y: number, material: THREE.Material, segments = 64) {
@@ -247,16 +401,24 @@ function cylinderPart(rTop: number, rBottom: number, h: number, y: number, mater
   return m;
 }
 
-function straw(x: number, y0: number, length: number) {
-  const s = mesh(new THREE.CylinderGeometry(3.4, 3.4, length, 24, 1, true), clearPlastic());
-  s.position.set(x, y0 + length / 2, 0);
-  s.rotation.z = -0.06;
+/** A straw from y0 upwards, leaning a little; steel straws are thinner and stand straight. */
+function straw(x: number, y0: number, length: number, kind: "clear" | "steel" = "clear", z = 0) {
+  const r = kind === "steel" ? 3.6 : 3.4;
+  const s = mesh(new THREE.CylinderGeometry(r, r, length, 32, 1, kind === "clear"), kind === "steel" ? steel("#d7dbdf", 0.22) : clearPlastic());
+  s.position.set(x, y0 + length / 2, z);
+  if (kind === "clear") s.rotation.z = -0.06;
   return s;
+}
+
+/** Frosted press-in lid: enough of a surface to read from above, still see-through. */
+function lidPlastic() {
+  return new THREE.MeshPhysicalMaterial({ color: "#eef2f5", roughness: 0.28, transmission: 0.55, thickness: 2, ior: 1.45, clearcoat: 0.6, clearcoatRoughness: 0.1 });
 }
 
 interface DrinkSpec {
   outer: Profile;
-  wall: number;
+  /** Lathe options for the body; wall thickness is required, the rest has defaults. */
+  vessel: Partial<VesselOptions> & { wall: number };
   /** Print band on the body. */
   bandY: [number, number];
   /** Angle the wrap covers (rad); 2π for seamless wraps. */
@@ -274,72 +436,135 @@ function drinkSpec(p: ModelProduct, o: ModelOptions): DrinkSpec {
   switch (p.art) {
     case "mug": {
       // An 11 oz mug is about 82 mm across and 96 mm tall; the wrap stops short of the handle.
+      // A thick glazed wall with a round lip, a foot ring under a recessed base, a C handle.
       const C = w + 32;
       const R = C / (2 * Math.PI);
       const H = h + 7;
-      const outer: Profile = [[R - 3, 0], [R - 0.6, 1.2], [R, 3], [R, H - 1], [R - 0.4, H]];
+      const outer: Profile = [[R, 0], [R, H]];
       const body = ceramic(color);
-      return { outer, wall: 3.6, bandY: [(H - h) / 2, (H + h) / 2], bandAngle: (w / C) * full, body, extras: [handle(R, H * 0.84, H * 0.2, R * 0.72, 11, body)] };
+      return {
+        outer,
+        vessel: { wall: 3.6, floor: 7, foot: 3, inside: 9, recess: 1.6 },
+        bandY: [(H - h) / 2, (H + h) / 2],
+        bandAngle: (w / C) * full,
+        body,
+        extras: [mugHandle(() => R, H, body)],
+      };
     }
     case "enamel-mug": {
       const C = w + 26;
       const R = C / (2 * Math.PI);
       const H = h + 16;
-      const outer: Profile = [[R - 2, 0], [R, 2], [R, H]];
+      const outer: Profile = [[R, 0], [R, H]];
       const body = coated(color);
-      const rim = mesh(new THREE.TorusGeometry(R - 0.6, 1.4, 12, 96), steel("#b8bfc6", 0.25));
+      const trim = steel("#b8bfc6", 0.25);
+      const rim = mesh(new THREE.TorusGeometry(R - 0.6, 1.4, 16, 128), trim);
       rim.rotation.x = Math.PI / 2;
       rim.position.y = H;
-      const foot = mesh(new THREE.TorusGeometry(R - 1.2, 1.1, 10, 96), steel("#b8bfc6", 0.25));
+      const foot = mesh(new THREE.TorusGeometry(R - 1.2, 1.1, 12, 128), trim);
       foot.rotation.x = Math.PI / 2;
       foot.position.y = 1.1;
-      return { outer, wall: 1.2, bandY: [(H - h) / 2, (H + h) / 2], bandAngle: (w / C) * full, body, extras: [rim, foot, handle(R, H * 0.85, H * 0.32, R * 0.6, 6, steel("#b8bfc6", 0.25))] };
+      // Pressed steel: a flat strip handle, enamelled with the body.
+      const strip = handle(
+        [
+          [R - 0.8, H * 0.86],
+          [R + R * 0.55, H * 0.9, 7],
+          [R + R * 0.62, H * 0.52, 12],
+          [R + R * 0.3, H * 0.3, 7],
+          [R - 0.8, H * 0.32],
+        ],
+        { a: 5.5, b: 1.6, exponent: 4, flare: 0.3 },
+        body,
+      );
+      return { outer, vessel: { wall: 1.2, floor: 1.4, foot: 1.5, inside: 3 }, bandY: [(H - h) / 2, (H + h) / 2], bandAngle: (w / C) * full, body, extras: [rim, foot, strip] };
     }
     case "espresso": {
       const C = w + 22;
       const Rt = C / (2 * Math.PI);
       const Rb = Rt * 0.8;
       const H = h + 10;
-      const outer: Profile = [[Rb - 3, 0], [Rb, 3], [Rt, H]];
+      const outer: Profile = [[Rb, 0], [Rt, H]];
       const body = ceramic(color);
-      const saucerProfile = [new THREE.Vector2(0.001, 0), new THREE.Vector2(Rt * 1.55, 0.5), new THREE.Vector2(Rt * 1.85, 6), new THREE.Vector2(Rt * 1.8, 7.5), new THREE.Vector2(Rt * 1.45, 3), new THREE.Vector2(0.001, 2.5)];
-      const saucer = mesh(new THREE.LatheGeometry(saucerProfile, 96), ceramic(color));
+      const saucer = latheClosed(
+        [[0, 0], [Rt * 1.45, 0, 1.5], [Rt * 1.85, 5.5, 3], [Rt * 1.82, 7.5, 1], [Rt * 1.45, 3.2, 6], [Rt * 0.9, 2.6, 2], [0, 2.6]],
+        ceramic(color),
+      );
       saucer.position.y = -6;
-      return { outer, wall: 3, bandY: [(H - h) / 2, (H + h) / 2], bandAngle: (w / C) * full, body, extras: [saucer, handle(radiusAt(outer, H * 0.6), H * 0.82, H * 0.3, Rt * 0.55, 7, body)] };
+      return {
+        outer,
+        vessel: { wall: 3, floor: 6, foot: 2.5, inside: 6, recess: 1.2 },
+        bandY: [(H - h) / 2, (H + h) / 2],
+        bandAngle: (w / C) * full,
+        body,
+        extras: [saucer, mugHandle((y) => radiusAt(outer, y), H, body)],
+      };
     }
     case "glass-can": {
       const R = (w * 0.94) / (2 * Math.PI);
       const H = h + 24;
       const outer: Profile = [[R - 5, 0], [R - 1, 1.5], [R, 6], [R, H - 6], [R - 2.5, H - 1], [R - 2.5, H]];
       const lid = cylinderPart(R - 1.5, R - 1.5, 8, H - 2, wood());
-      return { outer, wall: 2.2, bandY: [(H - h) / 2, (H + h) / 2], bandAngle: full, body: glass(), bandOpacity: 0.94, extras: [lid, straw(R * 0.35, H - 40, 120)] };
+      return { outer, vessel: { wall: 2.2 }, bandY: [(H - h) / 2, (H + h) / 2], bandAngle: full, body: glass(), bandOpacity: 0.94, extras: [lid, straw(R * 0.35, H - 40, 120)] };
     }
     case "tumbler": {
+      // Coated steel skinny tumbler with a frosted press-in lid, a slider and a straw.
       const R = w / (2 * Math.PI);
       const H = h + 20;
-      const outer: Profile = [[R - 4, 0], [R - 0.5, 1.5], [R, 4], [R, H]];
-      const lid = cylinderPart(R + 0.8, R + 0.8, 11, H - 4, clearPlastic());
-      const lidTop = cylinderPart(R * 0.82, R + 0.8, 4, H + 7, clearPlastic());
-      return { outer, wall: 1.5, bandY: [(H - h) / 2, (H + h) / 2], bandAngle: full, body: coated(color), extras: [lid, lidTop, straw(R * 0.3, H - 60, 210)] };
-    }
-    case "tumbler-handle": {
-      // 40 oz quencher: tapered base, straight top section, big D handle.
-      const R = w / (2 * Math.PI);
-      const taper = 112;
-      const H = taper + (p.id.endsWith("bottom") ? 148 : h);
-      const outer: Profile = [[R * 0.7 - 4, 0], [R * 0.7, 4], [R * 0.74, 20], [R, taper], [R, H]];
-      const isBottom = p.id.endsWith("bottom");
-      const bandY: [number, number] = isBottom ? [taper - h - 4, taper - 4] : [taper + 4, Math.min(H - 6, taper + 4 + h)];
-      const steelPart = steel("#d3d7db", 0.35);
-      const lid = cylinderPart(R + 1, R + 1, 14, H - 2, plastic("#3b4149"));
-      const dome = cylinderPart(R * 0.5, R + 1, 10, H + 12, plastic("#3b4149"));
+      const outer: Profile = [[R, 0], [R, H]];
+      const lid = latheClosed(
+        [[R - 1.8, H - 10], [R - 1.8, H - 0.5, 0.5], [R + 1, H - 0.5, 0.8], [R + 1, H + 5, 1.5], [R * 0.86, H + 7, 2.5], [0, H + 7]],
+        lidPlastic(),
+      );
+      const slider = mesh(new RoundedBoxGeometry(R * 0.7, 2.4, 11, 3, 1.1), plastic("#f4f6f8", 0.35));
+      slider.position.set(-R * 0.05, H + 8, -R * 0.42);
       return {
         outer,
-        wall: 1.6,
+        vessel: { wall: 1.5, floor: 8, foot: 3, inside: 4 },
+        bandY: [(H - h) / 2, (H + h) / 2],
+        bandAngle: full,
+        body: coated(color),
+        extras: [lid, slider, straw(R * 0.3, H - 60, 210)],
+      };
+    }
+    case "tumbler-handle": {
+      // 40 oz handled tumbler: a tapered cup-holder base with a small step, a straight
+      // coated body, a bare steel rim band, a flat lid with a slider and a steel
+      // straw, and a chunky D handle. The base holds the bottom wrap (98 mm), the
+      // straight section the top wrap; both products share one body.
+      const isBottom = p.id.endsWith("bottom");
+      const R = w / (2 * Math.PI);
+      const hTop = isBottom ? 147.6 : h;
+      const taper = 108;
+      const Hs = taper + 9 + hTop;
+      const H = Hs + 16;
+      const outer: Profile = [[R * 0.76, 0], [R * 0.9, taper - 4], [R * 0.95, taper], [R, taper + 3], [R, H]];
+      const bandY: [number, number] = isBottom ? [taper - 6 - h, taper - 6] : [taper + 5, taper + 5 + hTop];
+      const body = coated(color);
+      // Satin brushed steel: a mirror finish would only reflect the dark studio.
+      const bare = steel("#dfe2e5", 0.42);
+      const band = mesh(new THREE.CylinderGeometry(R + 0.2, R + 0.2, H - Hs - 1.6, 128, 1, true), bare);
+      band.position.y = (Hs + H - 1.6) / 2;
+      const lid = latheClosed([[R - 1.7, H - 14], [R - 1.7, H - 3.5, 1], [0, H - 3.5]], steel("#c9ced3", 0.34));
+      const slider = mesh(new RoundedBoxGeometry(17, 6, (R - 5) * 2, 4, 2.6), plastic(color, 0.4));
+      slider.position.set(0, H - 1.5, 0);
+      const D = R * 0.98;
+      const grip = handle(
+        [
+          [R - 2, Hs - 16],
+          [R + D, Hs - 16, 16],
+          [R + D, taper + 24, 16],
+          [R - 2, taper + 24],
+        ],
+        { a: 10, b: 7.5, exponent: 3.2, flare: 0.22 },
+        body,
+      );
+      return {
+        outer,
+        vessel: { wall: 1.6, floor: 10, foot: 4, inside: 4, kink: 6 },
         bandY,
         bandAngle: (w / (2 * Math.PI * R)) * full,
-        body: coated(color),
-        extras: [lid, dome, straw(R * 0.25, H - 80, 250), handle(R, H - 22, taper + 10, R * 0.95, 16, steelPart)],
+        body,
+        extras: [band, lid, slider, straw(0, H - 40, 135, "steel", R * 0.45), grip],
       };
     }
     case "travel-tumbler": {
@@ -347,14 +572,14 @@ function drinkSpec(p: ModelProduct, o: ModelOptions): DrinkSpec {
       const H = h + 36;
       const outer: Profile = [[R * 0.88 - 3, 0], [R * 0.88, 3], [R, H * 0.4], [R, H]];
       const lid = cylinderPart(R + 1, R + 1, 26, H - 2, plastic("#2e3338"));
-      return { outer, wall: 4, bandY: [8, 8 + h], bandAngle: full, body: ceramic(color), extras: [lid] };
+      return { outer, vessel: { wall: 4 }, bandY: [8, 8 + h], bandAngle: full, body: ceramic(color), extras: [lid] };
     }
     case "wine-tumbler": {
       const Rm = w / (2 * Math.PI);
       const H = h + 12;
       const outer: Profile = [[Rm * 0.62 - 3, 0], [Rm * 0.62, 2], [Rm * 0.86, H * 0.18], [Rm, H * 0.45], [Rm * 0.97, H * 0.75], [Rm * 0.9, H]];
       const lid = cylinderPart(Rm * 0.9 + 0.6, Rm * 0.9 + 0.6, 8, H - 3, clearPlastic());
-      return { outer, wall: 1.5, bandY: [(H - h) / 2, (H + h) / 2], bandAngle: full, body: coated(color), extras: [lid] };
+      return { outer, vessel: { wall: 1.5 }, bandY: [(H - h) / 2, (H + h) / 2], bandAngle: full, body: coated(color), extras: [lid] };
     }
     case "can-cooler": {
       const R = w / (2 * Math.PI);
@@ -363,7 +588,7 @@ function drinkSpec(p: ModelProduct, o: ModelOptions): DrinkSpec {
       const gasket = mesh(new THREE.TorusGeometry(R - 2, 2.2, 12, 96), rubber());
       gasket.rotation.x = Math.PI / 2;
       gasket.position.y = H - 1;
-      return { outer, wall: 1.4, bandY: [(H - h) / 2, (H + h) / 2], bandAngle: full, body: coated(color), extras: [gasket] };
+      return { outer, vessel: { wall: 1.4 }, bandY: [(H - h) / 2, (H + h) / 2], bandAngle: full, body: coated(color), extras: [gasket] };
     }
     case "bottle":
     default: {
@@ -373,7 +598,7 @@ function drinkSpec(p: ModelProduct, o: ModelOptions): DrinkSpec {
       const cap = cylinderPart(17, 17, 28, Hb + 44, plastic("#2e3338", 0.6));
       const loop = mesh(new THREE.TorusGeometry(8, 2.4, 12, 48), plastic("#2e3338", 0.6));
       loop.position.set(0, Hb + 78, 0);
-      return { outer, wall: 1.4, bandY: [(Hb - h) / 2 + 2, (Hb - h) / 2 + 2 + h], bandAngle: full, body: coated(color), extras: [cap, loop] };
+      return { outer, vessel: { wall: 1.4 }, bandY: [(Hb - h) / 2 + 2, (Hb - h) / 2 + 2 + h], bandAngle: full, body: coated(color), extras: [cap, loop] };
     }
   }
 }
@@ -381,7 +606,8 @@ function drinkSpec(p: ModelProduct, o: ModelOptions): DrinkSpec {
 function buildDrinkware(p: ModelProduct, o: ModelOptions): ProductModel {
   const spec = drinkSpec(p, o);
   const group = new THREE.Group();
-  group.add(mesh(vesselGeometry(spec.outer, spec.wall), spec.body));
+  const v = spec.vessel;
+  group.add(mesh(vesselGeometry(spec.outer, { floor: v.wall * 2, foot: 2, inside: 3, ...v }), spec.body));
   // Full wraps face the viewer. Wraps that stop at a handle (on +X) are centred
   // opposite it, as on the real mug. A centred emblem covers about 120 degrees
   // of a mug, so the camera starts 24 degrees off the print centre to show it

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import * as THREE from "three";
 import { PRODUCTS, findProduct } from "@/lib/catalogue/products";
-import { buildProductModel, disposeModel, printCrop, printStyle, weaveRepeat } from "@/lib/three/product-model";
+import { buildProductModel, disposeModel, printCrop, printStyle, roundCorners, weaveRepeat } from "@/lib/three/product-model";
 import { backdropFor, colorsFor, contrastRatio, luminance } from "@/lib/catalogue/colors";
 import { OUTLINES, parsePath } from "@/lib/catalogue/outlines";
 import { isDriverNote, threeConsole } from "@/lib/three/driver-notes";
@@ -46,6 +46,38 @@ describe("3D models", () => {
     expect(body.y).toBeLessThan(98);
     expect(body.z).toBeGreaterThan(75);
     expect(body.z).toBeLessThan(85);
+  });
+
+  it("gives a mug a flat inside floor, not a cone from the floor centre to the rim", () => {
+    const model = buildProductModel(findProduct("mug-11oz")!, { color: "#ffffff", process: "sublimation", textures });
+    const pos = (model.group.children[0] as THREE.Mesh).geometry.getAttribute("position");
+    // Inside the foot ring (within 25 mm of the axis) the body is only the base and the floor:
+    // everything sits at the recess under the base (1.6 mm) or the floor (7 mm), nothing in between.
+    let floorReach = 0;
+    for (let i = 0; i < pos.count; i++) {
+      const r = Math.hypot(pos.getX(i), pos.getZ(i));
+      const y = pos.getY(i);
+      if (Math.abs(y - 7) < 0.01) floorReach = Math.max(floorReach, r);
+      if (r > 25) continue;
+      expect(Math.abs(y - 1.6) < 0.01 || Math.abs(y - 7) < 0.01, `vertex at y=${y.toFixed(2)}`).toBe(true);
+    }
+    // The flat floor runs out to its fillet near the 3.6 mm wall (radius about 39.5 mm).
+    expect(floorReach).toBeGreaterThan(26);
+    disposeModel(model.group);
+  });
+
+  it("rounds profile corners with tangent circular fillets", () => {
+    const pts = roundCorners([[0, 0], [10, 0, 3], [10, 10]], 8);
+    expect(pts[0].toArray()).toEqual([0, 0]);
+    expect(pts[pts.length - 1].toArray()).toEqual([10, 10]);
+    // The arc starts and ends 3 mm from the corner and keeps 3 mm from its centre (7, 3).
+    const arc = pts.slice(1, -1);
+    expect(arc[0].x).toBeCloseTo(7);
+    expect(arc[arc.length - 1].y).toBeCloseTo(3);
+    for (const v of arc) expect(Math.hypot(v.x - 7, v.y - 3)).toBeCloseTo(3);
+    // A fillet never takes more than half of an edge.
+    const tight = roundCorners([[0, 0], [4, 0, 50], [4, 4]]);
+    expect(tight[1].x).toBeCloseTo(2);
   });
 
   it("faces the print centre in the Front view: opposite the handle on mugs", () => {
