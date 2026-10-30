@@ -6,6 +6,9 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Changed
 
+- Home page simplified: a short, server-rendered page (hero with print photos, three steps, eight product templates,
+  a gallery, Sublimation vs DTF, FAQ, call to action) replaces the scroll story, live sheet demo and 3D section.
+
 - 3D drinkware rebuilt in more detail (ADR 0012): mugs have a round lip, a soft foot with a recessed base, a flat
   inside floor and a smooth C handle with a moulded, flared section; the 40 oz handled tumbler has a stepped base, a
   satin steel rim band, a flat lid with a slider, a steel straw and a chunky D handle; skinny tumblers have a frosted
