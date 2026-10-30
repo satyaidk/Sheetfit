@@ -1,82 +1,127 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, Check, Crop, FlipHorizontal2, Ruler } from "lucide-react";
+import { ArrowRight, Check } from "lucide-react";
 import { Logo } from "@/components/Logo";
-import { HomeNav } from "@/components/landing/HomeNav";
-import { StudioMotion } from "@/components/landing/StudioMotion";
-import { HeroShowcase } from "@/components/landing/HeroShowcase";
-import { ProductMarquee } from "@/components/landing/ProductMarquee";
-import { StoryWorkflow } from "@/components/landing/StoryWorkflow";
-import { SheetDemo } from "@/components/landing/SheetDemo";
-import { ColorDemo } from "@/components/landing/ColorDemo";
-import { Faq, FeatureGrid, ProcessCompare } from "@/components/landing/HomeSections";
+import { Faq, ProcessCompare } from "@/components/landing/HomeSections";
 import { PHOTOS, type PhotoKey } from "@/components/landing/photos";
-import { GROUP_LABELS, PRODUCTS, type ProductGroup } from "@/lib/catalogue/products";
+import { productPhotoSrc } from "@/components/products/ProductArt";
+import { findProduct, PRODUCTS } from "@/lib/catalogue/products";
+import { productHref } from "@/lib/editor-link";
+import sunglassesFace from "@/assets/designs/sunglasses-face.jpg";
+import passionFuel from "@/assets/designs/passion-fuel.jpg";
+import thinkBig from "@/assets/designs/think-big.jpg";
+import cherryBlossom from "@/assets/designs/cherry-blossom.jpg";
+import positive from "@/assets/designs/positive.jpg";
+import loveYourself from "@/assets/designs/love-yourself.jpg";
 
 /**
- * Home page ("Night press"): explains what Sheetfit is for, shows it working,
- * and links every action into a real editor flow.
+ * Home page: a short, plain walk through what Sheetfit does.
  *
- * Order: hero with product renders, why it exists, the catalogue, the four
- * steps as a scroll story, a live sheet to try, the 3D preview, capabilities,
- * Sublimation vs DTF, FAQ, call to action. Styles are scoped to `.home`
- * (globals.css), so the editor is untouched. Server-rendered except the nav,
- * hero picker, scroll story, the two demos and the scroll motion.
+ * Hero (what it is, with real print photos), three steps that mirror the
+ * editor (pick a product, add a design, export), a row of product templates
+ * that open in the editor, Sublimation vs DTF, FAQ and a call to action.
+ * Server-rendered, no scroll effects. Styles are scoped to `.home`. Photos are
+ * licensed (Unsplash/Pexels, credited in the footer); product pictures are
+ * renders of Sheetfit's own 3D models.
  */
 
-const delay = (ms: number) => ({ "--delay": `${ms}ms` }) as React.CSSProperties;
 const REPO = "https://github.com/satyaidk/Sheetfit";
-const USED_PHOTOS: PhotoKey[] = ["heatPressWorkshop", "rollPrinter"];
 
-const PROBLEMS = [
+const STEPS: { photo: PhotoKey; title: string; body: string }[] = [
   {
-    icon: <Ruler />,
-    problem: "The print comes out the wrong size.",
-    fix: "Every template has its real print area in millimetres, sourced from blank suppliers, and the sheet is exported at its exact size.",
+    photo: "mugBlank",
+    title: "Pick a product",
+    body: `Choose a mug, tumbler, shirt placement or any of ${PRODUCTS.length} templates. The editor opens on the right sheet with the print area at its real size.`,
   },
   {
-    icon: <Crop />,
-    problem: "Part of the design gets cut off.",
-    fix: "Artwork is fitted whole inside the print area. Spare space is measured; nothing is cropped unless you choose to crop.",
+    photo: "teeLayers",
+    title: "Add your design",
+    body: "Drop in your artwork. It is fitted whole, never cropped, and you see it on the product in 3D in any blank colour.",
   },
   {
-    icon: <FlipHorizontal2 />,
-    problem: "The transfer comes out backwards.",
-    fix: "Sublimation output is mirrored for transfer paper automatically; DTF film is left as seen.",
+    photo: "heatPressBlackTee",
+    title: "Export and press",
+    body: "Download a PDF, PNG or JPEG at the exact size, mirrored for sublimation and left as seen for DTF. Then press.",
   },
 ];
 
-function SectionHead({ id, eyebrow, title, body, dark = false }: { id: string; eyebrow: string; title: string; body?: string; dark?: boolean }) {
+const FEATURED = ["mug-11oz", "tumbler-20oz", "tumbler-40oz-top", "tee-full-front", "hoodie-front", "tote", "cap-front", "coaster-round"];
+
+/** Example designs supplied by the project owner (src/assets/designs/CREDITS.md). */
+const DESIGNS = [
+  { src: thinkBig, alt: "Bold Think Big lettering in cream on blue" },
+  { src: cherryBlossom, alt: "Pink cherry blossom branches on black" },
+  { src: passionFuel, alt: "Passion is the fuel to your success in colourful script" },
+  { src: sunglassesFace, alt: "Cartoon face with sunglasses and tongue out on blue" },
+  { src: positive, alt: "Positive typography with pink flowers on black" },
+  { src: loveYourself, alt: "Love yourself lettering with red roses on black" },
+];
+
+const GALLERY: PhotoKey[] = ["mugHeart", "teeCoffee", "toteDog", "phoneCases"];
+
+const CREDITED: PhotoKey[] = ["heatPressWorkshop", "mugGrad", ...STEPS.map((s) => s.photo), ...GALLERY];
+
+function Cta({ light = false }: { light?: boolean }) {
   return (
-    <div data-reveal className="mb-12 grid gap-6 lg:grid-cols-[1.2fr_1fr] lg:items-end">
-      <div>
-        <p className={`text-[14px] font-semibold ${dark ? "text-process-cyan" : "text-process-magenta"}`}>{eyebrow}</p>
-        <h2 id={id} className="home-display mt-3 max-w-[18ch] text-[clamp(2.2rem,4.6vw,3.6rem)]">
-          {title}
-        </h2>
-      </div>
-      {body && <p className={`max-w-[48ch] text-[17px] leading-relaxed lg:justify-self-end ${dark ? "text-white/70" : "text-muted"}`}>{body}</p>}
+    <div className="flex flex-wrap gap-3">
+      <Link
+        href="/editor"
+        className={`group inline-flex items-center gap-2 rounded-full px-6 py-3.5 text-[16px] font-semibold transition-transform hover:-translate-y-0.5 ${light ? "bg-white text-night" : "bg-night text-white"}`}
+      >
+        Start designing
+        <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+      </Link>
+      <Link
+        href="/editor?sample"
+        className={`rounded-full px-6 py-3.5 text-[16px] font-semibold ring-1 transition-colors ${light ? "text-white ring-white/30 hover:bg-white/10" : "text-night ring-night/20 hover:bg-night/5"}`}
+      >
+        Open a sample project
+      </Link>
+    </div>
+  );
+}
+
+function Heading({ id, eyebrow, title, body }: { id: string; eyebrow: string; title: string; body?: string }) {
+  return (
+    <div className="mb-10 max-w-[640px]">
+      <p className="text-[14px] font-semibold text-process-magenta">{eyebrow}</p>
+      <h2 id={id} className="home-display mt-2 text-[clamp(2rem,4vw,3rem)]">
+        {title}
+      </h2>
+      {body && <p className="mt-4 text-[17px] leading-relaxed text-muted">{body}</p>}
     </div>
   );
 }
 
 export default function Home() {
-  const groups = (Object.keys(GROUP_LABELS) as ProductGroup[]).map((g) => [GROUP_LABELS[g], PRODUCTS.filter((p) => p.group === g).length] as const);
-  const credits = USED_PHOTOS.map((k) => PHOTOS[k]);
+  const credits = [...new Set(CREDITED)].map((k) => PHOTOS[k]);
 
   return (
     <div className="home min-h-dvh overflow-x-clip">
-      <StudioMotion />
-      <HomeNav />
+      <header className="sticky top-0 z-30 border-b border-hairline bg-mist/85 backdrop-blur-md">
+        <div className="mx-auto flex h-16 w-full max-w-[1200px] items-center justify-between gap-4 px-4 sm:px-8">
+          <Link href="/" className="flex items-center gap-2.5">
+            <Logo className="size-7" />
+            <span className="home-display text-[19px]">Sheetfit</span>
+          </Link>
+          <nav aria-label="Sections" className="hidden gap-7 text-[15px] text-muted md:flex">
+            <a href="#how" className="hover:text-night">How it works</a>
+            <a href="#products" className="hover:text-night">Products</a>
+            <a href="#processes" className="hover:text-night">Sublimation vs DTF</a>
+            <a href="#faq" className="hover:text-night">FAQ</a>
+          </nav>
+          <Link href="/editor" className="rounded-full bg-night px-5 py-2.5 text-[14.5px] font-semibold text-white">
+            Open editor
+          </Link>
+        </div>
+      </header>
 
       <main>
         {/* Hero */}
-        <section aria-labelledby="hero-title" className="relative isolate overflow-hidden bg-night text-white">
-          <div aria-hidden className="absolute inset-0 -z-10 bg-[radial-gradient(60%_50%_at_75%_40%,rgb(0_163_196/0.22),transparent_70%),radial-gradient(40%_40%_at_10%_90%,rgb(229_0_125/0.18),transparent_70%)]" />
-          <div aria-hidden data-parallax="0.12" className="absolute inset-0 -z-10 bg-[linear-gradient(rgb(255_255_255/0.05)_1px,transparent_1px),linear-gradient(90deg,rgb(255_255_255/0.05)_1px,transparent_1px)] bg-[size:48px_48px] [mask-image:radial-gradient(70%_60%_at_50%_40%,black,transparent)]" />
-          <div className="mx-auto grid w-full max-w-[1280px] items-center gap-12 px-4 pt-28 pb-16 sm:px-8 lg:grid-cols-[1.1fr_1fr] lg:pt-36 lg:pb-24">
+        <section aria-labelledby="hero-title">
+          <div className="mx-auto grid w-full max-w-[1200px] items-center gap-12 px-4 py-16 sm:px-8 lg:grid-cols-2 lg:py-24">
             <div>
-              <p className="home-rise inline-flex items-center gap-2 rounded-full bg-white/8 px-3 py-1.5 text-[13px] font-semibold text-white/85 ring-1 ring-white/12" style={delay(0)}>
+              <p className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-[13px] font-semibold ring-1 ring-hairline">
                 <span className="flex gap-1" aria-hidden>
                   <span className="size-2 rounded-full bg-process-cyan" />
                   <span className="size-2 rounded-full bg-process-magenta" />
@@ -84,31 +129,17 @@ export default function Home() {
                 </span>
                 For sublimation and DTF printing
               </p>
-              <h1 id="hero-title" className="home-display mt-6 text-[clamp(2.6rem,5.4vw,4.6rem)]">
-                <span className="home-rise block" style={delay(100)}>
-                  Print-ready layouts,
-                </span>
-                <span className="home-rise block bg-[linear-gradient(90deg,var(--process-cyan),var(--process-magenta)_55%,var(--process-yellow))] bg-clip-text pb-1 text-transparent" style={delay(220)}>
-                  sized to the millimetre.
-                </span>
+              <h1 id="hero-title" className="home-display mt-6 text-[clamp(2.5rem,5vw,4rem)]">
+                Print-ready designs for mugs, tumblers and shirts.
               </h1>
-              <p className="home-rise mt-6 max-w-[52ch] text-[18px] leading-relaxed text-white/72" style={delay(340)}>
-                Pick a mug, tumbler, shirt or any of {PRODUCTS.length} templates, drop in your artwork, see it on the product in 3D, and
-                download a file that prints at the exact size, mirrored when it should be.
+              <p className="mt-5 max-w-[50ch] text-[18px] leading-relaxed text-muted">
+                Sheetfit lays out your artwork on transfer sheets at the exact size each product needs, shows it on the product in 3D, and
+                exports a file that is ready for the press.
               </p>
-              <div className="home-rise mt-9 flex flex-wrap gap-3" style={delay(460)}>
-                <Link
-                  href="/editor"
-                  className="group inline-flex items-center gap-2 rounded-full bg-white px-7 py-4 text-[16px] font-semibold text-night shadow-[0_18px_40px_-16px_rgb(0_163_196/0.8)] transition-transform duration-200 hover:-translate-y-0.5 active:scale-[0.98]"
-                >
-                  Start designing
-                  <ArrowRight className="size-4 transition-transform duration-200 group-hover:translate-x-0.5" />
-                </Link>
-                <Link href="/editor?sample" className="rounded-full px-7 py-4 text-[16px] font-semibold text-white ring-1 ring-white/25 transition-colors hover:bg-white/10">
-                  Open a sample project
-                </Link>
+              <div className="mt-8">
+                <Cta />
               </div>
-              <ul className="home-rise mt-10 grid max-w-[520px] grid-cols-2 gap-x-6 gap-y-3 text-[14.5px] text-white/80" style={delay(580)}>
+              <ul className="mt-8 grid max-w-[480px] grid-cols-2 gap-x-6 gap-y-2.5 text-[15px]">
                 {[`${PRODUCTS.length} product templates`, "Exact mm, cm or inch sizes", "PDF, PNG and JPEG export", "Free, no account, no uploads"].map((t) => (
                   <li key={t} className="flex items-center gap-2">
                     <Check className="size-4 shrink-0 text-process-cyan" />
@@ -117,214 +148,154 @@ export default function Home() {
                 ))}
               </ul>
             </div>
-            <div className="home-fade" style={delay(300)}>
-              <HeroShowcase />
-            </div>
-          </div>
-          <div aria-hidden className="home-inkbar h-1.5" />
-        </section>
-
-        {/* Why */}
-        <section id="why" aria-labelledby="why-title" className="scroll-mt-20">
-          <div className="mx-auto w-full max-w-[1280px] px-4 py-24 sm:px-8 lg:py-32">
-            <SectionHead
-              id="why-title"
-              eyebrow="Why Sheetfit"
-              title="Built for the press, not just the screen."
-              body="General design tools think in pixels. A heat press thinks in millimetres, mirror images and transfer sheets. Sheetfit closes that gap, so what you print is what you planned."
-            />
-            <div className="grid items-stretch gap-6 lg:grid-cols-[1fr_1.1fr]">
-              <div data-reveal className="relative min-h-[320px] overflow-hidden rounded-3xl">
-                <Image src={PHOTOS.heatPressWorkshop.src} alt={PHOTOS.heatPressWorkshop.alt} fill sizes="(min-width: 1024px) 45vw, 100vw" placeholder="blur" className="object-cover" />
-                <div className="absolute inset-x-4 bottom-4 rounded-2xl bg-night/80 p-4 text-white backdrop-blur-md">
-                  <p className="text-[13px] text-white/65">A transfer only gets one chance</p>
-                  <p className="mt-1 text-[16px] font-semibold">Ink, paper and blanks are spent the moment the press closes.</p>
-                </div>
+            <div className="grid h-[440px] grid-cols-[1.4fr_1fr] grid-rows-2 gap-4">
+              <div className="relative row-span-2 overflow-hidden rounded-3xl">
+                <Image src={PHOTOS.heatPressWorkshop.src} alt={PHOTOS.heatPressWorkshop.alt} fill priority sizes="(min-width: 1024px) 34vw, 60vw" placeholder="blur" className="object-cover" />
               </div>
-              <ol data-reveal className="flex flex-col gap-4">
-                {PROBLEMS.map((p) => (
-                  <li key={p.problem} className="flex gap-5 rounded-3xl bg-white p-6 ring-1 ring-hairline">
-                    <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-night text-white [&_svg]:size-5">{p.icon}</span>
-                    <div>
-                      <p className="text-[17px] font-semibold">{p.problem}</p>
-                      <p className="mt-1.5 text-[15.5px] leading-relaxed text-muted">{p.fix}</p>
-                    </div>
-                  </li>
-                ))}
-              </ol>
+              <div className="relative overflow-hidden rounded-3xl">
+                <Image src={PHOTOS.mugGrad.src} alt={PHOTOS.mugGrad.alt} fill sizes="(min-width: 1024px) 22vw, 40vw" placeholder="blur" className="object-cover" />
+              </div>
+              <div className="flex flex-col items-center justify-center rounded-3xl bg-white p-4 ring-1 ring-hairline">
+                <Image src={productPhotoSrc("mug-11oz")} alt="Sheetfit's 3D render of an 11 oz mug with a sample design" width={180} height={180} className="h-auto w-full max-w-[160px]" />
+                <p className="mt-2 text-center text-[13px] text-muted">Previewed in 3D</p>
+              </div>
             </div>
           </div>
         </section>
 
-        {/* Catalogue */}
-        <section id="templates" aria-labelledby="templates-title" className="scroll-mt-20 border-y border-hairline bg-white">
-          <div className="mx-auto w-full max-w-[1280px] px-4 pt-24 sm:px-8 lg:pt-32">
-            <SectionHead
-              id="templates-title"
-              eyebrow="Templates"
-              title={`${PRODUCTS.length} products, each at its real print size.`}
-              body="Print areas come from blank suppliers and transfer placement guides. Open any of them and the editor starts on the sheet it needs."
-            />
-            <dl data-reveal className="mb-10 grid grid-cols-2 gap-3 sm:grid-cols-4">
-              {groups.map(([label, n]) => (
-                <div key={label} className="rounded-2xl bg-mist px-5 py-4">
-                  <dt className="text-[14px] text-muted">{label}</dt>
-                  <dd className="home-display tnum mt-1 text-[30px]">{n}</dd>
-                </div>
+        {/* How it works */}
+        <section id="how" aria-labelledby="how-title" className="scroll-mt-20 bg-white">
+          <div className="mx-auto w-full max-w-[1200px] px-4 py-20 sm:px-8">
+            <Heading id="how-title" eyebrow="How it works" title="Three steps from artwork to print." />
+            <ol className="grid gap-6 md:grid-cols-3">
+              {STEPS.map((s, i) => (
+                <li key={s.title} className="overflow-hidden rounded-3xl bg-mist ring-1 ring-hairline">
+                  <div className="relative aspect-[4/3]">
+                    <Image src={PHOTOS[s.photo].src} alt={PHOTOS[s.photo].alt} fill sizes="(min-width: 768px) 33vw, 100vw" placeholder="blur" className="object-cover" />
+                  </div>
+                  <div className="p-6">
+                    <p className="text-[13px] font-semibold text-process-magenta">Step {i + 1}</p>
+                    <h3 className="mt-1 text-[20px] font-semibold">{s.title}</h3>
+                    <p className="mt-2 text-[15.5px] leading-relaxed text-muted">{s.body}</p>
+                  </div>
+                </li>
               ))}
-            </dl>
+            </ol>
           </div>
-          <div data-reveal className="pb-24 lg:pb-32">
-            <ProductMarquee />
-            <p className="mx-auto mt-8 w-full max-w-[1280px] px-4 text-[15px] text-muted sm:px-8">
-              Pictures are renders of each template&apos;s 3D model with a sample design.{" "}
-              <Link href="/editor" className="font-semibold text-night underline decoration-night/30 underline-offset-4 hover:decoration-night">
-                Browse them all in the editor
+        </section>
+
+        {/* Products */}
+        <section id="products" aria-labelledby="products-title" className="scroll-mt-20">
+          <div className="mx-auto w-full max-w-[1200px] px-4 py-20 sm:px-8">
+            <Heading
+              id="products-title"
+              eyebrow="Products"
+              title="Start from a template."
+              body={`Each of the ${PRODUCTS.length} templates knows its real print area. Click one to open it in the editor.`}
+            />
+            <ul className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+              {FEATURED.map((id) => {
+                const p = findProduct(id)!;
+                return (
+                  <li key={id}>
+                    <Link href={productHref(id)} className="group block rounded-3xl bg-white p-4 ring-1 ring-hairline transition-shadow hover:shadow-lg">
+                      <Image src={productPhotoSrc(id)} alt={`${p.name}, ${p.detail}`} width={240} height={240} className="mx-auto h-auto w-full max-w-[200px] transition-transform group-hover:scale-[1.03]" />
+                      <p className="mt-3 text-[15px] font-semibold">{p.name}</p>
+                      <p className="text-[13.5px] text-muted">{p.detail}</p>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+            <p className="mt-6 text-[15px] text-muted">
+              <Link href="/editor" className="font-semibold text-night underline decoration-night/30 underline-offset-4">
+                See all {PRODUCTS.length} in the editor
               </Link>
             </p>
           </div>
         </section>
 
-        {/* How it works */}
-        <section id="how" aria-labelledby="how-title" className="scroll-mt-20 bg-night text-white">
-          <div className="mx-auto w-full max-w-[1280px] px-4 py-24 sm:px-8 lg:py-32">
-            <SectionHead id="how-title" dark eyebrow="How it works" title="From artwork to print-ready in four steps." />
-            <StoryWorkflow />
-          </div>
-        </section>
-
-        {/* Try the sheet */}
-        <section id="try" aria-labelledby="try-title" className="scroll-mt-20">
-          <div className="mx-auto w-full max-w-[1280px] px-4 py-24 sm:px-8 lg:py-32">
-            <SectionHead
-              id="try-title"
-              eyebrow="Try it here"
-              title="Move a transfer. Watch the sheet."
-              body="Three real sheets, packed the way the editor packs them. Drag a transfer to see it snap to guides, measure its gaps in millimetres and update how much of the sheet you use."
+        {/* Example designs */}
+        <section aria-labelledby="designs-title">
+          <div className="mx-auto w-full max-w-[1200px] px-4 pb-20 sm:px-8">
+            <Heading
+              id="designs-title"
+              eyebrow="Bring your own design"
+              title="Any artwork, fitted whole."
+              body="Upload a PNG or JPEG, from a bold slogan to a full-colour illustration. Sheetfit keeps its proportions and never crops it to fit."
             />
-            <div data-reveal>
-              <SheetDemo />
-            </div>
+            <ul className="grid grid-cols-3 gap-3 sm:gap-4 lg:grid-cols-6">
+              {DESIGNS.map((d) => (
+                <li key={d.alt} className="relative aspect-[3/4] overflow-hidden rounded-2xl bg-white ring-1 ring-hairline">
+                  <Image src={d.src} alt={d.alt} fill sizes="(min-width: 1024px) 16vw, 33vw" placeholder="blur" className="object-contain p-2" />
+                </li>
+              ))}
+            </ul>
           </div>
         </section>
 
-        {/* 3D preview */}
-        <section id="preview" aria-labelledby="preview-title" className="scroll-mt-20 bg-night text-white">
-          <div className="mx-auto w-full max-w-[1280px] px-4 py-24 sm:px-8 lg:py-32">
-            <SectionHead
-              id="preview-title"
-              dark
-              eyebrow="3D preview"
-              title="See the design on the product before it reaches the press."
-              body="Every template has a 3D model at its real size. Turn it, zoom in, jump to the front, side or back, change the blank colour, and compare how sublimation and DTF print on it."
-            />
-            <div data-reveal className="text-night">
-              <ColorDemo />
-            </div>
-          </div>
-        </section>
-
-        {/* Features */}
-        <section id="features" aria-labelledby="features-title" className="scroll-mt-20">
-          <div className="mx-auto w-full max-w-[1280px] px-4 py-24 sm:px-8 lg:py-32">
-            <SectionHead id="features-title" eyebrow="Features" title="The checks a print shop makes by hand, done while you design." />
-            <div data-reveal>
-              <FeatureGrid />
+        {/* Gallery */}
+        <section aria-labelledby="gallery-title" className="bg-white">
+          <div className="mx-auto w-full max-w-[1200px] px-4 py-20 sm:px-8">
+            <Heading id="gallery-title" eyebrow="What you can make" title="Mugs, shirts, totes, cases and more." />
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+              {GALLERY.map((k) => (
+                <div key={k} className="relative aspect-[3/4] overflow-hidden rounded-3xl">
+                  <Image src={PHOTOS[k].src} alt={PHOTOS[k].alt} fill sizes="(min-width: 768px) 25vw, 50vw" placeholder="blur" className="object-cover" />
+                </div>
+              ))}
             </div>
           </div>
         </section>
 
         {/* Sublimation vs DTF */}
-        <section id="processes" aria-labelledby="processes-title" className="scroll-mt-20 bg-white">
-          <div className="mx-auto w-full max-w-[1280px] px-4 py-24 sm:px-8 lg:py-32">
-            <SectionHead
+        <section id="processes" aria-labelledby="processes-title" className="scroll-mt-20">
+          <div className="mx-auto w-full max-w-[1200px] px-4 py-20 sm:px-8">
+            <Heading
               id="processes-title"
               eyebrow="Sublimation or DTF"
-              title="Two processes, set up correctly for each."
-              body="Switch the process in the editor and the mirroring, sheet sizes and available templates follow."
+              title="Set up correctly for each process."
+              body="Switch the process in the editor and the mirroring, sheet sizes and templates follow."
             />
-            <div data-reveal>
-              <ProcessCompare />
-            </div>
+            <ProcessCompare />
           </div>
         </section>
 
         {/* FAQ */}
-        <section id="faq" aria-labelledby="faq-title" className="scroll-mt-20">
-          <div className="mx-auto grid w-full max-w-[1280px] gap-10 px-4 py-24 sm:px-8 lg:grid-cols-[0.8fr_1.2fr] lg:py-32">
-            <div data-reveal>
-              <p className="text-[14px] font-semibold text-process-magenta">FAQ</p>
-              <h2 id="faq-title" className="home-display mt-3 max-w-[14ch] text-[clamp(2.2rem,4.6vw,3.6rem)]">
-                Questions, answered.
-              </h2>
-              <p className="mt-5 max-w-[36ch] text-[17px] leading-relaxed text-muted">
-                Anything else? The source and documentation are on{" "}
-                <a href={REPO} target="_blank" rel="noreferrer" className="font-semibold text-night underline decoration-night/30 underline-offset-4">
-                  GitHub
-                </a>
-                .
-              </p>
-            </div>
-            <div data-reveal>
-              <Faq />
-            </div>
+        <section id="faq" aria-labelledby="faq-title" className="scroll-mt-20 bg-white">
+          <div className="mx-auto grid w-full max-w-[1200px] gap-10 px-4 py-20 sm:px-8 lg:grid-cols-[0.8fr_1.2fr]">
+            <Heading id="faq-title" eyebrow="FAQ" title="Questions, answered." />
+            <Faq />
           </div>
         </section>
 
         {/* Call to action */}
-        <section aria-labelledby="cta-title" className="relative isolate overflow-hidden bg-night text-white">
-          <Image src={PHOTOS.rollPrinter.src} alt="" fill sizes="100vw" placeholder="blur" className="-z-20 object-cover opacity-35" />
-          <div aria-hidden className="absolute inset-0 -z-10 bg-[linear-gradient(100deg,var(--home-night)_35%,rgb(13_12_34/0.55))]" />
-          <div className="mx-auto w-full max-w-[1280px] px-4 py-24 sm:px-8 lg:py-32">
-            <h2 id="cta-title" data-reveal className="home-display max-w-[16ch] text-[clamp(2.4rem,5.4vw,4.4rem)]">
-              Make your next print your best one.
-            </h2>
-            <div data-reveal>
-              <p className="mt-6 max-w-[46ch] text-[18px] leading-relaxed text-white/72">
-                Bring your artwork into a workspace built for preparing designs for production. Free, in your browser, nothing to install.
-              </p>
-              <div className="mt-9 flex flex-wrap gap-3">
-                <Link href="/editor" className="group inline-flex items-center gap-2 rounded-full bg-white px-7 py-4 text-[16px] font-semibold text-night transition-transform duration-200 hover:-translate-y-0.5 active:scale-[0.98]">
-                  Start designing
-                  <ArrowRight className="size-4 transition-transform duration-200 group-hover:translate-x-0.5" />
-                </Link>
-                <Link href="/editor?sample" className="rounded-full px-7 py-4 text-[16px] font-semibold ring-1 ring-white/30 transition-colors hover:bg-white/10">
-                  Open a sample project
-                </Link>
-              </div>
+        <section aria-labelledby="cta-title" className="bg-night text-white">
+          <div className="mx-auto flex w-full max-w-[1200px] flex-col items-start gap-8 px-4 py-20 sm:px-8 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h2 id="cta-title" className="home-display text-[clamp(2rem,4vw,3rem)]">
+                Ready for your next print?
+              </h2>
+              <p className="mt-3 max-w-[46ch] text-[17px] text-white/70">Free, in your browser, nothing to install.</p>
             </div>
+            <Cta light />
           </div>
-          <div aria-hidden className="home-inkbar h-1.5" />
         </section>
       </main>
 
-      <footer className="bg-night text-white/65">
-        <div className="mx-auto grid w-full max-w-[1280px] gap-10 px-4 py-14 text-[14px] sm:px-8 md:grid-cols-[1.3fr_1fr_1fr]">
-          <div>
+      <footer className="bg-night text-white/60">
+        <div className="mx-auto grid w-full max-w-[1200px] gap-4 border-t border-white/10 px-4 py-10 text-[13.5px] sm:px-8">
+          <div className="flex flex-wrap items-center justify-between gap-4">
             <span className="flex items-center gap-2.5 text-white">
-              <Logo className="size-7" />
-              <span className="home-display text-[19px] tracking-[-0.02em]">Sheetfit</span>
+              <Logo className="size-6" />
+              <span className="home-display text-[17px]">Sheetfit</span>
             </span>
-            <p className="mt-3 max-w-[34ch] leading-relaxed">Print layouts for sublimation and DTF. Runs in your browser; no sign-up, no uploads.</p>
+            <nav aria-label="Footer" className="flex gap-6">
+              <Link href="/editor" className="hover:text-white">Editor</Link>
+              <a href={REPO} className="hover:text-white" target="_blank" rel="noreferrer">GitHub</a>
+            </nav>
           </div>
-          <nav aria-label="Product">
-            <p className="font-semibold text-white">Product</p>
-            <ul className="mt-3 grid gap-2">
-              <li><Link href="/editor" className="hover:text-white">Editor</Link></li>
-              <li><Link href="/editor?sample" className="hover:text-white">Sample project</Link></li>
-              <li><a href="#templates" className="hover:text-white">Templates</a></li>
-              <li><a href="#how" className="hover:text-white">How it works</a></li>
-            </ul>
-          </nav>
-          <nav aria-label="Project">
-            <p className="font-semibold text-white">Project</p>
-            <ul className="mt-3 grid gap-2">
-              <li><a href={REPO} className="hover:text-white" target="_blank" rel="noreferrer">Source on GitHub</a></li>
-              <li><a href={`${REPO}#readme`} className="hover:text-white" target="_blank" rel="noreferrer">Documentation</a></li>
-              <li><a href="#faq" className="hover:text-white">FAQ</a></li>
-            </ul>
-          </nav>
-          <p className="text-[13px] md:col-span-3">
+          <p>
             Photos used under the Unsplash and Pexels licences:{" "}
             {credits.map((c, i) => (
               <span key={c.url}>
@@ -335,7 +306,7 @@ export default function Home() {
                 {i < credits.length - 1 ? ", " : "."}
               </span>
             ))}{" "}
-            Product pictures are renders of Sheetfit&apos;s own 3D models.
+            Product pictures are renders of Sheetfit&apos;s own 3D models. Example designs supplied by the project owner.
           </p>
         </div>
       </footer>
