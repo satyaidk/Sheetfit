@@ -262,6 +262,29 @@ Next (v0.8 candidates, in suggested order):
 
 ## 8. Update log
 
+- **2026-10-31**: User pasted a brief for a photorealistic 3D blank T-shirt (real garment mesh, UVs, printable areas,
+  PBR fabric, GLB + sources, SheetFit integration, validation, docs) and asked to fix the known issues, verifying each
+  step. Blender is not installed, so the shirt is generated (ADR 0013, `docs/models/tshirt.md`): torso tube with
+  filleted profiles and a round crew neck, sleeves built from an armhole loop on the torso surface, two fabric shells
+  with rolled hems, ribbed collar, seams, coverstitch grooves, folds, baked occlusion; isometric fabric coordinates;
+  prints cut from the shirt's own triangles (`printPatch`). Used for tshirt, kids-tee and longsleeve presets.
+  `public/models/tshirt.glb` (7.9 MB, 171,003 vertices, 332,352 triangles) exported by `npm run model:tshirt`; loaded
+  in Chrome with three's GLTFLoader without warnings. Found and fixed while verifying: sleeve lines cut against the
+  body missed it (rebuilt from the armhole), V-shaped neckline, row-measured u stretched prints (area 95 %; now
+  measured square to the columns, 100.8 %), a crease down the back centre (fold functions now periodic), collar rib
+  moiré, white fabric burning out, and three.js ignoring material `envMapIntensity` under `scene.environment`
+  (now `ProductModel.environment`). Known issues fixed: HDRI white-balanced (measured blue/red 1.3 over the whole
+  map, not only the floor; black tee B−R 5.3 → 1.9 levels); 14 drinkware + 12 T-shirt pictures re-rendered (sleeve
+  products from the opening view); picture scripts moved to `scripts/pictures/`; README links to `satyaidk/Sheetfit`;
+  112 lines of unused home CSS removed; `Sublimation & DTF images/` untracked (staged, files kept). Measured:
+  `npm run check` green (216 tests, 15 files; coverage 94.74 % lines, 93.26 % statements, 81.15 % branches,
+  92.98 % functions); `v5func.mjs` 47/47 (its removed-home-demo check dropped); `v6func.mjs` targets the superseded
+  v0.6 home, replaced by `homecheck.mjs` 16/16 (one h1, no overflow at 1440/390 px, 8 product links, no errors);
+  every T-shirt placement and 8 angles rendered in headless Chrome without console errors; uploading, aligning and
+  replacing artwork updates the 3D dock with correct orientation and transparency. Not done: artwork rotation inside
+  a print box (an editor and print-output feature; ask the user), `.blend` file, hoodie/onesie on the new generator.
+  No dependencies added (`puppeteer-core` only via `npm i --no-save` for the picture scripts).
+
 - **2026-10-29**: User said the folder images are publicly available and approved them for the UI. Added six
   designs without characters, logos or people to `src/assets/designs/` (CREDITS.md) and a "Bring your own design"
   home section; character, brand and people images still declined (trademark/copyright, not only availability).
