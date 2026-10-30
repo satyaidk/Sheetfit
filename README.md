@@ -6,7 +6,7 @@
 
 **A Canva-style editor for sublimation and DTF print sheets. Every design printed whole, at its true size.**
 
-[![CI](https://github.com/satyaidk/tool-bar/actions/workflows/ci.yml/badge.svg)](https://github.com/satyaidk/tool-bar/actions/workflows/ci.yml)
+[![CI](https://github.com/satyaidk/Sheetfit/actions/workflows/ci.yml/badge.svg)](https://github.com/satyaidk/Sheetfit/actions/workflows/ci.yml)
 ![Node](https://img.shields.io/badge/node-%E2%89%A520.9-339933?logo=node.js&logoColor=white)
 ![Next.js](https://img.shields.io/badge/Next.js-16.4-000000?logo=nextdotjs)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)
@@ -131,8 +131,8 @@ See [docs/design.md](docs/design.md) for the full design document.
 ### Install
 
 ```bash
-git clone https://github.com/satyaidk/tool-bar.git
-cd tool-bar
+git clone https://github.com/satyaidk/Sheetfit.git
+cd Sheetfit
 npm ci
 ```
 
@@ -179,8 +179,11 @@ src/
     render/               Render plan shared by every output
     export/               Canvas rasteriser, PDF builder, DPI metadata, pre-print check, printing
     storage/              IndexedDB persistence, .sheetfit files, migrations
+    three/                3D product models, the T-shirt garment generator, fabric maps, textures
   store/                  Zustand editor store
   types/                  Document, image and project types
+public/models/            tshirt.glb and its texture maps (generated)
+scripts/                  T-shirt GLB export, product-picture renderer
 tests/                    Vitest unit tests
 docs/                     Design document, ADRs, learning path, images
 reports/                  Research report behind the v0.2 redesign and catalogue
@@ -258,6 +261,8 @@ Measured in headless Chrome against `npm run build && npm run start`, on the sam
 | [0009](docs/adr/0009-one-design-per-product.md) | A new design per product, with save or discard before replacing work |
 | [0010](docs/adr/0010-procedural-3d-product-models.md) | Procedural 3D product models with three.js |
 | [0011](docs/adr/0011-rendered-product-pictures.md) | Rendered product pictures instead of line drawings |
+| [0012](docs/adr/0012-procedural-drinkware-over-stock-meshes.md) | Detailed procedural drinkware instead of stock 3D meshes |
+| [0013](docs/adr/0013-generated-tshirt-garment-mesh.md) | A generated T-shirt garment mesh, exported as glTF |
 
 ## Documentation
 
@@ -266,6 +271,7 @@ Measured in headless Chrome against `npm run build && npm run start`, on the sam
 - [Design document](docs/design.md): goals, model, fitting rules, coordinate system, export pipeline, risks
 - [Learning path](docs/learning-path.md): a guided reading order through the code for new contributors
 - [Printing guide](docs/printing-guide.md): getting exact physical sizes on paper
+- [T-shirt 3D model](docs/models/tshirt.md): dimensions, UV layout, printable areas, GLB, integration, limitations
 - [Architecture decision records](docs/adr/)
 
 ## Roadmap

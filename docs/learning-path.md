@@ -60,6 +60,14 @@ Notice: a mug is a list of (radius, height) points spun around the vertical axis
 
 Exercise: add a rim colour option to the enamel mug, and check in `tests/v05-3d-models.test.ts` that its size does not change.
 
+## 3f. A garment you can print on
+
+Read: [`tshirt-model.ts`](../src/lib/three/tshirt-model.ts) (start at `buildTee`, then `sleeveShape` and `printPatch`), [`fabric-maps.ts`](../src/lib/three/fabric-maps.ts), [`docs/models/tshirt.md`](models/tshirt.md), [ADR 0013](adr/0013-generated-tshirt-garment-mesh.md).
+
+Notice: every vertex knows two positions: where it is in 3D and where it lies on the flat cloth (u, v in millimetres). Folds move the 3D position only, so a print cut in (u, v) keeps its true size and follows the folds. The sleeve does not search for where it meets the body; its armhole is drawn on the body's surface first, and the sleeve starts there.
+
+Exercise: add a `printMargin` of 40 mm to `ADULT_TEE` and run `tests/v08-tshirt.test.ts`. Which presets move, and why does none of them shrink?
+
 ## 4. One render plan, many outputs
 
 Read: [`render-plan.ts`](../src/lib/render/render-plan.ts), [`rasterize.ts`](../src/lib/export/rasterize.ts), [`export-pdf.ts`](../src/lib/export/export-pdf.ts), [`dpi-metadata.ts`](../src/lib/export/dpi-metadata.ts), [ADR 0003](adr/0003-shared-render-plan.md) and [ADR 0005](adr/0005-pdf-lib-vector-placement.md).

@@ -4,6 +4,19 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- A real 3D T-shirt (ADR 0013, `docs/models/tshirt.md`): a garment mesh generated the way a shirt is sewn, with a
+  round crew neck and ribbed collar, set-in sleeves joined at the armhole, shoulder, side and armhole seams, folded
+  hems with two coverstitch grooves, 1.3 mm fabric with a darker inside, drape and drag folds, knit normal and
+  roughness maps and baked occlusion. Used by every T-shirt, youth, toddler and long-sleeve template.
+- Prints on the T-shirt are cut from the shirt's own surface in flat-fabric coordinates: they follow the folds at
+  their true size (area within 3 %, tested), stay inside each panel's printable area, and sit on the front, back or
+  the correct sleeve. Sleeve placements open looking down at the sleeve.
+- `public/models/tshirt.glb` (7.9 MB) with its knit and roughness PNGs, exported from the same generator by
+  `npm run model:tshirt`; a test fails if the file no longer matches.
+- `scripts/pictures/`: the product-picture renderer and post-processing, moved into the repository.
+
 ### Changed
 
 - Home page simplified: a short, server-rendered page (hero with print photos, three steps, eight product templates,
@@ -20,6 +33,12 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Fixed
 
+- 3D studio light was blue (measured: blue about 1.3 times red over the whole HDRI), tinting black and dark blanks
+  cool. The HDRI is now white-balanced when it loads.
+- The 13 drinkware pictures showed the old geometry; they and the 12 T-shirt pictures are re-rendered.
+- README badges and clone instructions pointed at `satyaidk/tool-bar`; they now point at `satyaidk/Sheetfit`.
+- Removed unused home-page animation CSS left over from the previous home page.
+- `Sublimation & DTF images/` is no longer tracked by git (it was ignored but committed); the files stay on disk.
 - The inside of every mug and tumbler was a cone (a single line from the floor centre to the rim). It is now a flat
   floor with a fillet, and a test guards it.
 
