@@ -5,6 +5,7 @@ import { buildProductModel, disposeModel, printCrop, printStyle, roundCorners, w
 import { backdropFor, colorsFor, contrastRatio, luminance } from "@/lib/catalogue/colors";
 import { OUTLINES, parsePath } from "@/lib/catalogue/outlines";
 import { isDriverNote, threeConsole } from "@/lib/three/driver-notes";
+import { surfaceArea } from "@/lib/three/tshirt-model";
 
 const textures = { print: new THREE.Texture(), overlay: new THREE.Texture(), weave: new THREE.Texture(), cork: new THREE.Texture() };
 
@@ -105,9 +106,14 @@ describe("3D models", () => {
     const p = findProduct("tee-left-chest")!;
     const model = buildProductModel(p, { color: "#1c1d20", process: "dtf", textures });
     expect(model.family).toBe("garment");
-    const print = new THREE.Box3().setFromObject(model.printMeshes[0]).getSize(new THREE.Vector3());
-    expect(print.x).toBeCloseTo(p.width, 0);
-    expect(print.y).toBeCloseTo(p.height, 0);
+    // The print lies on the curved chest, so measure it on the cloth: its area is the transfer's (within 3 %).
+    const area = surfaceArea(model.printMeshes[0].geometry);
+    expect(area / (p.width * p.height)).toBeGreaterThan(0.97);
+    expect(area / (p.width * p.height)).toBeLessThan(1.03);
+    // On the wearer's left chest (+x; the shirt faces +z), above the middle of the body.
+    const c = new THREE.Box3().setFromObject(model.printMeshes[0]).getCenter(new THREE.Vector3());
+    expect(c.x).toBeGreaterThan(60);
+    expect(c.z).toBeGreaterThan(0);
     // An adult tee is roughly half a metre across the chest, wider at the sleeves.
     expect(size(model.group).x).toBeGreaterThan(500);
   });

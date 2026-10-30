@@ -15,7 +15,7 @@ Every agent (and human) reads it before starting work and updates it **in the sa
 feature, plan or known-issue change. Keep entries short and factual. Newest entries go at the top of the
 update log (section 8).
 
-Last updated: 2026-10-28 (v0.7.0)
+Last updated: 2026-10-31 (v0.7.0 + unreleased: T-shirt garment, known-issue fixes)
 
 ## 1. Product in one paragraph
 
@@ -46,9 +46,10 @@ into templates (`/editor?product=<id>`).
 | v0.5 3D models for all 52 products (three.js, procedural, real size), adaptive backdrop, catalogue 3D viewer | Done, tested; every product rendered in headless Chrome |
 | v0.6 studio home page, `?product=` editor links | Done; superseded by the v0.7 home page |
 | v0.7 rendered product pictures (cards, lists, dialogs), 3D dock, 3D toolbar (views, zoom, full screen), back prints on the back, "Night press" home page | Done, tested, verified in Chrome |
+| T-shirt garment mesh (ADR 0013): generated torso, set-in sleeves, collar, seams, hems, fabric shells; prints cut in fabric coordinates; `tshirt.glb` export | Done, tested, verified in Chrome (unreleased) |
 | Quality gate `npm run check` | See section 8 for the latest numbers |
 | Browser checks | `v5func.mjs` (48 whole-app checks incl. 3D dock), `v6func.mjs` (32 home page and link checks), `v5all3d.mjs` (every product in 3D); see section 8 |
-| Committed to git | Up to v0.7 (by the user). Studio HDRI lighting on branch `ccr-5ba9bb88-hczjxd` |
+| Committed to git | Up to `b59119d` (by the user). The T-shirt work and known-issue fixes are uncommitted |
 
 ## 3. Commands
 
@@ -56,6 +57,7 @@ into templates (`/editor?product=<id>`).
 npm run dev            # http://localhost:4000; /editor?sample loads the sample sheet
 npm run check          # lint + typecheck + tests with coverage + production build (must pass before "done")
 npm test               # vitest only
+npm run model:tshirt   # regenerate public/models/tshirt.glb from the generator (a test fails if it is stale)
 ```
 
 - Windows: run from an upper-case `C:\` path; a lower-case `c:\` path makes every Vitest file fail
@@ -72,6 +74,12 @@ npm test               # vitest only
   controls the start dialog. In scripts: clicking the active rail tab closes its panel; accept the unsaved-changes
   `beforeunload` prompt; restart `next start` after every rebuild; clipped `page.screenshot` came back stale, use
   full-viewport or element screenshots; the product panel filters to the page's process, click "All" first.
+- Product pictures: `scripts/pictures/render-products.mjs [id prefixes]` then `python scripts/pictures/finish-pictures.py`
+  (needs `npm i --no-save puppeteer-core`, Pillow, and `next start -p 3200`). In scripts, wait about 5 s after a
+  Front/Side/Back click under SwiftShader: a drag that starts mid-move cancels the camera animation.
+- Node can run the self-contained TS modules (`tshirt-model.ts`, `fabric-maps.ts`, `profile.ts`) with
+  `node --import ./scripts/lib/register-ts.mjs`; they must not use `@/` imports or TS-only syntax such as parameter
+  properties (Node strips types only).
 
 ## 4. Architecture rules (do not break)
 
@@ -102,9 +110,14 @@ npm test               # vitest only
     (`lib/editor-link.ts`). Only licensed photos (`landing/photos.ts`, credited) and our own renders. No invented numbers.
 17. Product pictures are build artefacts in `public/products/<id>.webp` (+ `-detail.webp` for small placements),
     rendered from the 3D models (ADR 0011, design doc section 18). Re-render them whenever a model or the sample
-    designs change; `tests/v06-studio-home.test.ts` fails if any product lacks its picture. Never ship images whose
+    designs change (`scripts/pictures/`); `tests/v06-studio-home.test.ts` fails if any product lacks its picture. Never ship images whose
     licence is unknown. From the user's `Sublimation & DTF images/` folder only the six owner-approved designs in
     `src/assets/designs/` (CREDITS.md) may be used; never its character, brand-logo or people images.
+18. T-shirts come only from `lib/three/tshirt-model.ts` (ADR 0013). Prints on garments are cut from the garment's own
+    triangles in fabric coordinates (`printPatch`), never floated planes; fold functions must stay periodic round the
+    body (u jumps at the back centre). Regenerate the GLB (`npm run model:tshirt`) after changing the generator.
+19. three.js overrides material `envMapIntensity` with `scene.environmentIntensity`: a model asks for less studio
+    light through `ProductModel.environment`, not through its materials.
 
 ## 5. File map
 
@@ -117,6 +130,11 @@ npm test               # vitest only
 | `src/lib/catalogue/outlines.ts` | Garment outlines shared by 2D mockups and 3D models; `parsePath` (no DOM) |
 | `src/lib/three/product-model.ts` | Procedural 3D builders per product shape (drinkware, flat, garment cloth surface, cap, tote, flag), `roundCorners` (profile fillets), `sweepGeometry`/`handle` (moulded handles), `printCrop`, `printStyle`, `weaveRepeat` |
 | `src/lib/three/print-textures.ts` | Browser textures: print composite (process-aware), weave normal map, cork |
+| `src/lib/three/tshirt-model.ts` | T-shirt garment generator (sizes, torso, sleeves from an armhole loop, collar, seams, fabric shells, fabric coordinates), `printPatch`, `placeInside`; Node-runnable |
+| `src/lib/three/fabric-maps.ts`, `profile.ts`, `studio.ts` | Knit/roughness pixels; `roundCorners` fillets; HDRI white balance |
+| `scripts/export-tshirt.mjs`, `scripts/lib/` | GLB + PNG export of the T-shirt (no dependencies); Node TS resolve hook |
+| `scripts/pictures/` | Product-picture renderer and post-processing (moved from the scratchpad) |
+| `public/models/` | `tshirt.glb` (7.9 MB) and its knit and roughness PNGs, generated |
 | `src/lib/three/driver-notes.ts` | `threeConsole` for `THREE.setConsoleFunction`: drops Direct3D compiler notes (X4122), forwards the rest |
 | `src/lib/catalogue/sample-designs.ts` | Seeded SVG sample designs (4 emblem + 6 pattern families × 8 palettes), `renderSampleSvg(d, aspect)` |
 | `src/lib/catalogue/products.ts` | 52 product presets, `slotSize` (bleed / +6 mm seam), `minSheetFor`, `searchProducts` |
@@ -155,7 +173,7 @@ npm test               # vitest only
 | `src/lib/editor-link.ts` | `parseEditorLink` (`?sample`, `?product=`, `&process=`), `productHref` |
 | `src/assets/photos/` | 13 landing photos (Unsplash/Pexels) and `CREDITS.md` |
 | `tests/*` | Vitest suites incl. `v03-pages-mockups`, `v04-product-flow`, `v05-3d-models` (every product built in 3D), `v06-studio-home` (demo sheets, editor links) |
-| `docs/` | Design doc, ADRs 0001–0012, learning path, printing guide, screenshots |
+| `docs/` | Design doc, ADRs 0001–0013, learning path, printing guide, `models/tshirt.md`, screenshots |
 
 ## 6. Plan
 
@@ -200,10 +218,10 @@ v0.7 phases (all done 2026-10-28):
 - [x] U3 "Night press" home page; README, CHANGELOG 0.7.0, ADR 0011, design doc 17-18
 
 Next (v0.8 candidates, in suggested order):
-1. 3D realism: drinkware geometry done (ADR 0012). Next: re-render product pictures; garments, caps and totes
-   (cloth geometry); Pacdora-style viewer functions (hi-res PNG export, 360° video export, Top/three-quarter views,
-   backdrop picker); baked contact shadows and glaze/weave detail maps.
-2. Move the picture render scripts into the repo (`scripts/`) so CI can check the pictures are current.
+1. 3D realism: drinkware (ADR 0012) and T-shirts (ADR 0013) done, pictures re-rendered. Next: hoodie and onesie on
+   the garment generator, caps and totes; artwork rotation inside a print box (an editor feature, changes print
+   output); Pacdora-style viewer functions (hi-res PNG, 360° video, three-quarter views, backdrop picker).
+2. Run the picture scripts (now in `scripts/pictures/`) in CI to check the pictures are current.
 2. Playwright e2e in CI (port `v5func.mjs`; 3D needs SwiftShader flags).
 3. Page reordering (drag in the page strip); page names.
 4. DTF auto-pack with per-image quantity and 90° rotation; separate edge margin vs gap.
@@ -222,10 +240,11 @@ Next (v0.8 candidates, in suggested order):
   per product), real GPUs are fast. Tapered latte mugs still have no template.
 - The 3D dock rebuilds the model on the main thread when the design changes; under software WebGL (headless,
   machines without a GPU) that takes seconds, so the large preview opened 4+ s late in tests. Real GPUs are fast.
-- Product pictures are not regenerated automatically; the render scripts live in the scratchpad, not the repo.
-  They were rendered before the studio HDRI lighting and the ADR 0012 drinkware rebuild, so the 13 drinkware
-  pictures show the old geometry (cone inside, wire handles) until re-rendered.
-- The studio HDRI's floor is slightly blue, so black and dark blanks take a faint cool tint in 3D.
+- Product pictures are not regenerated automatically (scripts in `scripts/pictures/`, run by hand). Pictures other
+  than the 12 T-shirt and 13 drinkware ones predate the HDRI white balance (a slightly cooler tint).
+- T-shirt folds are designed, not simulated; the collar's 3 mm ribs are kept shallow so they do not alias. Hoodies
+  and onesies still use the older outline model. No `.blend` file (Blender not installed); import the GLB.
+- The adult T-shirt is 332 k triangles: smooth on real GPUs, slow under software WebGL (headless checks).
 - Handled mugs open facing the print (centre 24° off-axis, `viewAzimuth` -1.15), so the handle is behind the body
   until the user turns the mug or auto-rotate runs. A centred emblem covers about 120° of a mug; showing both the
   whole print and the handle from one angle is not possible.
@@ -234,12 +253,11 @@ Next (v0.8 candidates, in suggested order):
 - Previews are illustrations; colours are approximate. Sample-design text relies on system fonts
   (Arial Black/Impact fallback) and is forced to width with `textLength`.
 - Pinterest images are deliberately not used (copyright, terms of service); see ADR 0008.
-- `package-lock.json` still names the package `tool-bar` 0.1.0 (pre-existing; harmless for `npm ci`).
+- `package-lock.json` records version 0.3.0 while `package.json` is 0.7.0; it syncs on the next version bump.
 - The quick-actions bar scrolls horizontally on narrow screens (by design).
 - Tapered products are omitted (no arc templates yet).
-- README badges assume GitHub repo `satyaidk/tool-bar` (no remote configured).
-- `Sublimation & DTF images/` (33 third-party images) is in `.gitignore` but committed; remove it from git
-  (`git rm -r --cached`) once the user agrees.
+- `Sublimation & DTF images/` is untracked (`git rm -r --cached`, staged 2026-10-31); the next commit removes it from
+  the repo (history keeps old copies). The files stay on disk.
 - `research_notes/` and `reports/` are in the repo root; decide with the user whether to keep them committed.
 
 ## 8. Update log

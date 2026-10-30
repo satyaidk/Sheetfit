@@ -31,8 +31,9 @@ import type { ProductPreset } from "@/lib/catalogue/products";
 import type { PrintProcess } from "@/types/editor";
 import { backdropFor } from "@/lib/catalogue/colors";
 import { buildProductModel, disposeModel, printStyle, weaveRepeat } from "@/lib/three/product-model";
-import { colorTexture, corkTexture, loadImage, printCanvas, weaveNormalTexture } from "@/lib/three/print-textures";
+import { colorTexture, corkTexture, fabricRoughnessTexture, knitNormalTexture, loadImage, printCanvas, weaveNormalTexture } from "@/lib/three/print-textures";
 import { threeConsole } from "@/lib/three/driver-notes";
+import { whiteBalance } from "@/lib/three/studio";
 import { cn } from "@/lib/utils";
 
 // Keep Direct3D compiler notes (Chrome on Windows) out of the console; real shader errors still show.
@@ -81,12 +82,17 @@ interface Stage {
   textures: THREE.Texture[];
   weave: THREE.CanvasTexture;
   cork: THREE.CanvasTexture;
+  knit: THREE.DataTexture;
+  knitRoughness: THREE.DataTexture;
   framedFor: string | null;
   /** Set whenever the picture may have changed; the loop renders only then. */
   dirty: boolean;
   move: CameraMove | null;
-  /** Framed distance, and the azimuth facing the print centre (Front view). */
-  home: { front: number; distance: number };
+  /** Framed distance, the azimuth facing the print centre (Front view) and the camera height for preset views. */
+  home: { front: number; distance: number; elevation: number };
+  /** Environment intensity of the current lighting (room or studio), and the current model's share of it. */
+  envBase: number;
+  envShare: number;
 }
 
 /** "Studio Small 03" by Greg Zaal, Poly Haven, CC0 (public/env/CREDITS.md). */
@@ -199,23 +205,30 @@ export default function Product3DView({
       textures: [],
       weave: weaveNormalTexture(),
       cork: corkTexture(),
+      knit: knitNormalTexture(),
+      knitRoughness: fabricRoughnessTexture(),
       framedFor: null,
       dirty: true,
       move: null,
-      home: { front: 0, distance: 1 },
+      home: { front: 0, distance: 1, elevation: ELEVATION },
+      envBase: 0.9,
+      envShare: 1,
     };
     stage.current = s;
 
     // Swap in the photographed studio once it arrives (1.6 MB); until then, or if it fails, keep the room.
     let disposed = false;
-    new HDRLoader().load(
+    new HDRLoader().setDataType(THREE.FloatType).load(
       STUDIO_HDRI,
       (hdr) => {
         if (!disposed) {
+          whiteBalance(hdr.image.data as Float32Array);
+          hdr.needsUpdate = true;
           env.dispose();
           env = pmrem.fromEquirectangular(hdr).texture;
           scene.environment = env;
-          scene.environmentIntensity = STUDIO.intensity;
+          s.envBase = STUDIO.intensity;
+          scene.environmentIntensity = s.envBase * s.envShare;
           scene.environmentRotation.y = STUDIO.rotation;
           key.intensity = STUDIO.key;
           s.dirty = true;
@@ -285,6 +298,8 @@ export default function Product3DView({
       s?.textures.forEach((t) => t.dispose());
       s?.weave.dispose();
       s?.cork.dispose();
+      s?.knit.dispose();
+      s?.knitRoughness.dispose();
       floor.geometry.dispose();
       floor.material.dispose();
       env.dispose();
@@ -318,7 +333,14 @@ export default function Product3DView({
       const model = buildProductModel(product, {
         color,
         process,
-        textures: { print: style === "overlay" ? null : artTex, overlay: style === "overlay" ? artTex : null, weave: s.weave, cork: s.cork },
+        textures: {
+          print: style === "overlay" ? null : artTex,
+          overlay: style === "overlay" ? artTex : null,
+          weave: s.weave,
+          cork: s.cork,
+          knit: s.knit,
+          knitRoughness: s.knitRoughness,
+        },
       });
 
       // Stand the model on the floor, centred.
@@ -336,6 +358,8 @@ export default function Product3DView({
       s.textures = artTex ? [artTex] : [];
       s.model = group;
       s.scene.add(group);
+      s.envShare = model.environment ?? 1;
+      s.scene.environmentIntensity = s.envBase * s.envShare;
 
       // Light, shadow and floor scale with the product (a pet tag is 30 mm, a flag 450 mm).
       const R = sphere.radius;
@@ -357,8 +381,8 @@ export default function Product3DView({
         const fov = (s.camera.fov * Math.PI) / 180;
         const dist = (R / Math.sin(fov / 2)) * 1.08;
         const az = model.viewAzimuth;
-        const el = ELEVATION;
-        s.home = { front: model.frontAzimuth ?? 0, distance: dist };
+        const el = model.viewElevation ?? ELEVATION;
+        s.home = { front: model.frontAzimuth ?? 0, distance: dist, elevation: el };
         s.move = null;
         const dir = new THREE.Vector3(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el));
         s.controls.target.copy(sphere.center);
@@ -420,7 +444,7 @@ export default function Product3DView({
   function showView(view: View) {
     const s = stage.current;
     if (!s) return;
-    moveTo({ theta: s.home.front + VIEW_OFFSET[view], phi: Math.PI / 2 - ELEVATION, radius: s.home.distance });
+    moveTo({ theta: s.home.front + VIEW_OFFSET[view], phi: Math.PI / 2 - s.home.elevation, radius: s.home.distance });
   }
 
   function zoom(factor: number) {

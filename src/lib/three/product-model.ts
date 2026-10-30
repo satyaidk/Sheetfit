@@ -12,9 +12,13 @@
  * - Flat goods are bevelled slabs cut from their outline (round, rounded
  *   rectangle, stadium, chamfered tag) with holes, rings, strings and the
  *   right back (cork, rubber, magnet, aluminium).
- * - Garments extrude the same outlines the 2D mockups use (`outlines.ts`) into
- *   a soft, slightly curved body; the print is a layer on the front at its
- *   true size and position.
+ * - T-shirts (adult, youth, toddler, long sleeve) are full garment meshes from
+ *   `tshirt-model.ts`: torso, set-in sleeves, ribbed collar, seams, hems, real
+ *   fabric thickness. Prints are cut from the shirt's own surface in flat
+ *   fabric coordinates, so they follow the folds at true size (ADR 0013).
+ * - Hoodies and onesies extrude the outlines the 2D mockups use
+ *   (`outlines.ts`) into a soft, slightly curved body; the print is a layer on
+ *   the front at its true size and position.
  * - Caps, totes and flags have their own builders.
  *
  * Builders only create geometry and materials; the browser layer supplies the
@@ -29,6 +33,10 @@ import { WRAP_SEAM_MM, type ProductPreset } from "@/lib/catalogue/products";
 import { shade } from "@/lib/catalogue/colors";
 import { OUTLINES, parsePath } from "@/lib/catalogue/outlines";
 import type { PrintProcess } from "@/types/editor";
+import { roundCorners, type Corner } from "./profile";
+import { ADULT_LONGSLEEVE, ADULT_TEE, TODDLER_TEE, YOUTH_TEE, printPatch, placeInside, teeModel, type PrintRect, type TeeModel, type TeePanel, type TeeSpec } from "./tshirt-model";
+
+export { roundCorners };
 
 export type ModelProduct = Pick<ProductPreset, "id" | "art" | "artArea" | "wrap" | "width" | "height" | "bleed" | "group" | "shape" | "side">;
 
@@ -68,6 +76,9 @@ export interface ModelTextures {
   weave: THREE.Texture | null;
   /** Cork colour texture for coaster backs. */
   cork: THREE.Texture | null;
+  /** Jersey knit normal map and roughness variation for T-shirts (repeats set for `TEE_UV_MM`). */
+  knit: THREE.Texture | null;
+  knitRoughness: THREE.Texture | null;
 }
 
 export interface ModelOptions {
@@ -87,6 +98,15 @@ export interface ProductModel {
   viewAzimuth: number;
   /** Azimuth that faces the centre of the print (Front view); 0 unless the print is turned away, as on handled mugs. */
   frontAzimuth?: number;
+  /** Camera height for the opening and preset views (rad above the horizon); the viewer's default when absent. */
+  viewElevation?: number;
+  /**
+   * Share of the studio's environment light (1 = the viewer's default). Matte
+   * cloth takes its shape from the key light; the full studio fill, lighting
+   * it evenly from every side, flattens the folds. (three.js applies one
+   * environment intensity to the whole scene, so it is set per model.)
+   */
+  environment?: number;
 }
 
 // ---------------------------------------------------------------- materials
@@ -201,54 +221,6 @@ function radiusAt(profile: Profile, y: number): number {
     }
   }
   return profile[profile.length - 1][0];
-}
-
-/** A profile corner: radius (x), height (y) and the fillet that rounds it (0 or absent = sharp). */
-type Corner = [x: number, y: number, round?: number];
-
-/**
- * Rounds the corners of a 2D polyline with circular fillets, as a CAD fillet
- * does. A fillet never takes more than half of either edge, so neighbouring
- * fillets cannot overlap; the first and last points stay sharp.
- */
-export function roundCorners(pts: Corner[], steps = 8): THREE.Vector2[] {
-  const out: THREE.Vector2[] = [];
-  const push = (v: THREE.Vector2) => {
-    const last = out[out.length - 1];
-    if (!last || last.distanceTo(v) > 1e-4) out.push(v);
-  };
-  pts.forEach(([x, y, round = 0], i) => {
-    const p = new THREE.Vector2(x, y);
-    if (round <= 0 || i === 0 || i === pts.length - 1) {
-      push(p);
-      return;
-    }
-    const a = new THREE.Vector2(pts[i - 1][0], pts[i - 1][1]).sub(p);
-    const b = new THREE.Vector2(pts[i + 1][0], pts[i + 1][1]).sub(p);
-    const la = a.length();
-    const lb = b.length();
-    a.normalize();
-    b.normalize();
-    const theta = Math.acos(THREE.MathUtils.clamp(a.dot(b), -1, 1));
-    if (theta < 1e-3 || Math.PI - theta < 1e-3) {
-      push(p);
-      return;
-    }
-    const d = Math.min(round / Math.tan(theta / 2), la / 2, lb / 2);
-    const r = d * Math.tan(theta / 2);
-    const t1 = p.clone().addScaledVector(a, d);
-    const t2 = p.clone().addScaledVector(b, d);
-    const c = p.clone().addScaledVector(a.clone().add(b).normalize(), r / Math.sin(theta / 2));
-    const a1 = Math.atan2(t1.y - c.y, t1.x - c.x);
-    let sweep = Math.atan2(t2.y - c.y, t2.x - c.x) - a1;
-    if (sweep > Math.PI) sweep -= Math.PI * 2;
-    if (sweep < -Math.PI) sweep += Math.PI * 2;
-    for (let k = 0; k <= steps; k++) {
-      const ang = a1 + (sweep * k) / steps;
-      push(new THREE.Vector2(c.x + r * Math.cos(ang), c.y + r * Math.sin(ang)));
-    }
-  });
-  return out;
 }
 
 interface VesselOptions {
@@ -1022,7 +994,123 @@ export function clothSurface(outline: Vec[], options: { puff: number; round: num
   return { front: sheet(1, 1), back: sheet(-1, 0.75), heightAt };
 }
 
+// ---------------------------------------------------------------- T-shirts
+
+/**
+ * Landmarks of the 2D outlines (`outlines.ts`, a 100 × 100 box) that the
+ * presets' placement areas are drawn on: high point of the shoulder, hem,
+ * half the body width, and where the sleeve's top edge starts and ends.
+ */
+const TEE_ILLUSTRATION: Partial<Record<ModelProduct["art"], { hps: number; hem: number; half: number; shoulder: number; cuff: number }>> = {
+  tshirt: { hps: 14, hem: 88, half: 26, shoulder: 22, cuff: 40 },
+  "kids-tee": { hps: 20, hem: 84, half: 22, shoulder: 28, cuff: 44 },
+  longsleeve: { hps: 14, hem: 86, half: 24, shoulder: 22, cuff: 82 },
+};
+
+/** The garment size a product is shown on. */
+export function teeSpecFor(p: Pick<ProductPreset, "id" | "art">): TeeSpec | null {
+  if (p.art === "tshirt") return ADULT_TEE;
+  if (p.art === "longsleeve") return ADULT_LONGSLEEVE;
+  if (p.art === "kids-tee") return p.id.startsWith("toddler") ? TODDLER_TEE : YOUTH_TEE;
+  return null;
+}
+
+/**
+ * Where a preset's print goes on the shirt: the placement area drawn on the
+ * 2D outline, carried over to the fabric (centre and panel), at the preset's
+ * true size, then moved inside the panel's printable area if it pokes out.
+ */
+export function teePrintPlacement(p: ModelProduct, tee: TeeModel): { panel: TeePanel; rect: PrintRect } {
+  const ill = TEE_ILLUSTRATION[p.art] ?? TEE_ILLUSTRATION.tshirt!;
+  const a = p.artArea ?? { x: 50 - ill.half / 2, y: ill.hps + 16, w: ill.half, h: ill.half / 2 };
+  const cx = a.x + a.w / 2;
+  const cy = a.y + a.h / 2;
+  let panel: TeePanel;
+  let rect: PrintRect;
+  if (Math.abs(cx - 50) > ill.half) {
+    // The illustration's left sleeve is the wearer's right.
+    panel = cx < 50 ? "sleeveRight" : "sleeveLeft";
+    const f = THREE.MathUtils.clamp((cy - ill.shoulder) / (ill.cuff - ill.shoulder), 0.15, 0.85);
+    rect = { u: 0, v: tee.landmarks.sleeveTop * (1 - f), w: p.width, h: p.height };
+  } else {
+    // Back areas are drawn as seen from behind, as the back panel's u runs.
+    panel = p.side === "back" ? "back" : "front";
+    const half = panel === "back" ? tee.landmarks.backHalfArc : tee.landmarks.frontHalfArc;
+    rect = { u: ((cx - 50) / ill.half) * half, v: ((ill.hem - cy) / (ill.hem - ill.hps)) * tee.spec.length, w: p.width, h: p.height };
+  }
+  return { panel, rect: placeInside(tee, panel, rect) };
+}
+
+/** Environment share for T-shirts, tuned by measuring rendered fold contrast (docs/models/tshirt.md). */
+export const TEE_ENVIRONMENT = 0.4;
+
+function teeMaterials(o: ModelOptions) {
+  const knit = tex(o, "knit");
+  const rough = tex(o, "knitRoughness");
+  const make = (color: string, vertexColors: boolean, normal = 0.55) =>
+    new THREE.MeshPhysicalMaterial({
+      color,
+      vertexColors,
+      roughness: rough ? 1 : 0.88,
+      roughnessMap: rough,
+      normalMap: knit,
+      // The knit pixels follow image rows (row 0 at the top); UV v runs up the shirt.
+      normalScale: new THREE.Vector2(normal, -normal),
+      // Polyester jersey: a faint sheen at grazing angles, no gloss (more would light up the edges that should fall off).
+      sheen: 0.15,
+      sheenRoughness: 0.6,
+      sheenColor: new THREE.Color(shade(color, -0.3)),
+    });
+  return {
+    // Shown below the swatch: white cloth reflects about 80 %, and a full-white albedo burns out under studio light,
+    // which hides every fold.
+    fabric: make(shade(o.color, 0.05), true),
+    inside: make(shade(o.color, 0.12), true),
+    rib: make(shade(o.color, 0.05), true, 0.35),
+    seam: make(shade(o.color, 0.09), false),
+  };
+}
+
+function buildTee(p: ModelProduct, o: ModelOptions, spec: TeeSpec): ProductModel {
+  const tee = teeModel(spec);
+  const materials = teeMaterials(o);
+  const group = new THREE.Group();
+  for (const part of tee.parts) {
+    // The cached geometry is shared by every build of this size; each model gets its own copy to dispose.
+    const m = mesh(part.geometry.clone(), part.materials.length > 1 ? part.materials.map((k) => materials[k]) : materials[part.materials[0]]);
+    m.name = part.name;
+    group.add(m);
+  }
+  const printMeshes: THREE.Mesh[] = [];
+  const overlay = overlayMaterial(o);
+  const { panel, rect } = teePrintPlacement(p, tee);
+  if (overlay) {
+    const geometry = printPatch(tee, panel, rect);
+    if (geometry) {
+      const print = mesh(geometry, overlay, false);
+      print.name = "TShirt_Print";
+      print.renderOrder = 2;
+      group.add(print);
+      printMeshes.push(print);
+    }
+  }
+  // Open looking at the print: three-quarter on the front or back, from above the shoulder for sleeves.
+  const front = panel === "back" ? Math.PI : panel === "sleeveLeft" ? Math.PI / 2 : panel === "sleeveRight" ? -Math.PI / 2 : 0;
+  const sleeve = panel === "sleeveLeft" || panel === "sleeveRight";
+  return {
+    group,
+    family: "garment",
+    printMeshes,
+    viewAzimuth: sleeve ? front - Math.sign(front) * 0.45 : front + 0.35,
+    frontAzimuth: front,
+    viewElevation: sleeve ? 0.55 : undefined,
+    environment: TEE_ENVIRONMENT,
+  };
+}
+
 function buildGarment(p: ModelProduct, o: ModelOptions): ProductModel {
+  const teeSpec = teeSpecFor(p);
+  if (teeSpec) return buildTee(p, o, teeSpec);
   const scale = GARMENT_SCALE[p.art] ?? 10;
   const kid = p.art === "kids-tee";
   const outlineD =

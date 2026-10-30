@@ -9,10 +9,14 @@
  *   for sublimation (the material multiplies it over the fabric), with its
  *   transparency for DTF (the material lays it on top as a film).
  * - Weave and cork are small procedural textures, generated once per viewer.
+ * - Knit normal and roughness maps for T-shirts come from `fabric-maps.ts`
+ *   (the same pixels the GLB export packs), uploaded as data textures.
  */
 
 import * as THREE from "three";
 import { printCrop, printStyle, type ModelProduct } from "./product-model";
+import { KNIT_TILE_MM, ROUGHNESS_TILE_MM, fabricRoughnessPixels, knitNormalPixels, type PixelMap } from "./fabric-maps";
+import { TEE_UV_MM } from "./tshirt-model";
 import type { PrintProcess } from "@/types/editor";
 
 const MAX_SIDE = 2048;
@@ -209,4 +213,28 @@ export function corkTexture(size = 256): THREE.CanvasTexture {
   t.repeat.set(1 / 40, 1 / 40);
   t.needsUpdate = true;
   return t;
+}
+
+/** A tiling, mipmapped data texture from fabric pixels, repeated to its physical tile size on the T-shirt atlas. */
+function fabricTexture(map: PixelMap, tileMm: number): THREE.DataTexture {
+  const t = new THREE.DataTexture(new Uint8Array(map.data.buffer), map.size, map.size);
+  t.colorSpace = THREE.NoColorSpace;
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(TEE_UV_MM / tileMm, TEE_UV_MM / tileMm);
+  t.magFilter = THREE.LinearFilter;
+  t.minFilter = THREE.LinearMipmapLinearFilter;
+  t.generateMipmaps = true;
+  t.anisotropy = 8;
+  t.needsUpdate = true;
+  return t;
+}
+
+/** Single-jersey knit normal map for T-shirts. */
+export function knitNormalTexture(): THREE.DataTexture {
+  return fabricTexture(knitNormalPixels(), KNIT_TILE_MM);
+}
+
+/** Gentle roughness variation for T-shirt fabric. */
+export function fabricRoughnessTexture(): THREE.DataTexture {
+  return fabricTexture(fabricRoughnessPixels(), ROUGHNESS_TILE_MM);
 }

@@ -188,7 +188,7 @@ Product cards, dialogs and lists show a picture of each template's own 3D model 
 - fades the outer 12 %, so a long shadow dissolves instead of ending in an edge;
 - writes a 720 px WebP with alpha.
 
-Placements smaller than 520 units² on the 100 × 100 illustration grid (left chest, sleeve, pocket, neck label, cap front) also get a detail crop. The crop is found automatically as the coloured print on the white blank. A test checks that every catalogue product has its picture and every small placement its crop. The scripts live outside the repository; re-run them whenever the 3D models or sample designs change.
+Placements smaller than 520 units² on the 100 × 100 illustration grid (left chest, sleeve, pocket, neck label, cap front) also get a detail crop. The crop is found automatically as the coloured print on the white blank. A test checks that every catalogue product has its picture and every small placement its crop. The scripts live in `scripts/pictures/` (`render-products.mjs`, then `finish-pictures.py`); re-run them whenever the 3D models or sample designs change.
 
 `Product3DView` has a toolbar with Front, Side and Back views, zoom buttons and full screen. Each model reports `frontAzimuth`, the camera angle that faces the centre of the print:
 
@@ -197,3 +197,18 @@ Placements smaller than 520 units² on the 100 × 100 illustration grid (left ch
 - otherwise 0.
 
 Camera moves are eased over 650 ms the shortest way round, and are instant with reduced motion. The view renders on demand: OrbitControls `change` events, camera moves, resizes and model rebuilds mark it dirty, and the loop draws only then. So the editor's always-open 3D dock costs nothing at rest. Standard screens render at 1.5x for crisper edges.
+
+## 19. The T-shirt garment (0.8)
+
+T-shirts (adult, youth, toddler, long sleeve) are full garment meshes from `lib/three/tshirt-model.ts` (ADR 0013; details, sizes and printable areas in `docs/models/tshirt.md`). The generator follows how a shirt is sewn:
+
+- a torso tube whose columns follow a filleted profile from the hem over the shoulder to a round crew neckline;
+- sleeves running from an armhole loop drawn on the torso surface to an elliptical hem, so they join the body exactly;
+- two fabric shells 1.3 mm apart with rolled edges, a ribbed collar band, raised seams, folded hems with coverstitch grooves, and folds as displacement;
+- flat-fabric coordinates on every outer vertex, measured square to the profile lines so they are isometric.
+
+Prints are not textures on the garment. `printPatch` cuts the panel's own triangles to the print rectangle in fabric coordinates and clips them to the printable area, then lifts them 0.35 mm along the normals; UVs map the rectangle to 0–1. A print therefore keeps its true size on the cloth and follows every fold, and swapping the artwork rebuilds only the patch and materials (the geometry is cached per size). Presets keep the placement areas drawn on the 2D outlines; `teePrintPlacement` carries their centres onto the fabric.
+
+Two lighting findings came out of measuring renders. three.js overrides each material's `envMapIntensity` with the scene's `environmentIntensity` when `scene.environment` is set, so a model now reports its share of the studio light (`ProductModel.environment`, 0.4 for cloth). And the studio HDRI is cool overall (blue about 1.3 times red), so it is white-balanced on load (`lib/three/studio.ts`).
+
+The same generator exports `public/models/tshirt.glb` (`npm run model:tshirt`), and a test fails if the file drifts from the code.
