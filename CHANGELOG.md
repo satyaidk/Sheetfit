@@ -6,6 +6,25 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Added
 
+- Output mirror as an explicit choice per page: Auto (process default), On or Off (ADR 0014). Shown and changeable in
+  the export and print dialog before output, with what to set in the printer driver. Applied once, in the file.
+- Fill a fixed print box: "Fill box (crop)" covers the box without distortion and crops only the excess; crop mode
+  pans and zooms the image inside the box (drag, pinch, wheel), opened from the toolbar, context menu, a double-click
+  or a 550 ms press and hold on touch. Non-destructive and the same in every output (ADR 0015).
+- Two-sided cards: the CR80 card has a front and an optional back, printed side by side with a set gap between cut
+  paths; one image stays one-sided. Add, swap, select one side, re-align, unlink, pair two designs (ADR 0016).
+- Cut paths: rectangle, rounded rectangle, ellipse or a contour traced from a PNG's transparency, with offset, kiss or
+  die cut, bleed and safe area; proof cut lines, centre marks, generic registration squares and a kiss-cut sheet
+  outline; an SVG cut file in millimetres; output modes Print, Artwork only, With cut lines (ADR 0016).
+- Auto Arrange rebuilt on MaxRects: spacing between cut paths, locked designs and unselected designs as obstacles,
+  pairs and groups kept together, optional 90° turns, extra pages, a summary before applying, one undo step (ADR 0017).
+- Stickers as a print process with die-cut and kiss-cut templates and a quantity tool.
+- 21 sourced catalogue templates (16 blanks: keyrings, pet and ID tags, luggage tags, mini licence plate, name badges; 5 stickers)
+  with supplier, product code, material and date checked; "Keyrings and tags" and "ID cards and badges" groups;
+  synonym search. Lanyard ribbon roll layout for ID-card straps and keychain wristlets with user-entered sizes.
+- `docs/engineering-audit.md`, `docs/feature-implementation-plan.md` (with the test matrix), `docs/catalogue-sources.md`,
+  ADRs 0014–0017.
+
 - A real 3D T-shirt (ADR 0013, `docs/models/tshirt.md`): a garment mesh generated the way a shirt is sewn, with a
   round crew neck and ribbed collar, set-in sleeves joined at the armhole, shoulder, side and armhole seams, folded
   hems with two coverstitch grooves, 1.3 mm fabric with a darker inside, drape and drag folds, knit normal and
@@ -18,6 +37,9 @@ All notable changes to this project are documented here. The format follows [Kee
 - `scripts/pictures/`: the product-picture renderer and post-processing, moved into the repository.
 
 ### Changed
+
+- Page spacing and the card pair gap are saved with the page (previously a session-only gap).
+- "Border as cut line" is now labelled "Thin black border (prints as artwork)"; real cut lines are separate.
 
 - Home page simplified: a short, server-rendered page (hero with print photos, three steps, eight product templates,
   a gallery, Sublimation vs DTF, FAQ, call to action) replaces the scroll story, live sheet demo and 3D section.
@@ -33,6 +55,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Fixed
 
+- Auto Arrange with "selected only" could place designs on top of unselected ones; it also moved locked designs.
+- Paste put the copies into the original's group.
+- Switching the print process overwrote an explicit mirror choice.
+- Project files with non-finite or negative numbers reached the renderers; they are now clamped on load.
 - 3D studio light was blue (measured: blue about 1.3 times red over the whole HDRI), tinting black and dark blanks
   cool. The HDRI is now white-balanced when it loads.
 - The 13 drinkware pictures showed the old geometry; they and the 12 T-shirt pictures are re-rendered.

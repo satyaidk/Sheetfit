@@ -36,9 +36,9 @@ describe("a product design", () => {
   it("keeps the chosen sheet when it is big enough, and the process the product supports", () => {
     openProductDesign("mug-11oz", { process: "dtf", sheet: "a3" });
     // Mugs are sublimation only, so the process falls back to sublimation (mirrored).
-    expect(s().doc.page).toMatchObject({ sheet: "a3", process: "sublimation", mirrorOutput: true });
+    expect(s().doc.page).toMatchObject({ sheet: "a3", process: "sublimation", mirrorMode: "auto" });
     openProductDesign("cap-front", { process: "dtf" });
-    expect(s().doc.page).toMatchObject({ process: "dtf", mirrorOutput: false, sheet: "a4" });
+    expect(s().doc.page).toMatchObject({ process: "dtf", mirrorMode: "auto", sheet: "a4" });
   });
 
   it("replaces an untouched product design without asking", () => {

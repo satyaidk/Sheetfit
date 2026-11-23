@@ -16,6 +16,7 @@
 import { useState } from "react";
 import { Box, Plus, Search, X } from "lucide-react";
 import { useEditor } from "@/store/editor-store";
+import type { PrintProcess } from "@/types/editor";
 import { GROUP_LABELS, minSheetFor, searchProducts, type ProductGroup, type ProductPreset } from "@/lib/catalogue/products";
 import { formatUnit } from "@/lib/layout/coordinate-conversion";
 import { addProduct, requestProduct } from "@/lib/editor-actions";
@@ -26,9 +27,9 @@ import { Segmented } from "@/components/ui/segmented";
 import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
-type Filter = "all" | "sublimation" | "dtf";
+type Filter = "all" | PrintProcess;
 type GroupFilter = "all" | ProductGroup;
-const GROUPS: ProductGroup[] = ["drinkware", "flat", "apparel", "accessory"];
+const GROUPS: ProductGroup[] = ["drinkware", "flat", "keyring", "id", "apparel", "accessory", "sticker"];
 
 export function ProductsPanel() {
   const process = useEditor((s) => s.doc.page.process);
@@ -71,6 +72,7 @@ export function ProductsPanel() {
           { value: "all", label: "All" },
           { value: "sublimation", label: "Sublimation" },
           { value: "dtf", label: "DTF" },
+          { value: "sticker", label: "Stickers" },
         ]}
       />
 
@@ -114,6 +116,20 @@ export function ProductsPanel() {
           </section>
         );
       })}
+
+      {(filter === "all" || filter === "sublimation") && (group === "all" || group === "id" || group === "keyring") && (
+        <button
+          type="button"
+          onClick={() => useEditor.getState().setDialog("strip")}
+          className="flex flex-col gap-0.5 rounded-xl p-3 text-left ring-1 ring-line hover:bg-subtle"
+        >
+          <span className="text-[13px] font-semibold">White polyester sublimation lanyard roll</span>
+          <span className="text-[12px] text-ink-muted">
+            Roll stock, not a finished tag. Lay out ID-card lanyard straps or keychain wristlet straps along your ribbon, with your own
+            width and cut length.
+          </span>
+        </button>
+      )}
 
       <CustomSizeCard />
 

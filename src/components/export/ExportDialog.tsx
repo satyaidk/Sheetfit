@@ -15,7 +15,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 /* eslint-disable @next/next/no-img-element -- preview is a generated data URL */
-import { ChevronLeft, ChevronRight, Download, FileImage, FileText, FlipHorizontal2, FolderArchive, Loader2, Printer, TriangleAlert, CircleCheck } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, FileImage, FileText, FlipHorizontal2, FolderArchive, Loader2, Printer, Scissors, TriangleAlert, CircleCheck } from "lucide-react";
 import { allPages, useEditor } from "@/store/editor-store";
 import type { ExportDpi } from "@/types/editor";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -25,16 +25,20 @@ import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { Note } from "@/components/settings/Section";
 import { ColorChoices } from "@/components/settings/DimensionControls";
-import { buildRenderPlan } from "@/lib/render/render-plan";
+import { buildRenderPlan, type PlanOutput } from "@/lib/render/render-plan";
 import {
   downloadBlob,
   estimatePixelSize,
   exportJpeg,
   exportPdf,
   exportPng,
+  exportSvg,
   renderPreviewDataUrl,
   safeFilename,
 } from "@/lib/export/export-raster";
+import { MirrorControl } from "@/components/settings/MirrorControl";
+import { resolveMirror } from "@/lib/render/mirror";
+import { Switch } from "@/components/ui/switch";
 import { browserCanvasAreaLimit, canvasSizeWithinLimits, CanvasTooLargeError } from "@/lib/export/rasterize";
 import { printSheet } from "@/lib/export/print";
 import { runPreflight } from "@/lib/export/preflight";
@@ -44,12 +48,13 @@ import { exportProjectFile } from "@/lib/editor-actions";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
-type Format = "pdf" | "png" | "jpeg" | "project";
+type Format = "pdf" | "png" | "jpeg" | "svg" | "project";
 
 const FORMATS: { value: Format; title: string; body: string; icon: React.ReactNode }[] = [
   { value: "pdf", title: "PDF", body: "Exact sheet size. Best for printing.", icon: <FileText /> },
   { value: "png", title: "PNG", body: "Lossless, keeps transparency.", icon: <FileImage /> },
   { value: "jpeg", title: "JPEG", body: "Smaller file, solid background.", icon: <FileImage /> },
+  { value: "svg", title: "Cut file (SVG)", body: "Vector cut lines in mm for cutting software.", icon: <Scissors /> },
   { value: "project", title: "Project", body: "Reopen and edit later.", icon: <FolderArchive /> },
 ];
 
@@ -73,6 +78,8 @@ export function ExportDialog() {
   const [preview, setPreview] = useState<string | null>(null);
   const [scope, setScope] = useState<"all" | "page">("all");
   const [shown, setShown] = useState(0);
+  const [output, setOutput] = useState<PlanOutput>("print");
+  const [svgArtwork, setSvgArtwork] = useState(false);
 
   const pageCount = pageEntries.length;
   // Indices of the pages this export covers, in project order.
@@ -84,7 +91,9 @@ export function ExportDialog() {
     const all = allPages({ pages: pageEntries, activePage, doc });
     return scopeIndices.map((i) => all[i]);
   }, [pageEntries, activePage, doc, scopeIndices]);
-  const plans = useMemo(() => docs.map((d) => buildRenderPlan(d, assets)), [docs, assets]);
+  // A cut file always carries every cut line; other formats follow the chosen contents.
+  const planOutput: PlanOutput = mode === "export" && format === "svg" ? "proof" : output;
+  const plans = useMemo(() => docs.map((d) => buildRenderPlan(d, assets, { output: planOutput })), [docs, assets, planOutput]);
   const assetMap = useMemo(() => new Map(Object.entries(assets)), [assets]);
   const shownIndex = Math.min(shown, plans.length - 1);
   const plan = plans[shownIndex];
@@ -138,6 +147,11 @@ export function ExportDialog() {
         await printSheet(plans, assetMap, dpi);
       } else if (format === "project") {
         await exportProjectFile(name);
+      } else if (format === "svg") {
+        for (let i = 0; i < plans.length; i++) {
+          downloadBlob(await exportSvg(plans[i], assetMap, { artwork: svgArtwork, title: projectName }), `${name}${suffix(i)}-cut.svg`);
+        }
+        toast.success("Cut file exported", { description: `${plans.length > 1 ? `${plans.length} SVG files` : "SVG"} in millimetres${svgArtwork ? ", with artwork" : ", cut lines only"}` });
       } else if (format === "pdf") {
         downloadBlob(await exportPdf(plans, assetMap, projectName), `${name}.pdf`);
         toast.success("PDF exported", { description: `${pagesText}, ${outsideLabel(outsideCount)}` });
@@ -204,10 +218,15 @@ export function ExportDialog() {
                 </button>
               </div>
             )}
-            {shownDoc.page.mirrorOutput && (
-              <span className="absolute top-3 left-3 flex items-center gap-1.5 rounded-full bg-surface px-2.5 py-1 text-[12px] font-semibold shadow">
-                <FlipHorizontal2 className="size-3.5 text-accent" />
-                Mirrored for transfer. Do not mirror again in the printer driver.
+            {format !== "project" && (
+              <span
+                data-testid="export-mirror-badge"
+                className="absolute top-3 left-3 flex items-center gap-1.5 rounded-full bg-surface px-2.5 py-1 text-[12px] font-semibold shadow"
+              >
+                <FlipHorizontal2 className={cn("size-3.5", resolveMirror(shownDoc.page) ? "text-accent" : "text-ink-faint")} />
+                {resolveMirror(shownDoc.page)
+                  ? "Mirrored. Turn mirroring off in the printer driver."
+                  : "Not mirrored."}
               </span>
             )}
             {preview ? (
@@ -243,6 +262,42 @@ export function ExportDialog() {
                 />
               </div>
             )}
+            {format !== "project" && (
+              <div className="rounded-lg bg-subtle p-3">
+                <MirrorControl
+                  page={shownDoc.page}
+                  compact
+                  onChange={(mirrorMode) => useEditor.getState().setPagesAt(scopeIndices, { mirrorMode })}
+                />
+                <p className="mt-1.5 text-[11.5px] leading-snug text-ink-muted">
+                  {docs.length > 1 ? "Applies to every page in this export. " : ""}
+                  Sheetfit mirrors once, in the file itself. If Sheetfit mirrors, keep the printer driver&apos;s mirror off; if not, set the
+                  driver for the result you need. Sheetfit cannot read or change the driver.
+                </p>
+              </div>
+            )}
+            {format !== "project" && format !== "svg" && (
+              <div>
+                <p className="mb-1.5 text-[12px] font-medium text-ink-muted">Contents</p>
+                <Segmented<PlanOutput>
+                  ariaLabel="Output contents"
+                  value={output}
+                  onValueChange={setOutput}
+                  options={[
+                    { value: "print", label: "Print" },
+                    { value: "artwork", label: "Artwork only" },
+                    { value: "proof", label: "With cut lines" },
+                  ]}
+                />
+                <p className="mt-1.5 text-[11.5px] leading-snug text-ink-muted">
+                  {output === "artwork"
+                    ? "Designs only: no marks or cut lines, for cutters and RIPs that add their own."
+                    : output === "proof"
+                      ? "Every cut path drawn as a thin line (magenta kiss, cyan die), for proofs and hand trimming."
+                      : "Designs plus the marks switched on in Sheet settings."}
+                </p>
+              </div>
+            )}
             {mode === "export" ? (
               <>
                 <div role="radiogroup" aria-label="File format" className="grid grid-cols-2 gap-1.5">
@@ -267,7 +322,19 @@ export function ExportDialog() {
                   ))}
                 </div>
 
-                {format === "project" ? (
+                {format === "svg" ? (
+                  <div className="flex flex-col gap-2">
+                    <p className="text-[12px] leading-relaxed text-ink-muted">
+                      One SVG per page at its exact size (1 unit = 1 mm). Groups: CUTLINE (one closed path per design, data-cut kiss or
+                      die), SHEET_CUT, REGISTRATION{svgArtwork ? ", ARTWORK" : ""}. Mirrored exactly like the print. Import it into
+                      your cutting software; Sheetfit does not control cutters directly.
+                    </p>
+                    <label className="flex items-center justify-between gap-3 text-[13px]">
+                      Include the artwork
+                      <Switch checked={svgArtwork} onCheckedChange={setSvgArtwork} aria-label="Include the artwork in the SVG" />
+                    </label>
+                  </div>
+                ) : format === "project" ? (
                   <p className="text-[12px] leading-relaxed text-ink-muted">
                     A .sheetfit file with the page settings, every design and the original image files. Open it from
                     Projects on any computer to continue editing.

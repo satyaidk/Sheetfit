@@ -8,6 +8,7 @@
  */
 
 import { FlipHorizontal2, Keyboard, Maximize, Scan, TriangleAlert } from "lucide-react";
+import { resolveMirror } from "@/lib/render/mirror";
 import { useEditor } from "@/store/editor-store";
 import { designBounds, pageSize, placementStatus, printableRect } from "@/lib/layout/sheet-layout";
 import { sheetUtilisation } from "@/lib/layout/measure";
@@ -43,7 +44,7 @@ export function Footer() {
       <span>
         {formatUnit(size.width, u, page.dpi)} × {formatUnit(size.height, u, page.dpi)} {u}
       </span>
-      {page.mirrorOutput && (
+      {resolveMirror(page) && (
         <span className="flex items-center gap-1 rounded-full bg-subtle px-2 py-0.5 font-medium text-ink">
           <FlipHorizontal2 className="size-3.5" /> Mirrored output
         </span>

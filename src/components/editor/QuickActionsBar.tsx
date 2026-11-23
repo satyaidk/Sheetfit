@@ -31,8 +31,9 @@ import {
   AlignHorizontalSpaceAround,
   AlignVerticalSpaceAround,
   Move,
+  Crop,
+  CopyPlus,
 } from "lucide-react";
-import { toast } from "sonner";
 import { useEditor } from "@/store/editor-store";
 import type { Design, FitMode } from "@/types/editor";
 import { Toolbar, ToolbarButton, ToolbarSeparator } from "@/components/ui/toolbar";
@@ -44,9 +45,10 @@ import { NumberField } from "@/components/settings/NumberField";
 import { ColorChoices, SIZE_PRESETS } from "@/components/settings/DimensionControls";
 import { sheetLabel } from "@/components/settings/SheetPanel";
 import { ALIGN_ITEMS } from "./CanvasContextMenu";
-import { computeImageRect, croppedSourceSize } from "@/lib/image/image-fit";
+import { computeImageRect, effectiveCrop, effectiveSourceSize } from "@/lib/image/image-fit";
 import { resolutionReport } from "@/lib/image/image-resolution";
-import { findProduct } from "@/lib/catalogue/products";
+import { findProduct, sidesOf } from "@/lib/catalogue/products";
+import { partnerOf } from "@/lib/layout/card-pair";
 import { ACCEPT_ATTR } from "@/lib/image/image-loader";
 import { replaceDesignImage, uploadIntoSlot } from "@/lib/editor-actions";
 import { cn } from "@/lib/utils";
@@ -55,7 +57,8 @@ const FIT_LABELS: Record<Exclude<FitMode, "stretch">, string> = {
   contain: "Fit entire image",
   "fit-width": "Fit width",
   "fit-height": "Fit height",
-  fill: "Fill with colour",
+  fill: "Fit, colour behind",
+  cover: "Fill frame (crop)",
   manual: "Manual scale",
 };
 
@@ -108,7 +111,6 @@ function SheetTools() {
   const page = useEditor((s) => s.doc.page);
   const setPage = useEditor((s) => s.setPage);
   const setDialog = useEditor((s) => s.setDialog);
-  const autoArrange = useEditor((s) => s.autoArrange);
   const hasDesigns = useEditor((s) => s.doc.designs.length > 0);
   return (
     <>
@@ -157,13 +159,12 @@ function SheetTools() {
       <ToolbarButton
         disabled={!hasDesigns}
         onClick={() => {
-          const r = autoArrange("all");
-          if (r.unplaced > 0) toast.warning(`${r.unplaced} did not fit`, { description: r.suggestions[0] });
-          else toast.success("Arranged without overlap", { description: `${r.placed} designs, sizes unchanged.` });
+          useEditor.getState().setArrangeOptions({ scope: "all" });
+          setDialog("arrange");
         }}
       >
         <LayoutGrid />
-        <span className="hidden md:inline">Arrange all</span>
+        <span className="hidden md:inline">Auto Arrange</span>
       </ToolbarButton>
     </>
   );
@@ -275,8 +276,8 @@ function ImageTools({ design }: { design: Design }) {
   const input = useRef<HTMLInputElement>(null);
   if (!asset) return null;
   const natural = { width: asset.naturalWidth, height: asset.naturalHeight };
-  const rect = computeImageRect(design, croppedSourceSize(natural, design.crop));
-  const q = resolutionReport(natural, design.crop, rect);
+  const rect = computeImageRect(design, effectiveSourceSize(design, natural));
+  const q = resolutionReport(natural, effectiveCrop(design, natural), rect);
   const tone = q.level === "high" ? "bg-ok-soft text-ok" : q.level === "acceptable" ? "bg-warn-soft text-warn" : "bg-danger-soft text-danger";
 
   return (
@@ -311,7 +312,14 @@ function ImageTools({ design }: { design: Design }) {
           ))}
         </DropdownMenuContent>
       </DropdownMenu>
+      <Tooltip label="Crop and adjust inside the box (double-click, or press and hold on touch)">
+        <ToolbarButton disabled={design.locked} onClick={() => useEditor.getState().startCrop(design.id)}>
+          <Crop />
+          <span className="hidden md:inline">Crop</span>
+        </ToolbarButton>
+      </Tooltip>
       <SizePopover design={design} />
+      <AddBackButton design={design} />
       <ToolbarSeparator />
       <FlipButtons />
       <PositionPopover />
@@ -322,6 +330,20 @@ function ImageTools({ design }: { design: Design }) {
         </span>
       </Tooltip>
     </>
+  );
+}
+
+/** "Add back" for the front of a two-sided product that has no back yet. */
+function AddBackButton({ design }: { design: Design }) {
+  const designs = useEditor((s) => s.doc.designs);
+  if (sidesOf(findProduct(design.productId)) !== 2 || design.side === "back" || partnerOf(designs, design)) return null;
+  return (
+    <Tooltip label="Add an empty back side next to this card. One-sided cards stay one-sided until you do.">
+      <ToolbarButton onClick={() => useEditor.getState().addCardBack(design.id)}>
+        <CopyPlus />
+        <span className="hidden md:inline">Add back</span>
+      </ToolbarButton>
+    </Tooltip>
   );
 }
 
@@ -375,6 +397,7 @@ function SlotTools({ design }: { design: Design }) {
         </Popover>
       )}
       <SizePopover design={design} />
+      <AddBackButton design={design} />
       <PositionPopover />
       {product && (
         <>
@@ -392,7 +415,6 @@ function SlotTools({ design }: { design: Design }) {
 function MultiTools({ count, designs }: { count: number; designs: Design[] }) {
   const alignSelection = useEditor((s) => s.alignSelection);
   const distributeSelection = useEditor((s) => s.distributeSelection);
-  const autoArrange = useEditor((s) => s.autoArrange);
   const groupSelection = useEditor((s) => s.groupSelection);
   const ungroupSelection = useEditor((s) => s.ungroupSelection);
   const grouped = designs.every((d) => d.groupId && d.groupId === designs[0].groupId);
@@ -437,8 +459,8 @@ function MultiTools({ count, designs }: { count: number; designs: Design[] }) {
       <PositionPopover label="On sheet" />
       <ToolbarButton
         onClick={() => {
-          const r = autoArrange("selection");
-          if (r.unplaced > 0) toast.warning(`${r.unplaced} did not fit`, { description: r.suggestions[0] });
+          useEditor.getState().setArrangeOptions({ scope: "selection" });
+          useEditor.getState().setDialog("arrange");
         }}
       >
         <LayoutGrid />

@@ -679,7 +679,8 @@ function slabSpec(p: ModelProduct, o: ModelOptions): SlabSpec {
       return { shape: circle(w), thickness: 3.2, face: { roughness: 0.25, clearcoat: 1 }, back: white, side: white, extras: [cap, loop] };
     }
     case "keychain": {
-      const shape = p.shape === "circle" ? circle(w) : roundedRect(w, h, 4);
+      // Ovals (circle shape, unequal sides) are drawn as a stadium of the right size.
+      const shape = p.shape === "circle" ? (Math.abs(w - h) < 0.5 ? circle(w) : roundedRect(w, h, Math.min(w, h) / 2)) : roundedRect(w, h, 4);
       shape.holes.push(hole(0, h - 5.5, 2.4));
       return { shape, thickness: 3, face: { roughness: 0.25, clearcoat: 1 }, back: white, side: white, extras: [ring(0, h + 6.5, 1.5, 12, 1.2)] };
     }
@@ -744,6 +745,11 @@ function slabSpec(p: ModelProduct, o: ModelOptions): SlabSpec {
     }
     case "tile":
       return { shape: roundedRect(w, h, 1), thickness: 6, face: { roughness: 0.15, clearcoat: 1 }, back: new THREE.MeshStandardMaterial({ color: "#d8d2c6", roughness: 1 }), side: white, extras: [] };
+    case "sticker": {
+      const vinyl = new THREE.MeshPhysicalMaterial({ color: "#f6f6f4", roughness: 0.45 });
+      const shape = p.shape === "circle" ? circle(w) : roundedRect(w, h, 3);
+      return { shape, thickness: 0.3, face: { roughness: 0.35, clearcoat: 0.6 }, back: vinyl, side: vinyl, extras: [] };
+    }
     case "magnet":
     default:
       return { shape: roundedRect(w, h, 4), thickness: 1.2, face: { roughness: 0.25, clearcoat: 1, metalness: 0.2 }, back: rubber("#202022"), side: alu, extras: [] };

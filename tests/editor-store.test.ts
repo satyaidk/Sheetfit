@@ -3,6 +3,7 @@ import { useEditor, defaultPrintSize, emptyDocument } from "@/store/editor-store
 import type { LoadedAsset } from "@/types/image";
 import { designBounds, placementStatus, rectsOverlap } from "@/lib/layout/sheet-layout";
 import { computeImageRect } from "@/lib/image/image-fit";
+import { resolveMirror } from "@/lib/render/mirror";
 
 function asset(id: string, w: number, h: number): LoadedAsset {
   return {
@@ -308,7 +309,8 @@ describe("v0.2 product slots, process and sheets", () => {
     s().addProductSlot("mug-11oz");
     const r = s().addProductSlot("cap-front"); // DTF only
     expect(r).toMatchObject({ newPage: true, reason: "process" });
-    expect(s().doc.page).toMatchObject({ process: "dtf", mirrorOutput: false });
+    expect(s().doc.page).toMatchObject({ process: "dtf", mirrorMode: "auto" });
+    expect(resolveMirror(s().doc.page)).toBe(false);
   });
 
   it("places a second template beside the first instead of on top of it", () => {
@@ -320,9 +322,10 @@ describe("v0.2 product slots, process and sheets", () => {
 
   it("switches process with mirror defaults, and sheets with undo", () => {
     s().setProcess("dtf");
-    expect(s().doc.page).toMatchObject({ process: "dtf", mirrorOutput: false });
+    expect(s().doc.page).toMatchObject({ process: "dtf", mirrorMode: "auto" });
+    expect(resolveMirror(s().doc.page)).toBe(false);
     s().setProcess("sublimation");
-    expect(s().doc.page.mirrorOutput).toBe(true);
+    expect(resolveMirror(s().doc.page)).toBe(true);
     s().setSheet("custom", { width: 300, height: 500 });
     expect(s().doc.page).toMatchObject({ sheet: "custom", customSize: { width: 300, height: 500 } });
     s().undo();

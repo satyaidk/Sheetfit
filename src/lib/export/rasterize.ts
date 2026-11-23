@@ -7,7 +7,8 @@
  * at the output resolution.
  */
 
-import type { RenderPlan } from "@/lib/render/render-plan";
+import { CUTLINE_COLORS, type RenderPlan } from "@/lib/render/render-plan";
+import type { Path } from "@/lib/cut/cut-path";
 import { mmToPx } from "@/lib/layout/coordinate-conversion";
 
 export type ImageSourceLookup = (assetId: string) => CanvasImageSource | null;
@@ -20,6 +21,16 @@ export interface RasterOptions {
 }
 
 type Ctx2D = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
+
+/** Trace a cut path onto a 2D context (the caller strokes it). */
+export function tracePath(ctx: Pick<Ctx2D, "moveTo" | "lineTo" | "bezierCurveTo" | "closePath">, path: Path): void {
+  for (const c of path) {
+    if (c.op === "M") ctx.moveTo(c.x, c.y);
+    else if (c.op === "L") ctx.lineTo(c.x, c.y);
+    else if (c.op === "C") ctx.bezierCurveTo(c.x1, c.y1, c.x2, c.y2, c.x, c.y);
+    else ctx.closePath();
+  }
+}
 
 export function drawPlan(
   ctx: Ctx2D,
@@ -40,7 +51,8 @@ export function drawPlan(
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = "high";
   if (plan.mirror) {
-    // Sublimation transfers print mirror-image; flip everything after the background.
+    // The one whole-sheet mirror: everything after the background (artwork,
+    // marks, cut lines) is flipped around the page centre, exactly once.
     ctx.translate(plan.page.width * s, 0);
     ctx.scale(-1, 1);
   }
@@ -81,6 +93,40 @@ export function drawPlan(
       ctx.lineWidth = item.border.width;
       ctx.strokeRect(r.x, r.y, r.width, r.height);
     }
+    if (plan.showCutlines) {
+      ctx.strokeStyle = CUTLINE_COLORS[item.cut.through];
+      ctx.lineWidth = plan.cutlineWidth;
+      for (const path of item.cut.paths) {
+        ctx.beginPath();
+        tracePath(ctx, path);
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+
+  if (plan.sheetCut || plan.centreMarks.length > 0 || plan.registration.length > 0) {
+    ctx.save();
+    ctx.scale(s, s);
+    if (plan.sheetCut) {
+      ctx.strokeStyle = CUTLINE_COLORS.die;
+      ctx.lineWidth = plan.cutlineWidth;
+      ctx.beginPath();
+      tracePath(ctx, plan.sheetCut);
+      ctx.stroke();
+    }
+    if (plan.centreMarks.length > 0) {
+      ctx.strokeStyle = "#000000";
+      ctx.lineWidth = plan.cropMarkWidth;
+      ctx.beginPath();
+      for (const m of plan.centreMarks) {
+        ctx.moveTo(m.x1, m.y1);
+        ctx.lineTo(m.x2, m.y2);
+      }
+      ctx.stroke();
+    }
+    ctx.fillStyle = "#000000";
+    for (const r of plan.registration) ctx.fillRect(r.x, r.y, r.width, r.height);
     ctx.restore();
   }
 

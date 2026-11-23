@@ -29,6 +29,7 @@ export function designImageUrl(design: Design, asset: LoadedAsset, maxSidePx = 6
     design.padding,
     design.fillColor,
     design.crop,
+    design.view,
     design.flipX,
     design.flipY,
     design.lockAspect,
@@ -43,6 +44,11 @@ export function designImageUrl(design: Design, asset: LoadedAsset, maxSidePx = 6
       items: [buildPlanItem({ ...design, x: 0, y: 0, rotation: 0 }, asset)],
       cropMarks: [],
       cropMarkWidth: 0,
+      centreMarks: [],
+      registration: [],
+      showCutlines: false,
+      cutlineWidth: 0,
+      sheetCut: null,
     };
     const url = renderPreviewDataUrl(plan, new Map([[asset.id, asset]]), maxSidePx, "image/png");
     if (cache.size >= LIMIT) cache.delete(cache.keys().next().value!);

@@ -348,6 +348,7 @@ function FitGlyph({ mode, active }: { mode: FitMode; active: boolean }) {
     "fit-width": { x: 2, y: 1, w: 24, h: 14 },
     "fit-height": { x: 7, y: 2, w: 14, h: 12 },
     fill: { x: 8, y: 2, w: 12, h: 12 },
+    cover: { x: 2, y: 2, w: 24, h: 12 },
     manual: { x: 6, y: 3, w: 10, h: 10 },
     stretch: { x: 2, y: 2, w: 24, h: 12 },
   };

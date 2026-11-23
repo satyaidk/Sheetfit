@@ -11,12 +11,20 @@
  * - Sublimation flat goods: 3 mm bleed per side, output mirrored.
  * - Sublimation wraps: no bleed top/bottom, +6 mm seam overlap on the width.
  * - DTF transfers: no bleed, not mirrored, 6.35 mm (1/4 in) gap on gang sheets.
+ *
+ * v0.9 additions (checked 2026-11-23, see `docs/catalogue-sources.md`) carry
+ * the supplier, product code, material, side count and the date checked. Only
+ * sizes printed on a supplier page are used; when a page gave one dimension
+ * only (a "57 mm" heart keyring) or none (lanyard ribbon, badge reel inserts),
+ * no preset was made and the user enters the size with a custom box instead.
+ * Heart, bone and tag outlines are pre-cut blanks: the cut guide shown is the
+ * bounding rectangle, and the blank itself defines the real edge.
  */
 
-import type { PrintProcess } from "@/types/editor";
+import type { CutSpec, PrintProcess } from "@/types/editor";
 import { smallestSheetFor, type SheetDefinition } from "./sheets";
 
-export type ProductGroup = "drinkware" | "flat" | "apparel" | "accessory";
+export type ProductGroup = "drinkware" | "flat" | "keyring" | "id" | "apparel" | "accessory" | "sticker";
 
 /** Silhouette used for the reference illustration. */
 export type ProductArt =
@@ -45,6 +53,7 @@ export type ProductArt =
   | "plate"
   | "tile"
   | "magnet"
+  | "sticker"
   | "tshirt"
   | "longsleeve"
   | "hoodie"
@@ -78,12 +87,31 @@ export interface ProductPreset {
   confidence: Confidence;
   source: string;
   note?: string;
+  /** Printable faces. Two-sided products can take a separate back design (never a copy). */
+  sides?: 1 | 2;
+  /** Corner radius of the finished blank, mm (cut guide). */
+  cornerRadius?: number;
+  /** Default cut for print-and-cut products (stickers). */
+  cut?: Partial<CutSpec>;
+  /** Supplier or manufacturer named on the source page. */
+  supplier?: string;
+  /** Product code on the source page. */
+  sku?: string;
+  /** Material as stated by the source. */
+  material?: string;
+  /** Date the source was checked (ISO). */
+  checked?: string;
+  /** Extra search words (keyring, bag tag, ID card...). */
+  aliases?: string[];
 }
 
 const IN = 25.4;
 const inch = (w: number, h: number) => ({ width: +(w * IN).toFixed(1), height: +(h * IN).toFixed(1) });
 
 const SUB: PrintProcess[] = ["sublimation"];
+const STICKER: PrintProcess[] = ["sticker"];
+const TP = "The Transfer Press (Unisub)";
+const CHECKED = "2026-11-23";
 const DTF: PrintProcess[] = ["dtf"];
 const BOTH: PrintProcess[] = ["sublimation", "dtf"];
 
@@ -118,14 +146,30 @@ export const PRODUCTS: ProductPreset[] = [
   { id: "coaster-round", name: "Coaster", detail: "Round 3.75 in", group: "flat", processes: SUB, ...inch(3.75, 3.75), shape: "circle", wrap: false, bleed: 3, art: "coaster-round", confidence: "high", source: "https://swingdesign.com/products/unisub-sublimation-blank-coasters-square" },
   { id: "coaster-sandstone", name: "Sandstone coaster", detail: "4.25 in", group: "flat", processes: SUB, ...inch(4.25, 4.25), shape: "rect", wrap: false, bleed: 3, art: "coaster-square", confidence: "high", source: "https://www.proworldinc.com/sb-s-198-round-sandstone-coaster-with-cork.html" },
   { id: "ornament-round", name: "Ornament", detail: "Round 3.9 in", group: "flat", processes: SUB, ...inch(3.9, 3.9), shape: "circle", wrap: false, bleed: 3, art: "ornament", confidence: "medium", source: "https://imagingspectrum.com/collections/unisub" },
-  { id: "keychain-round", name: "Keychain", detail: "Round 2.5 in", group: "flat", processes: SUB, ...inch(2.5, 2.5), shape: "circle", wrap: false, bleed: 2, art: "keychain", confidence: "high", source: "https://heatpressnation.com/products/unisub-sublimation-blank-keychain-2-sided-2-5-round-25-pack" },
-  { id: "keychain-rect", name: "Keychain", detail: "Rectangle 1.6 × 2.25 in", group: "flat", processes: SUB, ...inch(1.6, 2.25), shape: "rect", wrap: false, bleed: 2, art: "keychain", confidence: "high", source: "https://heatpressnation.com/products/unisub-sublimation-blank-keychain-2-sided-2-5-round-25-pack" },
-  { id: "pet-tag", name: "Pet tag", detail: "Round 1.25 × 1.5 in", group: "flat", processes: SUB, ...inch(1.25, 1.5), shape: "rect", wrap: false, bleed: 2, art: "pet-tag", confidence: "high", source: "https://swingdesign.com/products/unisub-sublimation-pet-tag-blanks-2-sided" },
-  { id: "luggage-tag", name: "Luggage tag", detail: "2.5 × 4.25 in", group: "flat", processes: SUB, ...inch(2.5, 4.25), shape: "rect", wrap: false, bleed: 2, art: "luggage-tag", confidence: "high", source: "https://heatpressnation.com/products/unisub-sublimation-blank-bag-tag-rectangle-2-5-x-4-25-5-pack" },
+  { id: "keychain-round", name: "Keychain", detail: "Round 2.5 in", group: "keyring", processes: SUB, ...inch(2.5, 2.5), shape: "circle", wrap: false, bleed: 2, art: "keychain", sides: 2, confidence: "high", source: "https://heatpressnation.com/products/unisub-sublimation-blank-keychain-2-sided-2-5-round-25-pack", note: "Unisub FRP, printable on both sides. The Transfer Press lists the same keyring as 57 mm in its size column and 63.5 mm in its text." },
+  { id: "keychain-rect", name: "Keychain", detail: "Rectangle 1.6 × 2.25 in", group: "keyring", processes: SUB, ...inch(1.6, 2.25), shape: "rect", wrap: false, bleed: 2, art: "keychain", sides: 2, confidence: "high", source: "https://heatpressnation.com/products/unisub-sublimation-blank-keychain-2-sided-2-5-round-25-pack", note: "Matches Unisub 5995 (aluminium, 40 × 57 mm, both sides) at The Transfer Press." },
+  { id: "keyring-square-57", name: "Keyring", detail: "Square 57 mm, FRP", group: "keyring", processes: SUB, width: 57, height: 57, shape: "rect", wrap: false, bleed: 2, art: "keychain", sides: 2, supplier: TP, sku: "20UNI05524", material: "Unisub FRP plastic", checked: CHECKED, confidence: "high", source: "https://www.thetransferpress.co.uk/unisub-keyring-square-c2x17076070", note: "Swing Design lists Unisub 5524 as 2.25 × 2.25 in (57.15 mm).", aliases: ["keychain", "key ring"] },
+  { id: "keyring-rect-32x76", name: "Keyring", detail: "Rectangle 32 × 76 mm, FRP", group: "keyring", processes: SUB, width: 32, height: 76, shape: "rect", wrap: false, bleed: 2, art: "keychain", sides: 2, supplier: TP, sku: "20UNI05525", material: "Unisub FRP plastic", checked: CHECKED, confidence: "high", source: "https://www.thetransferpress.co.uk/unisub-keyring-rectangle-c2x17076612", aliases: ["keychain", "key ring"] },
+  { id: "keyring-oval-63x35", name: "Keyring", detail: "Oval 63 × 35 mm, aluminium", group: "keyring", processes: SUB, width: 63, height: 35, shape: "circle", wrap: false, bleed: 2, art: "keychain", sides: 2, supplier: TP, sku: "20UNI05917", material: "Unisub aluminium", checked: CHECKED, confidence: "high", source: "https://www.thetransferpress.co.uk/unisub-aluminium-keyring-oval-c2x17079630", aliases: ["keychain", "key ring"] },
+  { id: "pet-tag", name: "Pet tag", detail: "Round 1.25 × 1.5 in", group: "keyring", processes: SUB, ...inch(1.25, 1.5), shape: "rect", wrap: false, bleed: 2, art: "pet-tag", sides: 2, confidence: "high", source: "https://swingdesign.com/products/unisub-sublimation-pet-tag-blanks-2-sided" },
+  { id: "pet-tag-circle-31", name: "Pet tag", detail: "Circle 31 mm, aluminium", group: "keyring", processes: SUB, width: 31, height: 31, shape: "circle", wrap: false, bleed: 1.5, art: "pet-tag", sides: 1, supplier: TP, sku: "20UNI05773", material: "White aluminium", checked: CHECKED, confidence: "high", source: "https://www.thetransferpress.co.uk/unisub-pet-tag-circle-c2x17039184", note: "Printable on one side only. Supplied with a metal fixing ring.", aliases: ["dog tag"] },
+  { id: "pet-tag-heart-31", name: "Pet tag", detail: "Heart 31 × 31 mm, aluminium", group: "keyring", processes: SUB, width: 31, height: 31, shape: "rect", wrap: false, bleed: 1.5, art: "pet-tag", sides: 1, supplier: TP, sku: "20UNI05770", material: "White aluminium", checked: CHECKED, confidence: "high", source: "https://www.thetransferpress.co.uk/unisub-pet-tag-heart-c2x17039150", note: "Overall size 31 × 31 mm, one side. The heart outline is the blank's; the guide shows its bounding box.", aliases: ["dog tag"] },
+  { id: "pet-tag-bone-38x25", name: "Pet tag", detail: "Bone 38 × 25 mm, aluminium", group: "keyring", processes: SUB, width: 38, height: 25, shape: "rect", wrap: false, bleed: 1.5, art: "pet-tag", sides: 1, supplier: TP, sku: "20UNI05771", material: "White aluminium", checked: CHECKED, confidence: "high", source: "https://www.thetransferpress.co.uk/unisub-pet-tag-bone-c2x17039165", note: "38 × 25 mm at the widest and longest parts, one side. The bone outline is the blank's; the guide shows its bounding box.", aliases: ["dog tag", "dog bone"] },
+  { id: "id-tag-alu", name: "ID tag", detail: "Aluminium 31.7 × 50.8 mm", group: "keyring", processes: SUB, width: 31.7, height: 50.8, shape: "rect", wrap: false, bleed: 1.5, art: "pet-tag", sides: 2, supplier: TP, sku: "20UNI05916", material: "Aluminium", checked: CHECKED, confidence: "high", source: "https://www.thetransferpress.co.uk/unisub-aluminium-id-tag-c2x21695591", note: "Sized 3.17 × 5.08 cm. Both-sides code 20UNI05916; one-side code 20UNI05588 (add no back). Out of stock when checked.", aliases: ["dog tag", "military tag", "equipment tag"] },
+  { id: "luggage-tag", name: "Luggage tag", detail: "2.5 × 4.25 in", group: "keyring", processes: SUB, ...inch(2.5, 4.25), shape: "rect", wrap: false, bleed: 2, art: "luggage-tag", sides: 2, confidence: "high", source: "https://heatpressnation.com/products/unisub-sublimation-blank-bag-tag-rectangle-2-5-x-4-25-5-pack", aliases: ["bag tag"] },
+  { id: "luggage-tag-44x88", name: "Luggage tag", detail: "44 × 88 mm", group: "keyring", processes: SUB, width: 44, height: 88, shape: "rect", wrap: false, bleed: 2, art: "luggage-tag", sides: 2, supplier: TP, sku: "20UNI05556", material: "Glossy plastic", checked: CHECKED, confidence: "high", source: "https://www.thetransferpress.co.uk/unisub-luggage-tags-c2x35720796", note: "Printable on both sides. Has a fastening slot (position not published); loops sold separately.", aliases: ["bag tag"] },
+  { id: "luggage-tag-70x100", name: "Luggage tag", detail: "70 × 100 mm", group: "keyring", processes: SUB, width: 70, height: 100, shape: "rect", wrap: false, bleed: 2, art: "luggage-tag", sides: 2, supplier: TP, sku: "20UNI05503", material: "Glossy plastic", checked: CHECKED, confidence: "high", source: "https://www.thetransferpress.co.uk/unisub-luggage-tags-c2x35720796", note: "Both sides, fastening slot. Swing Design lists Unisub 5503 as 4 × 2.75 in.", aliases: ["bag tag"] },
+  { id: "luggage-tag-75x140", name: "Luggage tag", detail: "75 × 140 mm", group: "keyring", processes: SUB, width: 75, height: 140, shape: "rect", wrap: false, bleed: 2, art: "luggage-tag", sides: 2, supplier: TP, sku: "20UNI05505", material: "Glossy plastic", checked: CHECKED, confidence: "high", source: "https://www.thetransferpress.co.uk/unisub-luggage-tags-c2x35720796", note: "Both sides, fastening slot. Swing Design lists Unisub 5505 as 5.5 × 3 in.", aliases: ["bag tag"] },
+  { id: "luggage-tag-round-100", name: "Luggage tag", detail: "Round 100 mm", group: "keyring", processes: SUB, width: 100, height: 100, shape: "circle", wrap: false, bleed: 2, art: "luggage-tag", sides: 2, supplier: TP, sku: "20UNI05507", material: "Glossy plastic", checked: CHECKED, confidence: "high", source: "https://www.thetransferpress.co.uk/unisub-luggage-tags-c2x35720796", note: "Both sides, fastening slot.", aliases: ["bag tag"] },
   { id: "bookmark", name: "Bookmark", detail: "1.25 × 5 in", group: "flat", processes: SUB, ...inch(1.25, 5), shape: "rect", wrap: false, bleed: 2, art: "bookmark", confidence: "high", source: "https://heatpressnation.com/products/unisub-sublimation-blank-bookmark-1-25-x-5-5-pack" },
+  { id: "plate-mini", name: "Licence plate", detail: "Mini 7.4 × 14.9 cm", group: "flat", processes: SUB, width: 149, height: 74, shape: "rect", wrap: false, bleed: 3, art: "plate", sides: 1, supplier: TP, sku: "20UNI04565", material: "Glossy Unisub aluminium", checked: CHECKED, confidence: "high", source: "https://www.thetransferpress.co.uk/unisub-american-style-licence-plate-c2x19798365", note: "Printable on one side only. Hole positions are not published; keep text away from the corners.", aliases: ["bike plate", "license plate"] },
   { id: "magnet", name: "Fridge magnet", detail: "2 × 3 in", group: "flat", processes: SUB, ...inch(2, 3), shape: "rect", wrap: false, bleed: 2, art: "magnet", confidence: "high", source: "https://heatpressnation.com/products/unisub-3-2-sublimation-aluminium-magnet-w-1-25-mm-magnet-gloss-white" },
-  { id: "card-cr80", name: "ID / PVC card", detail: "CR80 85.6 × 54 mm", group: "flat", processes: SUB, width: 85.6, height: 53.98, shape: "rect", wrap: false, bleed: 2, art: "card", confidence: "high", source: "https://en.wikipedia.org/wiki/ISO/IEC_7810", note: "ISO/IEC 7810 ID-1. PVC cards are usually printed with ribbon printers; aluminium cards sublimate." },
-  { id: "card-business", name: "Aluminium business card", detail: "2 × 3.5 in", group: "flat", processes: SUB, ...inch(3.5, 2), shape: "rect", wrap: false, bleed: 2, art: "card", confidence: "medium", source: "https://jpplus.com/unisub-2-sided-aluminum-business-card" },
+  { id: "card-cr80", name: "ID / PVC card", detail: "CR80 85.6 × 54 mm, front and back", group: "id", processes: SUB, width: 85.6, height: 53.98, shape: "rect", wrap: false, bleed: 2, art: "card", sides: 2, cornerRadius: 3.18, checked: CHECKED, confidence: "high", source: "https://en.wikipedia.org/wiki/ISO/IEC_7810", note: "ISO/IEC 7810 ID-1: 85.60 × 53.98 mm, corner radius 2.88–3.48 mm (3.18 mm used for the cut guide). Only sublimation-coated PVC cards take sublimation; plain PVC does not. Check your blank.", aliases: ["id card", "pvc card", "badge", "cr80"] },
+  { id: "card-business", name: "Aluminium business card", detail: "2 × 3.5 in", group: "id", processes: SUB, ...inch(3.5, 2), shape: "rect", wrap: false, bleed: 2, art: "card", sides: 2, confidence: "medium", source: "https://jpplus.com/unisub-2-sided-aluminum-business-card" },
+  { id: "name-badge-2x3", name: "Name badge", detail: "2 × 3 in, FRP", group: "id", processes: SUB, ...inch(3, 2), shape: "rect", wrap: false, bleed: 1.5, art: "card", sides: 1, supplier: "Conde Systems (Unisub)", sku: "U5530", material: "Sublimation FRP, 0.090 in thick", checked: CHECKED, confidence: "high", source: "https://www.conde.com/proddetail.asp?prod=U5530", note: "One side. Pin or magnetic backs are sold separately.", aliases: ["name tag", "badge"] },
+  { id: "name-badge-1.5x3", name: "Name badge", detail: "1.5 × 3 in, FRP", group: "id", processes: SUB, ...inch(3, 1.5), shape: "rect", wrap: false, bleed: 1.5, art: "card", sides: 1, supplier: "Conde Systems (Unisub)", sku: "U5786", material: "FRP, 0.090 in thick", checked: CHECKED, confidence: "high", source: "https://www.conde.com/proddetail.asp?prod=U5786", note: "One side. Backing not included.", aliases: ["name tag", "badge"] },
+  { id: "name-badge-1.25x3", name: "Name badge", detail: "1.25 × 3 in", group: "id", processes: SUB, ...inch(3, 1.25), shape: "rect", wrap: false, bleed: 1.5, art: "card", sides: 1, supplier: "Conde Systems (Unisub)", sku: "U5502", material: "Stated as both FRP and aluminium on the page", checked: CHECKED, confidence: "medium", source: "https://www.conde.com/proddetail.asp?prod=U5502", note: "One side, 0.090 in thick. The supplier page names two materials; check your blank.", aliases: ["name tag", "badge"] },
+  { id: "name-badge-1x3", name: "Name badge", detail: "1 × 3 in, FRP", group: "id", processes: SUB, ...inch(3, 1), shape: "rect", wrap: false, bleed: 1.5, art: "card", sides: 1, supplier: "Conde Systems (Unisub)", sku: "U5501", material: "FRP, 0.090 in thick", checked: CHECKED, confidence: "high", source: "https://www.conde.com/proddetail.asp?prod=U5501", note: "One side. Pin or magnetic backs are sold separately.", aliases: ["name tag", "badge"] },
   { id: "panel-5x7", name: "Photo panel", detail: "5 × 7 in", group: "flat", processes: SUB, ...inch(5, 7), shape: "rect", wrap: false, bleed: 1.6, art: "photo-panel", confidence: "high", source: "https://www.jpplus.com/chromaluxe-aluminum-photo-panels" },
   { id: "panel-8x10", name: "Photo panel", detail: "8 × 10 in", group: "flat", processes: SUB, ...inch(8, 10), shape: "rect", wrap: false, bleed: 1.6, art: "photo-panel", confidence: "high", source: "https://www.jpplus.com/chromaluxe-aluminum-photo-panels", note: "ChromaLuxe asks for 8.125 × 10.125 in with bleed." },
   { id: "puzzle-a4", name: "Jigsaw puzzle", detail: "A4 blank 290 × 200 mm", group: "flat", processes: SUB, width: 290, height: 200, shape: "rect", wrap: false, bleed: 0, art: "puzzle", confidence: "high", source: "https://transfer.signdepot.eu/en/Sublimation-puzzle-A4", note: "Only 3–5 mm spare on A4; no bleed added." },
@@ -153,15 +197,29 @@ export const PRODUCTS: ProductPreset[] = [
   { id: "cap-front", name: "Cap", detail: "Structured front", group: "accessory", processes: DTF, ...inch(4, 2), shape: "rect", wrap: false, bleed: 0, art: "cap", artArea: { x: 34, y: 38, w: 32, h: 16 }, confidence: "high", source: "https://www.printful.com/blog/hat-logo-size-and-placement-guide" },
   { id: "cap-trucker", name: "Trucker cap", detail: "Front 5 × 2 in", group: "accessory", processes: DTF, ...inch(5, 2), shape: "rect", wrap: false, bleed: 0, art: "cap", artArea: { x: 31, y: 38, w: 38, h: 16 }, confidence: "high", source: "https://api.printful.com/products/77" },
   { id: "tote", name: "Tote bag", detail: "Safe 9 × 9 in", group: "accessory", processes: BOTH, ...inch(9, 9), shape: "rect", wrap: false, bleed: 0, art: "tote", artArea: { x: 30, y: 40, w: 40, h: 40 }, confidence: "high", source: "https://www.xtool.com/blogs/xtool-academy/dtf-transfer-size-chart", note: "Maximum about 12 × 13.5 in. Needs A3." },
+  // ---------------- Stickers (print-and-cut on adhesive media, not sublimation) ----------------
+  { id: "sticker-die-2", name: "Die-cut sticker", detail: "2 × 2 in, cut to shape", group: "sticker", processes: STICKER, ...inch(2, 2), shape: "rect", wrap: false, bleed: 0, art: "sticker", cut: { shape: "contour", offset: 1.5, through: "die" }, checked: CHECKED, confidence: "high", source: "https://www.stickermule.com/products/die-cut-stickers", note: "A common size option; any size works. Upload a transparent PNG and generate the contour.", aliases: ["contour", "decal"] },
+  { id: "sticker-die-3", name: "Die-cut sticker", detail: "3 × 3 in, cut to shape", group: "sticker", processes: STICKER, ...inch(3, 3), shape: "rect", wrap: false, bleed: 0, art: "sticker", cut: { shape: "contour", offset: 2, through: "die" }, checked: CHECKED, confidence: "high", source: "https://www.stickermule.com/products/die-cut-stickers", note: "A common size option; any size works.", aliases: ["contour", "decal"] },
+  { id: "sticker-die-4", name: "Die-cut sticker", detail: "4 × 4 in, cut to shape", group: "sticker", processes: STICKER, ...inch(4, 4), shape: "rect", wrap: false, bleed: 0, art: "sticker", cut: { shape: "contour", offset: 2, through: "die" }, checked: CHECKED, confidence: "high", source: "https://www.stickermule.com/products/die-cut-stickers", note: "A common size option; any size works.", aliases: ["contour", "decal"] },
+  { id: "sticker-kiss-round-3", name: "Kiss-cut sticker", detail: "Round 3 in", group: "sticker", processes: STICKER, ...inch(3, 3), shape: "circle", wrap: false, bleed: 1.5, art: "sticker", cut: { shape: "ellipse", offset: 0, through: "kiss", safeInset: 3 }, checked: CHECKED, confidence: "medium", source: "https://www.stickermule.com/products/die-cut-stickers", note: "3 in is a size the source offers; the round shape and the 1.5 mm bleed and 3 mm safe area are starting values. Use your printer's specs.", aliases: ["circle", "label"] },
+  { id: "sticker-kiss-square-3", name: "Kiss-cut sticker", detail: "Rounded square 3 in", group: "sticker", processes: STICKER, ...inch(3, 3), shape: "rect", wrap: false, bleed: 1.5, art: "sticker", cut: { shape: "rect", radius: 3, offset: 0, through: "kiss", safeInset: 3 }, checked: CHECKED, confidence: "medium", source: "https://www.stickermule.com/products/die-cut-stickers", note: "3 in is a size the source offers; radius, bleed and safe area are starting values. Use your printer's specs.", aliases: ["square", "label"] },
   { id: "garden-flag", name: "Garden flag", detail: "12 × 18 in", group: "accessory", processes: SUB, ...inch(12, 18), shape: "rect", wrap: false, bleed: 3, art: "flag", confidence: "medium", source: "https://help.gearment.com/en-us/article/flag-products-1xbyzzi", note: "Needs A3+ or a roll." },
 ];
 
 export const GROUP_LABELS: Record<ProductGroup, string> = {
   drinkware: "Drinkware",
   flat: "Flat goods",
+  keyring: "Keyrings and tags",
+  id: "ID cards and badges",
   apparel: "Apparel",
   accessory: "Accessories",
+  sticker: "Stickers",
 };
+
+/** Number of printable faces (1 unless the source says both sides print). */
+export function sidesOf(p: Pick<ProductPreset, "sides"> | undefined): 1 | 2 {
+  return p?.sides === 2 ? 2 : 1;
+}
 
 export function findProduct(id: string | null | undefined): ProductPreset | undefined {
   return id ? PRODUCTS.find((p) => p.id === id) : undefined;
@@ -183,6 +241,8 @@ export function searchProducts(query: string, process?: PrintProcess): ProductPr
   return PRODUCTS.filter((p) => {
     if (process && !p.processes.includes(process)) return false;
     if (!q) return true;
-    return `${p.name} ${p.detail} ${GROUP_LABELS[p.group]}`.toLowerCase().includes(q);
+    const words = q.split(/\s+/);
+    const text = `${p.name} ${p.detail} ${GROUP_LABELS[p.group]} ${(p.aliases ?? []).join(" ")} ${p.sku ?? ""}`.toLowerCase();
+    return words.every((w) => text.includes(w));
   });
 }

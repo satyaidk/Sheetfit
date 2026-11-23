@@ -42,18 +42,21 @@ import { Input } from "@/components/ui/input";
 import { NumberField } from "@/components/settings/NumberField";
 import { DimensionControls } from "@/components/settings/DimensionControls";
 import { Field, Note, Section } from "@/components/settings/Section";
-import { computeImageRect, croppedSourceSize, aspectRatio } from "@/lib/image/image-fit";
+import { computeImageRect, aspectRatio, effectiveCrop, effectiveSourceSize } from "@/lib/image/image-fit";
+import { CardSection, CutSection, ImageFitSection, QuantitySection } from "./DesignSections";
 import { QUALITY_COPY, resolutionReport } from "@/lib/image/image-resolution";
 import { placementStatus } from "@/lib/layout/sheet-layout";
 import type { AlignTarget } from "@/lib/layout/alignment";
 import { gridCapacity } from "@/lib/layout/auto-arrange";
 import { designBounds, printableRect } from "@/lib/layout/sheet-layout";
-import { replaceDesignImage, uploadIntoSlot } from "@/lib/editor-actions";
+import { replaceDesignImage, uploadCardSides } from "@/lib/editor-actions";
 import { findProduct, minSheetFor } from "@/lib/catalogue/products";
 import { ProductSection, SampleStrip } from "@/components/products/MockupPreview";
 import { pageSize, sheetLabel } from "@/lib/layout/sheet-layout";
 import { ACCEPT_ATTR, megapixels } from "@/lib/image/image-loader";
 import { cn } from "@/lib/utils";
+import { resolveMirror } from "@/lib/render/mirror";
+import { PROCESS_LABELS } from "@/lib/catalogue/processes";
 
 export function PropertiesPanel() {
   const doc = useEditor((s) => s.doc);
@@ -114,14 +117,18 @@ function SlotInspector({ design }: { design: Design }) {
           ref={input}
           type="file"
           accept={ACCEPT_ATTR}
+          multiple={product?.sides === 2}
           hidden
           onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) void uploadIntoSlot(f, design.id);
+            const files = e.target.files ? [...e.target.files] : [];
+            if (files[0]) void uploadCardSides(files, design.id);
             e.target.value = "";
           }}
         />
-        <p className="mt-2 text-[12px] text-ink-muted">Or drag an image from your computer or from Uploads onto the box.</p>
+        <p className="mt-2 text-[12px] text-ink-muted">
+          Or drag an image from your computer or from Uploads onto the box.
+          {product?.sides === 2 && design.side !== "back" ? " Pick two files to fill the front and the back." : ""}
+        </p>
         {product && (
           <div className="mt-3">
             <SampleStrip design={design} />
@@ -135,6 +142,8 @@ function SlotInspector({ design }: { design: Design }) {
           </p>
         )}
       </Section>
+      <CardSection design={design} />
+      {(design.cut || page.process === "sticker") && <CutSection design={design} />}
       <Section title="Size and position">
         <div className="grid grid-cols-2 gap-1.5">
           <NumberField label="W" valueMm={design.width} unit={unit} dpi={page.dpi} min={1} max={6000} onCommit={(width) => resizeDesign(design.id, { width })} />
@@ -195,13 +204,9 @@ function SingleDesign({ design, asset }: { design: Design; asset: LoadedAsset })
   const centerSelection = useEditor((s) => s.centerSelection);
   const replaceInput = useRef<HTMLInputElement>(null);
 
-  const source = croppedSourceSize({ width: asset.naturalWidth, height: asset.naturalHeight }, design.crop);
-  const imageRect = computeImageRect(design, source);
-  const quality = resolutionReport(
-    { width: asset.naturalWidth, height: asset.naturalHeight },
-    design.crop,
-    { width: imageRect.width, height: imageRect.height },
-  );
+  const natural = { width: asset.naturalWidth, height: asset.naturalHeight };
+  const imageRect = computeImageRect(design, effectiveSourceSize(design, natural));
+  const quality = resolutionReport(natural, effectiveCrop(design, natural), { width: imageRect.width, height: imageRect.height });
   const status = placementStatus(design, page);
   const ratio = aspectRatio({ width: asset.naturalWidth, height: asset.naturalHeight });
   const product = findProduct(design.productId);
@@ -276,6 +281,8 @@ function SingleDesign({ design, asset }: { design: Design; asset: LoadedAsset })
         </div>
       </Section>
 
+      <ImageFitSection design={design} asset={asset} />
+      <CardSection design={design} />
       <DimensionControls design={design} asset={asset} />
 
       <Section title="Position on sheet">
@@ -330,10 +337,12 @@ function SingleDesign({ design, asset }: { design: Design; asset: LoadedAsset })
       </Section>
 
       <RepeatSection design={design} />
+      <QuantitySection design={design} />
       <CropSection design={design} />
+      {(design.cut || page.process === "sticker" || findProduct(design.productId)?.cornerRadius) && <CutSection design={design} />}
 
       <Section title="Cut line and layers">
-        <Field label="Border as cut line" htmlFor="border-switch">
+        <Field label="Thin black border (prints as artwork)" htmlFor="border-switch">
           <Switch id="border-switch" checked={design.border} onCheckedChange={(border) => updateDesign(design.id, { border })} />
         </Field>
         <LayerActions design={design} />
@@ -499,7 +508,6 @@ function LayerActions({ design }: { design: Design }) {
 function MultiSelection({ designs }: { designs: Design[] }) {
   const groupSelection = useEditor((s) => s.groupSelection);
   const ungroupSelection = useEditor((s) => s.ungroupSelection);
-  const autoArrange = useEditor((s) => s.autoArrange);
   const duplicateSelection = useEditor((s) => s.duplicateSelection);
   const deleteSelection = useEditor((s) => s.deleteSelection);
   const centerSelection = useEditor((s) => s.centerSelection);
@@ -525,13 +533,24 @@ function MultiSelection({ designs }: { designs: Design[] }) {
             size="sm"
             variant="dark"
             onClick={() => {
-              autoArrange("selection");
+              useEditor.getState().setArrangeOptions({ scope: "selection" });
+              useEditor.getState().setDialog("arrange");
               setRan(true);
             }}
           >
             <Grid3x3 />
-            Arrange in rows without overlap
+            Auto Arrange selection
           </Button>
+          {designs.length === 2 && !designs.some((d) => d.pairId) && (
+            <Button
+              size="sm"
+              onClick={() => {
+                if (!useEditor.getState().pairSelection()) window.alert("Front and back must be the same size, including bleed.");
+              }}
+            >
+              Pair as front and back
+            </Button>
+          )}
           <div className="flex gap-1.5">
             {grouped ? (
               <Button size="sm" className="flex-1" onClick={ungroupSelection}>
@@ -587,8 +606,9 @@ function SheetSummary() {
   const lowRes = doc.designs.filter((d) => {
     const a = d.assetId ? assets[d.assetId] : undefined;
     if (!a) return false;
-    const r = computeImageRect(d, croppedSourceSize({ width: a.naturalWidth, height: a.naturalHeight }, d.crop));
-    return resolutionReport({ width: a.naturalWidth, height: a.naturalHeight }, d.crop, r).level === "low";
+    const n = { width: a.naturalWidth, height: a.naturalHeight };
+    const r = computeImageRect(d, effectiveSourceSize(d, n));
+    return resolutionReport(n, effectiveCrop(d, n), r).level === "low";
   }).length;
 
   return (
@@ -613,7 +633,8 @@ function SheetSummary() {
           </dd>
           <dt className="text-ink-muted">Process</dt>
           <dd className="text-right">
-            {doc.page.process === "dtf" ? "DTF" : "Sublimation"}, {doc.page.mirrorOutput ? "mirrored" : "not mirrored"}
+            {PROCESS_LABELS[doc.page.process]}, {resolveMirror(doc.page) ? "mirrored" : "not mirrored"}
+            {doc.page.mirrorMode !== "auto" && " (your choice)"}
           </dd>
           <dt className="text-ink-muted">Export resolution</dt>
           <dd className="text-right">{doc.page.dpi} DPI</dd>

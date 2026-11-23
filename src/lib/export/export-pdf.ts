@@ -14,16 +14,25 @@
 
 import {
   PDFDocument,
+  appendBezierCurve,
   clip,
+  closePath,
   concatTransformationMatrix,
   endPath,
+  lineTo,
+  moveTo,
   popGraphicsState,
   pushGraphicsState,
   rectangle,
   rgb,
+  setLineWidth,
+  setStrokingRgbColor,
+  stroke,
   type PDFImage,
+  type PDFOperator,
 } from "pdf-lib";
-import type { RenderPlan, PlanItem } from "@/lib/render/render-plan";
+import { CUTLINE_COLORS, type RenderPlan, type PlanItem } from "@/lib/render/render-plan";
+import type { Path } from "@/lib/cut/cut-path";
 import { mmToPt } from "@/lib/layout/coordinate-conversion";
 
 export interface PdfImageSource {
@@ -104,7 +113,8 @@ async function drawPdfPage(
   }
 
   if (plan.mirror) {
-    // Sublimation transfers print mirror-image: flip everything after the background.
+    // The one whole-sheet mirror: flip everything after the background (artwork,
+    // marks, cut lines) around the page centre, exactly once.
     page.pushOperators(pushGraphicsState(), concatTransformationMatrix(-1, 0, 0, 1, pageW, 0));
   }
 
@@ -186,7 +196,31 @@ async function drawPdfPage(
         borderWidth: item.border.width,
       });
     }
+    if (plan.showCutlines) {
+      // Item space is millimetres scaled to points with y up, so a stroke of
+      // w mm is w in user units here.
+      for (const path of item.cut.paths) {
+        page.pushOperators(...strokePathOps(path, (x, y) => [x, -y], CUTLINE_COLORS[item.cut.through], plan.cutlineWidth));
+      }
+    }
     page.pushOperators(popGraphicsState());
+  }
+
+  // Page-space marks: mm (y down) to points (y up).
+  const toPage = (x: number, y: number): [number, number] => [mmToPt(x), pageH - mmToPt(y)];
+  if (plan.sheetCut) {
+    page.pushOperators(...strokePathOps(plan.sheetCut, toPage, CUTLINE_COLORS.die, mmToPt(plan.cutlineWidth)));
+  }
+  for (const m of plan.centreMarks) {
+    page.drawLine({
+      start: { x: mmToPt(m.x1), y: pageH - mmToPt(m.y1) },
+      end: { x: mmToPt(m.x2), y: pageH - mmToPt(m.y2) },
+      thickness: mmToPt(plan.cropMarkWidth),
+      color: rgb(0, 0, 0),
+    });
+  }
+  for (const r of plan.registration) {
+    page.drawRectangle({ x: mmToPt(r.x), y: pageH - mmToPt(r.y + r.height), width: mmToPt(r.width), height: mmToPt(r.height), color: rgb(0, 0, 0) });
   }
 
   if (plan.cropMarks.length > 0) {
@@ -202,6 +236,28 @@ async function drawPdfPage(
   }
 
   if (plan.mirror) page.pushOperators(popGraphicsState());
+}
+
+/**
+ * PDF operators that stroke a cut path as a true vector. `toPdf` maps a path
+ * point (mm, y down) to the current PDF user space.
+ */
+export function strokePathOps(
+  path: Path,
+  toPdf: (x: number, y: number) => [number, number],
+  color: string,
+  widthPt: number,
+): PDFOperator[] {
+  const c = hexToRgb(color);
+  const ops: PDFOperator[] = [pushGraphicsState(), setStrokingRgbColor(c.red, c.green, c.blue), setLineWidth(widthPt)];
+  for (const cmd of path) {
+    if (cmd.op === "M") ops.push(moveTo(...toPdf(cmd.x, cmd.y)));
+    else if (cmd.op === "L") ops.push(lineTo(...toPdf(cmd.x, cmd.y)));
+    else if (cmd.op === "C") ops.push(appendBezierCurve(...toPdf(cmd.x1, cmd.y1), ...toPdf(cmd.x2, cmd.y2), ...toPdf(cmd.x, cmd.y)));
+    else ops.push(closePath());
+  }
+  ops.push(stroke(), popGraphicsState());
+  return ops;
 }
 
 /** Read an asset blob into bytes pdf-lib can embed without re-encoding. */

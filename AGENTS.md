@@ -15,13 +15,13 @@ Every agent (and human) reads it before starting work and updates it **in the sa
 feature, plan or known-issue change. Keep entries short and factual. Newest entries go at the top of the
 update log (section 8).
 
-Last updated: 2026-10-31 (v0.7.0 + unreleased: T-shirt garment, known-issue fixes)
+Last updated: 2026-11-23 (v0.7.0 + unreleased: v0.9 print-and-cut work, T-shirt garment)
 
 ## 1. Product in one paragraph
 
 Sheetfit is a browser-only, Canva-style layout editor for **sublimation and DTF** printing. A project has
 **pages**, each with its own sheet (A4, Letter, Legal, A3, A3+, 22 in DTF gang sheets, custom) and process.
-Clicking one of 52 **product templates** (mugs, tumblers, coasters, shirt placements, caps, totes…) starts a
+Clicking one of 73 **product templates** (mugs, tumblers, coasters, shirt placements, caps, totes…) starts a
 **new design** on the sheet it needs (asking to save or discard current work; "+" adds it to the current sheet
 instead). Users drop images or generated **sample designs** into the box, watch a **live preview** on the product,
 inspect every product as an interactive **3D model** in any blank colour, and
@@ -47,9 +47,10 @@ into templates (`/editor?product=<id>`).
 | v0.6 studio home page, `?product=` editor links | Done; superseded by the v0.7 home page |
 | v0.7 rendered product pictures (cards, lists, dialogs), 3D dock, 3D toolbar (views, zoom, full screen), back prints on the back, "Night press" home page | Done, tested, verified in Chrome |
 | T-shirt garment mesh (ADR 0013): generated torso, set-in sleeves, collar, seams, hems, fabric shells; prints cut in fabric coordinates; `tshirt.glb` export | Done, tested, verified in Chrome (unreleased) |
+| v0.9 print and cut (ADRs 0014–0017): mirror Auto/On/Off, fill and crop view, two-sided cards, cut paths and marks, MaxRects Auto Arrange, stickers, SVG cut file, 21 sourced templates, lanyard roll layout | Done, tested, verified in Chrome (unreleased) |
 | Quality gate `npm run check` | See section 8 for the latest numbers |
-| Browser checks | `v5func.mjs` (48 whole-app checks incl. 3D dock), `v6func.mjs` (32 home page and link checks), `v5all3d.mjs` (every product in 3D); see section 8 |
-| Committed to git | Up to `b59119d` (by the user). The T-shirt work and known-issue fixes are uncommitted |
+| Browser checks | `scripts/e2e/v9func.mjs` (28 v0.9 checks, in the repo), `v5func.mjs` (48 whole-app checks incl. 3D dock), `v6func.mjs` (32 home page and link checks), `v5all3d.mjs` (every product in 3D); see section 8 |
+| Committed to git | Up to `9742a28` (by the user). The v0.9 print-and-cut work is uncommitted |
 
 ## 3. Commands
 
@@ -58,6 +59,7 @@ npm run dev            # http://localhost:4000; /editor?sample loads the sample 
 npm run check          # lint + typecheck + tests with coverage + production build (must pass before "done")
 npm test               # vitest only
 npm run model:tshirt   # regenerate public/models/tshirt.glb from the generator (a test fails if it is stale)
+node scripts/e2e/v9func.mjs   # v0.9 browser checks (needs next start -p 3200, puppeteer-core --no-save, make-images.py once)
 ```
 
 - Windows: run from an upper-case `C:\` path; a lower-case `c:\` path makes every Vitest file fail
@@ -118,6 +120,18 @@ npm run model:tshirt   # regenerate public/models/tshirt.glb from the generator 
     body (u jumps at the back centre). Regenerate the GLB (`npm run model:tshirt`) after changing the generator.
 19. three.js overrides material `envMapIntensity` with `scene.environmentIntensity`: a model asks for less studio
     light through `ProductModel.environment`, not through its materials.
+20. **The output mirror is decided only by `resolveMirror(page)`** (ADR 0014) and applied once per renderer, around the
+    page centre, to everything after the background. Never mirror in CSS, on the canvas or in the artwork.
+21. **Image placement goes through `effectiveSourceRect`** (crop insets, then the cover window). Never read
+    `design.crop` directly for drawing or DPI; use `effectiveSourceSize` / `effectiveCrop` (ADR 0015).
+22. Box, trim, cut and safe area are different things (`lib/cut/cut-path.ts`). Spacing is measured between cut paths
+    via clearance rectangles (`lib/layout/arrange.ts`). Cut lines are vectors, never part of the artwork (ADR 0016).
+23. Card sides: a back exists only when the user adds it or uploads a second file. Pairs move as one block; side labels
+    are HTML overlays (Konva children would change the Transformer's bounds).
+24. Every new document field gets a default and validation in `lib/storage/migrate.ts`; old projects must print exactly
+    as before.
+25. Never invent product numbers. Supplier sizes go in `products.ts` with supplier, SKU, material and date, and in
+    `docs/catalogue-sources.md`; unverifiable items become user-entered (custom box, lanyard strip profile).
 
 ## 5. File map
 
@@ -137,7 +151,18 @@ npm run model:tshirt   # regenerate public/models/tshirt.glb from the generator 
 | `public/models/` | `tshirt.glb` (7.9 MB) and its knit and roughness PNGs, generated |
 | `src/lib/three/driver-notes.ts` | `threeConsole` for `THREE.setConsoleFunction`: drops Direct3D compiler notes (X4122), forwards the rest |
 | `src/lib/catalogue/sample-designs.ts` | Seeded SVG sample designs (4 emblem + 6 pattern families × 8 palettes), `renderSampleSvg(d, aspect)` |
-| `src/lib/catalogue/products.ts` | 52 product presets, `slotSize` (bleed / +6 mm seam), `minSheetFor`, `searchProducts` |
+| `src/lib/catalogue/products.ts` | 73 product presets (sides, corner radius, cut, supplier, SKU, material, date checked, aliases), `slotSize`, `minSheetFor`, `searchProducts`, `sidesOf` |
+| `src/lib/catalogue/processes.ts` | Process labels and hints (sublimation, DTF, stickers) |
+| `src/lib/render/mirror.ts` | `resolveMirror` (the only mirror decision), `mirrorModeFor` (migration), `driverAdvice` |
+| `src/lib/render/guides.ts` | Centre marks, generic registration squares |
+| `src/lib/cut/cut-path.ts` | Box / trim / cut / safe area, cut paths (rect, rounded, ellipse, contour), validation, `contourIsStale` |
+| `src/lib/cut/contour.ts` | Alpha contour tracing: threshold, Euclidean dilation, marching squares, simplify, smooth, validate |
+| `src/lib/layout/nesting.ts`, `arrange.ts` | MaxRects packer; `planArrange` (clearance rects, blocks, obstacles, turns, extra pages) |
+| `src/lib/layout/card-pair.ts` | Front/back placement, effective pair gap |
+| `src/lib/layout/strip-layout.ts` | Lanyard ribbon roll: user-entered profile, sections, saved profiles |
+| `src/lib/export/export-svg.ts` | SVG cut file in mm (ARTWORK, CUTLINE, SHEET_CUT, REGISTRATION) |
+| `src/components/editor/CropOverlay.tsx`, `ArrangeDialog.tsx`, `DesignSections.tsx` | Crop mode; Auto Arrange dialog; inspector sections (fit, card, cut, quantity) |
+| `src/components/settings/MirrorControl.tsx`, `StripDialog.tsx` | Mirror control (Sheet panel and export dialog); lanyard roll dialog |
 | `src/lib/image/*` | Fitting engine, effective DPI, file loading |
 | `src/lib/layout/sheet-layout.ts` | `pageSize(page)`, `sheetLabel`, printable rect, rotated bounds, `pointInDesign`, `designAt` |
 | `src/lib/layout/product-placement.ts`, `free-spot.ts` | Where a new product goes (current page / new page, gap 5 then 2 mm, 90° turn) |
@@ -167,13 +192,13 @@ npm run model:tshirt   # regenerate public/models/tshirt.glb from the generator 
 | `src/components/export/ExportDialog.tsx` | Export/print for all pages or one, page-by-page preview, preflight per page, mirror badge |
 | `src/components/ui/*` | Radix/shadcn-style primitives incl. popover, context-menu, toolbar |
 | `src/app/page.tsx`, `src/components/landing/*` | Simple server-rendered home page (hero, 3 steps, 8 templates, gallery, Sublimation vs DTF, FAQ, CTA); `HomeSections` (`ProcessCompare`, `Faq`, unused `FeatureGrid`), `photos.ts` |
-| `public/products/` | 52 rendered product pictures and 9 detail crops (WebP) |
+| `public/products/` | 73 rendered product pictures and 9 detail crops (WebP) |
 | `public/env/` | Studio HDRI for 3D lighting and reflections (CC0, Poly Haven) and `CREDITS.md` |
 | `src/lib/landing/sheet-demos.ts` | Example sheets built with the real packer, margins and slot sizes |
 | `src/lib/editor-link.ts` | `parseEditorLink` (`?sample`, `?product=`, `&process=`), `productHref` |
 | `src/assets/photos/` | 13 landing photos (Unsplash/Pexels) and `CREDITS.md` |
 | `tests/*` | Vitest suites incl. `v03-pages-mockups`, `v04-product-flow`, `v05-3d-models` (every product built in 3D), `v06-studio-home` (demo sheets, editor links) |
-| `docs/` | Design doc, ADRs 0001–0013, learning path, printing guide, `models/tshirt.md`, screenshots |
+| `docs/` | Design doc, ADRs 0001–0017, learning path, printing guide, `models/tshirt.md`, `engineering-audit.md`, `feature-implementation-plan.md` (test matrix), `catalogue-sources.md`, screenshots |
 
 ## 6. Plan
 
@@ -232,6 +257,12 @@ Next (v0.8 candidates, in suggested order):
 
 ## 7. Known issues / to fix
 
+- Contour stickers pack by their bounding rectangles (no shape-aware nesting). Hole and slot positions of tags and
+  plates are not modelled (not published). Heart, bone and tag outlines use the bounding rectangle as the cut guide.
+- Requested but unverifiable: lanyard ribbon width and roll length, badge-reel inserts, sublimation-coated PVC card
+  blanks (see `docs/catalogue-sources.md`).
+- Nothing in v0.9 has been tested on a physical printer, press or cutter; see the manual checks in
+  `docs/feature-implementation-plan.md`.
 - Raster export of very long DTF sheets (22×60 in and longer at 300 DPI) exceeds browser canvas limits; PDF
   works. The export dialog explains it.
 - Empty-slot labels are hidden on small boxes (only a "+" shows).
@@ -261,6 +292,24 @@ Next (v0.8 candidates, in suggested order):
 - `research_notes/` and `reports/` are in the repo root; decide with the user whether to keep them committed.
 
 ## 8. Update log
+
+- **2026-11-23**: User pasted a master prompt: audit the repo, fix five issues (explicit mirror on/off, PVC front and
+  back side by side, card spacing and cut guides, Auto Arrange of mixed designs, fill/crop in a fixed box with
+  long-press on mobile), research and add sublimation blanks (incl. a lanyard ribbon roll family kept separate from
+  finished tags), and add a sticker print-and-cut workflow. Baseline: `node_modules` was corrupted (lint and typecheck
+  failed); `npm ci` from the unchanged lockfile fixed it; HEAD then had lint 0, tsc 0, 216/216 tests. Root causes and
+  extra defects in `docs/engineering-audit.md` (incl. "selected only" arrange overlapping unselected designs, locked
+  designs moved, paste joining the original group, process switch resetting the mirror). Done: ADRs 0014–0017,
+  `mirrorMode`, cover + `view`, cut paths and contours, pairs, MaxRects, stickers, SVG cut file, 21 sourced templates
+  (Transfer Press, Conde, ISO 7810, Sticker Mule), lanyard strip layout with user-entered sizes. Research could not
+  verify ribbon widths, badge-reel inserts or sublimation PVC cards; none invented. Measured: `npm run check` green
+  (287 tests, 18 files; coverage 94.85 % lines, 93.02 % statements, 80.89 % branches, 91.77 % functions);
+  `scripts/e2e/v9func.mjs` 28/28 on the production build, no console errors (PDFs parsed: Auto 1 flip, Off 0, On 1;
+  long-press 550 ms opens crop on a 390 px touch viewport, a tap does not; 11 mixed images arranged with a clean
+  pre-print check; contour SVG in mm, 896 segments). A mutation (spacing term removed) fails 9 arrange tests. 21 new
+  product pictures rendered (render script fixed for ids with dots). Found while verifying and fixed: a new card back
+  ran off the sheet (pair now shifted inside, never resized); strip layouts had no page cap (now 50). `package.json`/`package-lock.json` changes were the user's and were left alone; `puppeteer-core`
+  only via `npm i --no-save`. Not committed.
 
 - **2026-10-31**: User pasted a brief for a photorealistic 3D blank T-shirt (real garment mesh, UVs, printable areas,
   PBR fabric, GLB + sources, SheetFit integration, validation, docs) and asked to fix the known issues, verifying each

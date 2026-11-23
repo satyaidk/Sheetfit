@@ -16,12 +16,14 @@
  */
 
 import { forwardRef } from "react";
-import { Group, Image as KImage, Rect, Text } from "react-konva";
+import { Group, Image as KImage, Rect, Shape, Text } from "react-konva";
 import type Konva from "konva";
 import type { Design } from "@/types/editor";
 import type { LoadedAsset } from "@/types/image";
-import { computeImageRect, croppedSourceSize, sourceCropRect } from "@/lib/image/image-fit";
+import { computeImageRect, effectiveSourceRect } from "@/lib/image/image-fit";
 import { findProduct } from "@/lib/catalogue/products";
+import { cutPaths, resolvedCut, safeAreaPath, type Path } from "@/lib/cut/cut-path";
+import { tracePath } from "@/lib/export/rasterize";
 import { uiFontFamily } from "@/lib/utils";
 
 const ACCENT = "#077d89";
@@ -45,10 +47,34 @@ export interface DesignNodeProps {
   onDblClick: () => void;
   onHover: (hovered: boolean) => void;
   previewScale?: { x: number; y: number };
+  /** Show the cut path even for plain rectangles (page "print cut lines" is on). */
+  showCut?: boolean;
+}
+
+/** Konva shape that strokes cut paths given in box coordinates (origin top-left). */
+function PathOutline({ paths, w, h, color, dash }: { paths: Path[]; w: number; h: number; color: string; dash?: number[] }) {
+  return (
+    <Shape
+      listening={false}
+      stroke={color}
+      strokeWidth={1.25}
+      strokeScaleEnabled={false}
+      dash={dash}
+      sceneFunc={(ctx, shape) => {
+        ctx.save();
+        // Paths are local to the box centre; the group's origin is the box top-left.
+        ctx.translate(w / 2, h / 2);
+        ctx.beginPath();
+        for (const p of paths) tracePath(ctx as unknown as CanvasRenderingContext2D, p);
+        ctx.restore();
+        ctx.strokeShape(shape);
+      }}
+    />
+  );
 }
 
 export const DesignNode = forwardRef<Konva.Group, DesignNodeProps>(function DesignNode(
-  { design, asset, hovered, dropTarget, pxPerMm, draggable, onHover, onPointerDown, onDblClick, previewScale, ...handlers },
+  { design, asset, hovered, dropTarget, pxPerMm, draggable, onHover, onPointerDown, onDblClick, previewScale, showCut = false, ...handlers },
   ref,
 ) {
   const sx = previewScale?.x ?? 1;
@@ -60,12 +86,13 @@ export const DesignNode = forwardRef<Konva.Group, DesignNodeProps>(function Desi
   let imageNode: React.ReactNode = null;
   if (asset) {
     const natural = { width: asset.naturalWidth, height: asset.naturalHeight };
-    const fitted = computeImageRect(
-      { ...design, width: w * sx, height: h * sy },
-      croppedSourceSize(natural, design.crop),
-    );
+    // Same source window as every export (crop insets, then the cover window).
+    const scaled = { ...design, width: w * sx, height: h * sy };
+    const src = effectiveSourceRect(scaled, natural);
+    const fitted = computeImageRect(scaled, { width: src.width, height: src.height });
     const r = { x: fitted.x / sx, y: fitted.y / sy, width: fitted.width / sx, height: fitted.height / sy };
-    const crop = design.crop ? sourceCropRect(natural, design.crop) : undefined;
+    const whole = src.x === 0 && src.y === 0 && src.width === natural.width && src.height === natural.height;
+    const crop = whole ? undefined : src;
     imageNode = (
       <KImage
         image={asset.element}
@@ -82,6 +109,11 @@ export const DesignNode = forwardRef<Konva.Group, DesignNodeProps>(function Desi
   }
 
   const product = findProduct(design.productId);
+  const cut = resolvedCut(design);
+  // Draw the real cut path when it is not a plain rectangle at the trim (or when cut lines are on).
+  const shapedCut = cut.shape !== "rect" || cut.radius > 0 || cut.offset !== 0 || showCut;
+  const paths = shapedCut ? cutPaths(design) : [];
+  const safe = safeAreaPath(design);
   const label = product ? `${product.name}, ${product.detail}` : design.name;
   const fontSize = 12 * px;
   const trim = product && !product.wrap ? { w: w - design.bleed * 2, h: h - design.bleed * 2 } : { w, h };
@@ -193,8 +225,10 @@ export const DesignNode = forwardRef<Konva.Group, DesignNodeProps>(function Desi
       {design.border && (
         <Rect x={0.1} y={0.1} width={w - 0.2} height={h - 0.2} stroke="#000" strokeWidth={0.2} listening={false} />
       )}
+      {shapedCut && <PathOutline paths={paths} w={w} h={h} color={cut.through === "kiss" ? "#ec2f8f" : "#05656f"} dash={[5, 3]} />}
+      {safe && <PathOutline paths={[safe]} w={w} h={h} color="#05656f" dash={[1, 3]} />}
       {/* Trim line for products that include bleed. */}
-      {design.bleed > 0 && (
+      {design.bleed > 0 && !shapedCut && (
         <Rect
           x={design.bleed}
           y={design.bleed}

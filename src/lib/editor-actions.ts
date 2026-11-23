@@ -17,7 +17,13 @@ import { downloadBlob, renderPreviewDataUrl } from "@/lib/export/export-raster";
 import { parseProjectFile, PROJECT_FILE_EXTENSION, ProjectFileError, serializeProject } from "@/lib/storage/project-file";
 import { loadProject, saveProject, StorageError } from "@/lib/storage/project-storage";
 import { migratePages } from "@/lib/storage/migrate";
-import { findProduct, slotSize } from "@/lib/catalogue/products";
+import { findProduct, sidesOf, slotSize } from "@/lib/catalogue/products";
+import { planStrip, stripSegmentDesign, type StripProfile, type StripUse } from "@/lib/layout/strip-layout";
+import { CONTOUR_MASK_MAX, alphaMask, traceContour, type ContourOptions } from "@/lib/cut/contour";
+import { computeImageRect, effectiveSourceRect } from "@/lib/image/image-fit";
+import { DEFAULT_GUIDES } from "@/lib/storage/migrate";
+import type { CutSpec } from "@/types/editor";
+import { contourKey } from "@/lib/cut/cut-path";
 import { renderSampleSvg, svgDataUrl, type SampleDesign } from "@/lib/catalogue/sample-designs";
 import { placementStatus, printableRect, sheetLabel } from "@/lib/layout/sheet-layout";
 import { pageFor } from "@/lib/layout/product-placement";
@@ -277,6 +283,128 @@ export async function applySampleDesign(design: SampleDesign, targetId?: string)
   }
 }
 
+/**
+ * Upload files into a two-sided card: the first fills the selected side; a
+ * second file becomes the other side (created beside it if missing). A single
+ * file never creates a back.
+ */
+export async function uploadCardSides(files: File[], designId: string) {
+  await uploadIntoSlot(files[0], designId);
+  if (files.length < 2) return;
+  const state = useEditor.getState();
+  const d = state.doc.designs.find((x) => x.id === designId);
+  if (!d || sidesOf(findProduct(d.productId)) !== 2) {
+    void uploadFiles(files.slice(1));
+    return;
+  }
+  const partner = d.pairId ? state.doc.designs.find((x) => x.pairId === d.pairId && x.id !== d.id) : undefined;
+  const otherId = partner?.id ?? (d.side !== "back" ? state.addCardBack(d.id) : null);
+  if (otherId) await uploadIntoSlot(files[1], otherId);
+  else void uploadFiles(files.slice(1));
+  if (files.length > 2) void uploadFiles(files.slice(2));
+  useEditor.getState().select([designId]);
+  toast("Front and back placed side by side", { description: "Swap sides from the inspector if they are the wrong way round." });
+}
+
+/**
+ * Lay out lanyard straps on ribbon: one page per section, each page the
+ * ribbon itself, every strap an empty box with a cut guide. Added after the
+ * current page (or into it, if it is empty) so no work is replaced.
+ */
+export function createStripLayout(profile: StripProfile, use: StripUse, count: number, sectionLength: number, cutGuides: boolean) {
+  const sections = planStrip(profile, count, sectionLength);
+  sections.forEach((section, i) => {
+    const state = useEditor.getState();
+    const page = {
+      ...state.doc.page,
+      ...section.page,
+      process: "sublimation" as const,
+      mirrorMode: "auto" as const,
+      constrainToPrintable: false,
+      guides: { ...DEFAULT_GUIDES, cutlines: cutGuides },
+    };
+    const designs = section.segments.map((seg, k) =>
+      makeDesign({ ...stripSegmentDesign(profile, use, i * 100 + k), ...seg }),
+    );
+    if (i === 0 && state.doc.designs.length === 0) state.commit({ page, designs });
+    else {
+      state.addPage(page);
+      useEditor.getState().commit({ page, designs });
+    }
+  });
+  useEditor.getState().fitPage();
+  toast(`${count} straps laid out on ${sections.length} ${sections.length === 1 ? "page" : "pages"}`, {
+    description: "Drop artwork on a strap, or use Repeat to fill them all. Sizes are your own (custom, unverified).",
+  });
+}
+
+/**
+ * Trace a cut contour from the design's artwork alpha. The artwork is drawn
+ * exactly as it prints (same source window and image rectangle) into a mask
+ * with room for the offset, traced in pure code (`lib/cut/contour.ts`), and
+ * stored in box-relative coordinates.
+ */
+export async function generateContour(
+  designId: string,
+  options: { offsetMm: number; holes: boolean; smoothing?: number; threshold?: number },
+): Promise<boolean> {
+  const state = useEditor.getState();
+  const d = state.doc.designs.find((x) => x.id === designId);
+  const asset = d?.assetId ? state.assets[d.assetId] : undefined;
+  if (!d || !asset) return false;
+  const natural = { width: asset.naturalWidth, height: asset.naturalHeight };
+  const src = effectiveSourceRect(d, natural);
+  const img = computeImageRect(d, { width: src.width, height: src.height });
+  const padMm = Math.max(0, options.offsetMm) + 1;
+  const spanW = d.width + 2 * padMm;
+  const spanH = d.height + 2 * padMm;
+  const pxPerMm = Math.min(CONTOUR_MASK_MAX / Math.max(spanW, spanH), 12);
+  const w = Math.max(8, Math.round(spanW * pxPerMm));
+  const h = Math.max(8, Math.round(spanH * pxPerMm));
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  if (!ctx) return false;
+  ctx.save();
+  ctx.scale(pxPerMm, pxPerMm);
+  ctx.translate(padMm + img.x + img.width / 2, padMm + img.y + img.height / 2);
+  if (d.flipX || d.flipY) ctx.scale(d.flipX ? -1 : 1, d.flipY ? -1 : 1);
+  ctx.drawImage(asset.element, src.x, src.y, src.width, src.height, -img.width / 2, -img.height / 2, img.width, img.height);
+  ctx.restore();
+  const data = ctx.getImageData(0, 0, w, h).data;
+  const opts: Partial<ContourOptions> = {
+    threshold: options.threshold ?? 16,
+    offsetPx: Math.max(0, options.offsetMm) * pxPerMm,
+    tolerancePx: 0.6,
+    smoothing: options.smoothing ?? 1,
+    holes: options.holes,
+    minAreaPx: Math.max(4, (pxPerMm * pxPerMm) / 4),
+  };
+  const result = traceContour(alphaMask(data, w, h, opts.threshold!), w, h, opts);
+  if (result.outlines.length === 0) {
+    toast.error("No contour could be traced", { description: result.problems[0] ?? "Use a PNG with a transparent background, or pick a shape." });
+    return false;
+  }
+  const toBox = (pts: number[]) =>
+    pts.map((v, i) => (i % 2 === 0 ? (v / pxPerMm - padMm) / d.width : (v / pxPerMm - padMm) / d.height));
+  const paths = [...result.outlines, ...result.holes].map(toBox);
+  const cut: CutSpec = {
+    shape: "contour",
+    radius: 0,
+    offset: options.offsetMm,
+    through: d.cut?.through ?? "die",
+    safeInset: 0,
+    contour: { paths, generatedFor: { assetId: asset.id, width: d.width, height: d.height, offset: options.offsetMm, key: contourKey(d) } },
+  };
+  useEditor.getState().updateDesign(d.id, { cut });
+  const dropped = result.dropped > 0 ? ` ${result.dropped} specks were ignored.` : "";
+  toast.success(`Contour traced: ${result.outlines.length} ${result.outlines.length === 1 ? "outline" : "outlines"}`, {
+    description: `${options.offsetMm} mm outside the artwork.${options.holes && result.holes.length ? ` ${result.holes.length} inner holes cut.` : ""}${dropped}`,
+  });
+  return true;
+}
+
 /** Upload one file straight into an empty product slot. */
 export async function uploadIntoSlot(file: File, designId: string) {
   try {
@@ -319,7 +447,7 @@ export function openProductDesign(productId: string, options: { process?: PrintP
   const start = {
     ...blank,
     process,
-    mirrorOutput: process === "sublimation",
+    mirrorMode: "auto" as const,
     sheet: options.sheet && findSheet(options.sheet) ? options.sheet : blank.sheet,
   };
   const slot = slotSize(product);
@@ -334,6 +462,17 @@ export function openProductDesign(productId: string, options: { process?: PrintP
     x: area.x + (area.width - slot.width) / 2,
     y: area.y,
     fitMode: "fill",
+    side: sidesOf(product) === 2 ? "front" : null,
+    cut: product.cut
+      ? {
+          shape: product.cut.shape ?? "rect",
+          radius: product.cut.radius ?? product.cornerRadius ?? 0,
+          offset: product.cut.offset ?? 0,
+          through: product.cut.through ?? "die",
+          safeInset: product.cut.safeInset ?? 0,
+          contour: null,
+        }
+      : null,
   });
   useEditor.setState((x) => ({
     doc: { page, designs: [design] },
