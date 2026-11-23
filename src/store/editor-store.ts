@@ -20,25 +20,21 @@
  */
 
 import { create } from "zustand";
-import type { AlignX, AlignY, Design, EditorDocument, FitMode, Orientation, PageSettings, PrintProcess, Unit } from "@/types/editor";
+import type { AlignX, AlignY, CropView, Design, EditorDocument, FitMode, Orientation, PageSettings, PrintProcess, Unit } from "@/types/editor";
 import type { LoadedAsset } from "@/types/image";
 import { createId } from "@/lib/id";
-import { croppedSourceSize, fitContain, normalizeBox, resizeBox, type Size } from "@/lib/image/image-fit";
+import { effectiveSourceSize, fitContain, normalizeBox, normalizeView, resizeBox, type Size } from "@/lib/image/image-fit";
 import { centerIn, clampIntoRect, pageRect, pageSize, printableRect, uniformMargins } from "@/lib/layout/sheet-layout";
 import { CSS_DPI, MM_PER_INCH } from "@/lib/layout/coordinate-conversion";
 import { alignGroup, distributeDesigns, unionBounds, type AlignTarget } from "@/lib/layout/alignment";
 import { DEFAULT_SHEET_ID, type SheetDefinition } from "@/lib/catalogue/sheets";
-import { findProduct, slotSize } from "@/lib/catalogue/products";
+import { findProduct, sidesOf, slotSize } from "@/lib/catalogue/products";
+import { DEFAULT_GUIDES } from "@/lib/storage/migrate";
+import { DEFAULT_ARRANGE, planArrange, type ArrangeOptions } from "@/lib/layout/arrange";
+import { pairMembers, partnerOf, placeBackOf, shiftBlockInto } from "@/lib/layout/card-pair";
 import { planProductPlacement, type PlacementReason } from "@/lib/layout/product-placement";
 import { designBounds } from "@/lib/layout/sheet-layout";
-import {
-  applyPlacements,
-  arrangeGrid,
-  packItemsFor,
-  packShelves,
-  suggestLayoutFixes,
-  type LayoutGap,
-} from "@/lib/layout/auto-arrange";
+import { applyPlacements, arrangeGrid, suggestLayoutFixes, type LayoutGap } from "@/lib/layout/auto-arrange";
 import { maxPrintSizeAt } from "@/lib/image/image-resolution";
 
 const HISTORY_LIMIT = 100;
@@ -61,7 +57,7 @@ export const DEFAULT_PAGE: PageSettings = {
   sheet: DEFAULT_SHEET_ID,
   customSize: null,
   process: "sublimation",
-  mirrorOutput: true,
+  mirrorMode: "auto",
   orientation: "portrait",
   margins: uniformMargins(5),
   background: "#ffffff",
@@ -72,6 +68,10 @@ export const DEFAULT_PAGE: PageSettings = {
   snapToGuides: true,
   constrainToPrintable: true,
   cropMarks: false,
+  spacing: 5,
+  pairGap: 5,
+  guides: { ...DEFAULT_GUIDES },
+  sheetCut: false,
 };
 
 export function emptyDocument(): EditorDocument {
@@ -108,7 +108,22 @@ export interface LayoutReport {
   placed: number;
   unplaced: number;
   suggestions: string[];
+  /** Pages Auto Arrange added for what did not fit. */
+  pagesAdded?: number;
+  /** Designs larger than the printable area (never shrunk). */
+  tooLarge?: string[];
+  /** Share of each page's printable area that is used, 0–1. */
+  utilisation?: number[];
+  turned?: number;
 }
+
+/**
+ * Auto Arrange that spilled onto new pages is one undo step for the whole
+ * project: undoing it on the page where it ran also removes the pages it
+ * created (if they were not edited since), and redo puts them back. Keyed by
+ * the document the arrange produced.
+ */
+const projectSteps = new WeakMap<EditorDocument, { before: PageEntry[]; after: PageEntry[]; added: string[] }>();
 
 export interface EditorState {
   /** The active page. */
@@ -132,7 +147,11 @@ export interface EditorState {
   sidebarTab: SidebarTab;
   layoutGap: LayoutGap;
   lastLayoutReport: LayoutReport | null;
-  dialog: "export" | "print" | "sheet" | "shortcuts" | "start" | "mockup" | "viewer3d" | null;
+  /** Auto Arrange settings (kept for the session; spacing itself is saved per page). */
+  arrangeOptions: ArrangeOptions;
+  /** Design whose image is being cropped or adjusted on the canvas. */
+  cropEditing: string | null;
+  dialog: "export" | "print" | "sheet" | "shortcuts" | "start" | "mockup" | "viewer3d" | "arrange" | "strip" | null;
   /** Product shown in the catalogue 3D viewer (opened from a product card). */
   viewer3dProductId: string | null;
   /** Design shown in the product preview dialog. */
@@ -166,7 +185,8 @@ export interface EditorState {
   moveDesigns: (moves: { id: string; x: number; y: number; rotation?: number; width?: number; height?: number }[]) => void;
   nudgeSelection: (dx: number, dy: number) => void;
 
-  select: (ids: string[], mode?: "replace" | "toggle" | "add") => void;
+  /** Select designs; groups and card pairs expand to all members unless `exact` (one side of a pair). */
+  select: (ids: string[], mode?: "replace" | "toggle" | "add", options?: { exact?: boolean }) => void;
   selectAll: () => void;
   clearSelection: () => void;
   deleteSelection: () => void;
@@ -181,9 +201,32 @@ export interface EditorState {
   alignSelection: (target: AlignTarget, relativeTo: "printable" | "page" | "selection") => void;
   centerSelection: () => void;
   repeatDesign: (id: string, copies: number) => LayoutReport;
-  autoArrange: (scope: "all" | "selection") => LayoutReport;
+  /** Pack designs without overlap (see `lib/layout/arrange.ts`); one undo step. */
+  autoArrange: (scope?: "all" | "selection", options?: Partial<ArrangeOptions>) => LayoutReport;
+  setArrangeOptions: (patch: Partial<ArrangeOptions>) => void;
+  /** Make the total number of copies of a design `total`, packed with Auto Arrange. */
+  setQuantity: (id: string, total: number) => LayoutReport;
+
+  /** Crop mode: pan and zoom the image inside its fixed box. */
+  startCrop: (id: string) => void;
+  endCrop: () => void;
+  /** Commit a cover view (one undo step); switches the design to `cover`. */
+  setView: (id: string, view: CropView | null) => void;
+
+  /** Add an empty back to a two-sided product, placed beside the front. */
+  addCardBack: (frontId: string) => string | null;
+  /** Swap which design is the front and which the back (artwork stays in place). */
+  swapSides: (id: string) => void;
+  /** Unlink a pair; both designs stay, as one-sided designs. */
+  unlinkPair: (id: string) => void;
+  /** Pair two selected designs of the same size as front and back. */
+  pairSelection: () => boolean;
+  /** Put the back beside the front again at the page's pair gap. */
+  realignPair: (id: string) => void;
 
   setPage: (patch: Partial<PageSettings>) => void;
+  /** Set page settings on several pages at once (each page records its own undo step). */
+  setPagesAt: (indices: number[], patch: Partial<PageSettings>) => void;
   setUnit: (unit: Unit) => void;
   setViewport: (size: { width: number; height: number }) => void;
   setPan: (pan: { x: number; y: number }) => void;
@@ -246,6 +289,13 @@ export interface SlotResult {
 /** A design with every field defaulted; callers override what they need. */
 export function makeDesign(patch: Partial<Design> & Pick<Design, "width" | "height">): Design {
   return {
+    ...baseDesign(),
+    ...patch,
+  };
+}
+
+function baseDesign(): Omit<Design, "width" | "height"> {
+  return {
     id: createId("design"),
     name: "Design",
     assetId: null,
@@ -267,15 +317,31 @@ export function makeDesign(patch: Partial<Design> & Pick<Design, "width" | "heig
     crop: null,
     groupId: null,
     locked: false,
-    ...patch,
+    view: null,
+    lockRotation: false,
+    side: null,
+    pairId: null,
+    cut: null,
   };
 }
 
-function assetSource(asset: LoadedAsset, design?: Pick<Design, "crop">): Size {
-  return croppedSourceSize(
-    { width: asset.naturalWidth, height: asset.naturalHeight },
-    design?.crop ?? null,
-  );
+/** Source size the fitting engine sees: crop insets and (in cover mode) the cover window applied. */
+function assetSource(asset: LoadedAsset, design: Design): Size {
+  return effectiveSourceSize(design, { width: asset.naturalWidth, height: asset.naturalHeight });
+}
+
+/** Cut spec a new product design starts with (stickers), filled to a full spec. */
+function productCut(productId: string | null): Design["cut"] {
+  const p = findProduct(productId);
+  if (!p?.cut) return null;
+  return {
+    shape: p.cut.shape ?? "rect",
+    radius: p.cut.radius ?? p.cornerRadius ?? 0,
+    offset: p.cut.offset ?? 0,
+    through: p.cut.through ?? "die",
+    safeInset: p.cut.safeInset ?? 0,
+    contour: null,
+  };
 }
 
 /** The project's pages with the active page's live state written in. */
@@ -288,16 +354,23 @@ export function allPages(s: Pick<EditorState, "pages" | "activePage" | "doc">): 
   return s.pages.map((p, i) => (i === s.activePage ? s.doc : p.doc));
 }
 
-/** Copy designs with fresh ids, keeping group membership within the copy. */
-function cloneDesigns(designs: Design[]): Design[] {
+/**
+ * Copy designs with fresh ids, keeping group and pair membership within the
+ * copy (a copied card pair is a new pair; a copied lone side is one-sided).
+ */
+export function cloneDesigns(designs: Design[]): Design[] {
   const groups = new Map<string, string>();
+  const pairs = new Map<string, string>();
+  const pairCount = new Map<string, number>();
+  for (const d of designs) if (d.pairId) pairCount.set(d.pairId, (pairCount.get(d.pairId) ?? 0) + 1);
+  const remap = (map: Map<string, string>, id: string | null, prefix: string) => {
+    if (!id) return null;
+    if (!map.has(id)) map.set(id, createId(prefix));
+    return map.get(id)!;
+  };
   return designs.map((d) => {
-    let groupId: string | null = null;
-    if (d.groupId) {
-      if (!groups.has(d.groupId)) groups.set(d.groupId, createId("group"));
-      groupId = groups.get(d.groupId)!;
-    }
-    return { ...d, id: createId("design"), groupId };
+    const pairId = d.pairId && (pairCount.get(d.pairId) ?? 0) > 1 ? remap(pairs, d.pairId, "pair") : null;
+    return { ...d, id: createId("design"), groupId: remap(groups, d.groupId, "group"), pairId };
   });
 }
 
@@ -305,11 +378,16 @@ function newProjectMeta(): EditorState["project"] {
   return { id: createId("project"), name: "Untitled sheet", savedAt: null, dirty: false, createdAt: Date.now() };
 }
 
-/** Expand a selection to include every member of any selected group. */
+/** Expand a selection to include every member of any selected group or card pair. */
 function expandGroups(designs: Design[], ids: string[]): string[] {
-  const groups = new Set(designs.filter((d) => ids.includes(d.id) && d.groupId).map((d) => d.groupId));
+  const picked = designs.filter((d) => ids.includes(d.id));
+  const groups = new Set(picked.filter((d) => d.groupId).map((d) => d.groupId));
+  const pairs = new Set(picked.filter((d) => d.pairId).map((d) => d.pairId));
   const out = new Set(ids);
-  for (const d of designs) if (d.groupId && groups.has(d.groupId)) out.add(d.id);
+  for (const d of designs) {
+    if (d.groupId && groups.has(d.groupId)) out.add(d.id);
+    if (d.pairId && pairs.has(d.pairId)) out.add(d.id);
+  }
   return [...out];
 }
 
@@ -373,6 +451,8 @@ export const useEditor = create<EditorState>()((set, get) => {
     sidebarTab: "products",
     layoutGap: { x: 5, y: 5 },
     lastLayoutReport: null,
+    arrangeOptions: { ...DEFAULT_ARRANGE },
+    cropEditing: null,
     dialog: null,
     inspectorOpen: true,
     leaveIntent: null,
@@ -387,6 +467,28 @@ export const useEditor = create<EditorState>()((set, get) => {
       set((s) => {
         const prev = s.past[s.past.length - 1];
         if (!prev) return s;
+        const step = projectSteps.get(s.doc);
+        if (step) {
+          // Remove the pages an Auto Arrange created, if nobody edited them since.
+          const current = stashPages(s);
+          const untouched = step.added.every((id) => {
+            const now = current.find((p) => p.id === id);
+            const then = step.after.find((p) => p.id === id);
+            return !now || (then && now.doc === then.doc);
+          });
+          if (untouched) {
+            const pages = step.before.map((p, i) => (i === s.activePage ? { ...p, doc: prev, past: s.past.slice(0, -1), future: [s.doc, ...s.future] } : p));
+            const ids = new Set(prev.designs.map((d) => d.id));
+            return {
+              pages,
+              doc: prev,
+              past: s.past.slice(0, -1),
+              future: [s.doc, ...s.future],
+              selection: s.selection.filter((id) => ids.has(id)),
+              project: { ...s.project, dirty: true },
+            };
+          }
+        }
         const ids = new Set(prev.designs.map((d) => d.id));
         return {
           doc: prev,
@@ -401,6 +503,12 @@ export const useEditor = create<EditorState>()((set, get) => {
       set((s) => {
         const next = s.future[0];
         if (!next) return s;
+        const step = projectSteps.get(next);
+        if (step && step.before.length === s.pages.length) {
+          const past = [...s.past, s.doc];
+          const pages = step.after.map((p, i) => (i === s.activePage ? { ...p, doc: next, past, future: s.future.slice(1) } : p));
+          return { pages, doc: next, past, future: s.future.slice(1), project: { ...s.project, dirty: true } };
+        }
         const ids = new Set(next.designs.map((d) => d.id));
         return {
           doc: next,
@@ -461,6 +569,8 @@ export const useEditor = create<EditorState>()((set, get) => {
         y: plan.y,
         fitMode: "fill",
         fillColor: null,
+        cut: productCut(product.id),
+        side: sidesOf(product) === 2 ? "front" : null,
       });
       if (plan.target === "new-page") {
         // A product that needs another sheet or process never changes this page.
@@ -584,11 +694,12 @@ export const useEditor = create<EditorState>()((set, get) => {
           ...d,
           assetId,
           crop: null,
+          view: null,
           name: d.productId ? d.name : (asset?.name.replace(/\.[^.]+$/, "") ?? d.name),
         });
       }),
 
-    clearSlot: (designId) => mapDesigns((d) => (d.id === designId ? { ...d, assetId: null, crop: null } : d)),
+    clearSlot: (designId) => mapDesigns((d) => (d.id === designId ? { ...d, assetId: null, crop: null, view: null } : d)),
 
     flipDesigns: (axis) => {
       const { selection } = get();
@@ -607,8 +718,8 @@ export const useEditor = create<EditorState>()((set, get) => {
 
     setProcess: (process) => {
       const { doc } = get();
-      // Sublimation transfers are printed mirror-image; DTF films are not.
-      commitDoc({ ...doc, page: { ...doc.page, process, mirrorOutput: process === "sublimation" } });
+      // The mirror follows the process while it is on "auto"; an explicit on/off stays.
+      commitDoc({ ...doc, page: { ...doc.page, process } });
     },
 
     setSheet: (sheet, customSize = null, orientation) => {
@@ -623,7 +734,7 @@ export const useEditor = create<EditorState>()((set, get) => {
     replaceAsset: (designId, asset) => {
       get().addAsset(asset);
       // Keep the box, position and page setup; only the picture changes.
-      mapDesigns((d) => (d.id === designId ? normalize({ ...d, assetId: asset.id, crop: null }) : d));
+      mapDesigns((d) => (d.id === designId ? normalize({ ...d, assetId: asset.id, crop: null, view: null }) : d));
       set({ selection: [designId] });
     },
 
@@ -681,6 +792,7 @@ export const useEditor = create<EditorState>()((set, get) => {
           alignY: "center" as AlignY,
           padding: 0,
           crop: null,
+          view: null,
           lockAspect: true,
         };
       }),
@@ -700,9 +812,9 @@ export const useEditor = create<EditorState>()((set, get) => {
       mapDesigns((d) => (selection.includes(d.id) && !d.locked ? constrain({ ...d, x: d.x + dx, y: d.y + dy }) : d));
     },
 
-    select: (ids, mode = "replace") =>
+    select: (ids, mode = "replace", options = {}) =>
       set((s) => {
-        const expanded = expandGroups(s.doc.designs, ids);
+        const expanded = options.exact ? ids : expandGroups(s.doc.designs, ids);
         if (mode === "replace") return { selection: expanded };
         if (mode === "add") return { selection: [...new Set([...s.selection, ...expanded])] };
         const allSelected = expanded.every((id) => s.selection.includes(id));
@@ -719,7 +831,13 @@ export const useEditor = create<EditorState>()((set, get) => {
     deleteSelection: () => {
       const { doc, selection } = get();
       if (selection.length === 0) return;
-      commitDoc({ ...doc, designs: doc.designs.filter((d) => !selection.includes(d.id)) });
+      const kept = doc.designs.filter((d) => !selection.includes(d.id));
+      // A card side whose partner was deleted becomes a one-sided card (nothing is invented).
+      const alive = new Set(kept.map((d) => d.pairId).filter(Boolean));
+      const counts = new Map<string, number>();
+      for (const d of kept) if (d.pairId) counts.set(d.pairId, (counts.get(d.pairId) ?? 0) + 1);
+      const designs = kept.map((d) => (d.pairId && alive.has(d.pairId) && counts.get(d.pairId) === 1 ? { ...d, pairId: null } : d));
+      commitDoc({ ...doc, designs });
       set({ selection: [] });
     },
 
@@ -727,11 +845,7 @@ export const useEditor = create<EditorState>()((set, get) => {
       const { doc, selection } = get();
       const picked = doc.designs.filter((d) => selection.includes(d.id));
       if (picked.length === 0) return;
-      const groupMap = new Map<string, string>();
-      const copies = picked.map((d) => {
-        const groupId = d.groupId ? (groupMap.get(d.groupId) ?? groupMap.set(d.groupId, createId("group")).get(d.groupId)!) : null;
-        return constrain({ ...d, id: createId("design"), x: d.x + 5, y: d.y + 5, groupId });
-      });
+      const copies = cloneDesigns(picked).map((d) => constrain({ ...d, x: d.x + 5, y: d.y + 5 }));
       commitDoc({ ...doc, designs: [...doc.designs, ...copies] });
       set({ selection: copies.map((d) => d.id) });
     },
@@ -744,7 +858,7 @@ export const useEditor = create<EditorState>()((set, get) => {
     paste: () => {
       const { clipboard, doc } = get();
       if (clipboard.length === 0) return;
-      const copies = clipboard.map((d) => constrain({ ...d, id: createId("design"), x: d.x + 5, y: d.y + 5 }));
+      const copies = cloneDesigns(clipboard).map((d) => constrain({ ...d, x: d.x + 5, y: d.y + 5 }));
       commitDoc({ ...doc, designs: [...doc.designs, ...copies] });
       // Paste again offsets further, like most editors.
       set({ selection: copies.map((d) => d.id), clipboard: copies.map((d) => ({ ...d })) });
@@ -849,27 +963,171 @@ export const useEditor = create<EditorState>()((set, get) => {
       return report;
     },
 
-    autoArrange: (scope) => {
-      const { doc, selection, layoutGap } = get();
-      const targets = scope === "all" ? doc.designs : doc.designs.filter((d) => selection.includes(d.id));
-      if (targets.length === 0) return { placed: 0, unplaced: 0, suggestions: [] };
-      const result = packShelves(packItemsFor(targets), printableRect(doc.page), layoutGap);
-      const moved = applyPlacements(targets, result.placements);
-      const byId = new Map(moved.map((d) => [d.id, d]));
-      commitDoc({ ...doc, designs: doc.designs.map((d) => byId.get(d.id) ?? d) });
+    autoArrange: (scope, patch = {}) => {
+      const s = get();
+      const options: ArrangeOptions = { ...s.arrangeOptions, ...(scope ? { scope } : {}), ...patch };
+      const { doc, selection } = s;
+      const empty: LayoutReport = { placed: 0, unplaced: 0, suggestions: [] };
+      if (doc.designs.length === 0 || (options.scope === "selection" && selection.length === 0)) return empty;
+      const plan = planArrange(doc.designs, doc.page, selection, options);
+      const r = plan.report;
+      const gap = { x: doc.page.spacing, y: doc.page.spacing };
       const report: LayoutReport = {
-        placed: result.placements.length,
-        unplaced: result.unplaced.length,
-        suggestions: result.unplaced.length > 0 ? suggestLayoutFixes(targets, doc.page, layoutGap) : [],
+        placed: r.placed,
+        unplaced: r.unplaced.length,
+        suggestions:
+          r.unplaced.length > 0
+            ? [
+                ...(r.tooLarge.length > 0 ? [`${r.tooLarge.length} ${r.tooLarge.length === 1 ? "design is" : "designs are"} larger than the printable area and cannot fit any page of this sheet.`] : []),
+                ...(options.extraPages ? [] : ["Turn on \"Add pages for the rest\" to place them on new pages."]),
+                ...suggestLayoutFixes(doc.designs.filter((d) => r.unplaced.includes(d.id)), doc.page, gap).slice(1),
+              ]
+            : [],
+        pagesAdded: r.pagesAdded,
+        tooLarge: r.tooLarge,
+        utilisation: r.utilisation,
+        turned: r.turned,
       };
-      set({ lastLayoutReport: report, selection: result.unplaced });
+      const next: EditorDocument = { ...doc, designs: plan.current };
+      if (plan.newPages.length === 0) {
+        commitDoc(next);
+      } else {
+        // One project-level step: the arranged page plus the pages it created.
+        const before = stashPages(s);
+        const added = plan.newPages.map((designs) => pageEntry({ page: structuredClone(doc.page), designs }));
+        commitDoc(next);
+        const after = stashPages(get());
+        after.splice(s.activePage + 1, 0, ...added);
+        set({ pages: after });
+        projectSteps.set(next, { before, after, added: added.map((p) => p.id) });
+      }
+      set({ lastLayoutReport: report, selection: r.unplaced, arrangeOptions: options });
       return report;
+    },
+
+    setArrangeOptions: (patch) => set((s) => ({ arrangeOptions: { ...s.arrangeOptions, ...patch } })),
+
+    setQuantity: (id, total) => {
+      const { doc } = get();
+      const source = doc.designs.find((d) => d.id === id);
+      if (!source || source.pairId) return { placed: 0, unplaced: 0, suggestions: [] };
+      const want = Math.max(1, Math.min(500, Math.round(total)));
+      const copies = cloneDesigns(Array.from({ length: want - 1 }, () => ({ ...source, groupId: null })));
+      if (copies.length === 0) return { placed: 1, unplaced: 0, suggestions: [] };
+      // Copies first land on the source; Auto Arrange (selection scope) then packs them.
+      commitDoc({ ...doc, designs: [...doc.designs, ...copies] });
+      const ids = [source.id, ...copies.map((c) => c.id)];
+      set({ selection: ids });
+      const before = get().past.length;
+      const report = get().autoArrange("selection");
+      // Fold the two commits into one undo step.
+      if (get().past.length === before + 1) set((x) => ({ past: x.past.slice(0, -1) }));
+      return report;
+    },
+
+    startCrop: (id) => {
+      const d = get().doc.designs.find((x) => x.id === id);
+      if (!d?.assetId || d.locked) return;
+      set({ cropEditing: id, selection: [id] });
+    },
+    endCrop: () => set({ cropEditing: null }),
+    setView: (id, view) =>
+      mapDesigns((d) => (d.id === id ? normalize({ ...d, fitMode: "cover", view: view ? normalizeView(view) : null, lockAspect: false }) : d)),
+
+    addCardBack: (frontId) => {
+      const { doc } = get();
+      const front = doc.designs.find((d) => d.id === frontId);
+      if (!front || sidesOf(findProduct(front.productId)) !== 2) return null;
+      if (front.pairId && partnerOf(doc.designs, front)) return null;
+      const pairId = front.pairId ?? createId("pair");
+      const back = makeDesign({
+        ...front,
+        id: createId("design"),
+        name: front.name.replace(/(, front)?$/, "") + ", back",
+        assetId: null,
+        crop: null,
+        view: null,
+        flipX: false,
+        flipY: false,
+        side: "back",
+        pairId,
+        groupId: null,
+        locked: false,
+      });
+      // Keep the pair on the sheet: shift both sides (never resize) if the back would run off it.
+      const [frontNext, placedBack] = shiftBlockInto(
+        [{ ...front, side: "front" as const, pairId }, { ...back, ...placeBackOf({ ...front, pairId }, back, doc.page.pairGap) }],
+        printableRect(doc.page),
+      );
+      commitDoc({ ...doc, designs: [...doc.designs.map((d) => (d.id === frontId ? frontNext : d)), placedBack] });
+      set({ selection: [placedBack.id] });
+      return placedBack.id;
+    },
+
+    swapSides: (id) => {
+      const { doc } = get();
+      const d = doc.designs.find((x) => x.id === id);
+      if (!d?.pairId) return;
+      mapDesigns((x) => (x.pairId === d.pairId ? { ...x, side: x.side === "front" ? "back" : "front" } : x));
+    },
+
+    unlinkPair: (id) => {
+      const { doc } = get();
+      const d = doc.designs.find((x) => x.id === id);
+      if (!d?.pairId) return;
+      mapDesigns((x) => (x.pairId === d.pairId ? { ...x, pairId: null } : x));
+    },
+
+    pairSelection: () => {
+      const { doc, selection } = get();
+      const picked = doc.designs.filter((d) => selection.includes(d.id));
+      if (picked.length !== 2 || picked.some((d) => d.pairId)) return false;
+      const [a, b] = picked;
+      // Front and back must be the same physical size.
+      if (Math.abs(a.width - b.width) > 0.01 || Math.abs(a.height - b.height) > 0.01 || Math.abs(a.bleed - b.bleed) > 0.01) return false;
+      const pairId = createId("pair");
+      const [front, back] = shiftBlockInto(
+        [{ ...a, side: "front" as const, pairId }, { ...b, side: "back" as const, pairId, ...placeBackOf({ ...a, pairId }, b, doc.page.pairGap) }],
+        printableRect(doc.page),
+      );
+      commitDoc({ ...doc, designs: doc.designs.map((d) => (d.id === a.id ? front : d.id === b.id ? back : d)) });
+      return true;
+    },
+
+    realignPair: (id) => {
+      const { doc } = get();
+      const d = doc.designs.find((x) => x.id === id);
+      const [front, back] = pairMembers(doc.designs, d?.pairId ?? null);
+      if (!front || !back) return;
+      const pos = placeBackOf(front, back, doc.page.pairGap);
+      mapDesigns((x) => (x.id === back.id ? { ...x, ...pos } : x));
     },
 
     setPage: (patch) => {
       const { doc } = get();
-      commitDoc({ ...doc, page: { ...doc.page, ...patch } });
+      let designs = doc.designs;
+      // A new pair gap moves every back beside its front at once.
+      if (patch.pairGap !== undefined && patch.pairGap !== doc.page.pairGap) {
+        const gap = patch.pairGap;
+        designs = designs.map((d) => {
+          if (d.side !== "back" || !d.pairId) return d;
+          const front = designs.find((f) => f.pairId === d.pairId && f.id !== d.id);
+          return front ? { ...d, ...placeBackOf(front, d, gap) } : d;
+        });
+      }
+      commitDoc({ ...doc, designs, page: { ...doc.page, ...patch } });
       if (patch.orientation && patch.orientation !== doc.page.orientation) get().fitPage();
+    },
+
+    setPagesAt: (indices, patch) => {
+      const s = get();
+      if (indices.includes(s.activePage)) get().setPage(patch);
+      const pages = stashPages(get()).map((p, i) =>
+        i === s.activePage || !indices.includes(i)
+          ? p
+          : { ...p, doc: { ...p.doc, page: { ...p.doc.page, ...patch } }, past: [...p.past, p.doc].slice(-HISTORY_LIMIT), future: [] },
+      );
+      set((x) => ({ pages, project: { ...x.project, dirty: true } }));
     },
 
     setUnit: (unit) => set({ unit }),
@@ -959,6 +1217,7 @@ export const useEditor = create<EditorState>()((set, get) => {
       for (const a of Object.values(get().assets)) URL.revokeObjectURL(a.objectUrl);
       const docs = pages && pages.length > 0 ? pages : [doc];
       set({
+        cropEditing: null,
         doc: docs[0],
         pages: docs.map(pageEntry),
         activePage: 0,
@@ -976,6 +1235,7 @@ export const useEditor = create<EditorState>()((set, get) => {
       for (const a of Object.values(get().assets)) URL.revokeObjectURL(a.objectUrl);
       const doc = emptyDocument();
       set({
+        cropEditing: null,
         doc,
         pages: [pageEntry(doc)],
         activePage: 0,

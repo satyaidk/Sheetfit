@@ -39,7 +39,7 @@ export function useEditorShortcuts() {
         s.setPanelOpen(!s.panelOpen);
         return;
       }
-      if (isTyping(e.target) || s.dialog) return;
+      if (isTyping(e.target) || s.dialog || s.cropEditing) return;
 
       if (e.key === "?") {
         s.setDialog("shortcuts");

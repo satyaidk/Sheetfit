@@ -6,7 +6,7 @@
  * rather than one design lives here.
  */
 
-import { FlipHorizontal2, RectangleHorizontal, RectangleVertical, Maximize2 } from "lucide-react";
+import { RectangleHorizontal, RectangleVertical, Maximize2, Ruler } from "lucide-react";
 import { useEditor } from "@/store/editor-store";
 import type { ExportDpi, PrintProcess, Unit } from "@/types/editor";
 import { Segmented } from "@/components/ui/segmented";
@@ -19,6 +19,8 @@ import { pageSize, sheetLabel, uniformMargins } from "@/lib/layout/sheet-layout"
 import { SheetSelect } from "./SheetSelect";
 import { changeSheet } from "@/lib/editor-actions";
 import { formatUnit } from "@/lib/layout/coordinate-conversion";
+import { MirrorControl } from "./MirrorControl";
+import { PROCESS_LABELS, PROCESS_ORDER } from "@/lib/catalogue/processes";
 
 export { sheetLabel };
 
@@ -41,20 +43,50 @@ export function SheetPanel() {
           ariaLabel="Print process"
           value={page.process}
           onValueChange={setProcess}
-          options={[
-            { value: "sublimation", label: "Sublimation" },
-            { value: "dtf", label: "DTF" },
-          ]}
+          options={PROCESS_ORDER.map((value) => ({ value, label: PROCESS_LABELS[value] }))}
         />
-        <Field label="Mirror output" htmlFor="mirror">
-          <Switch id="mirror" checked={page.mirrorOutput} onCheckedChange={(mirrorOutput) => setPage({ mirrorOutput })} />
+        <div className="mt-3">
+          <MirrorControl page={page} onChange={(mirrorMode) => setPage({ mirrorMode })} />
+        </div>
+        <p className="mt-2 text-[11.5px] text-ink-faint">Saved with this page. New pages and projects start on Auto.</p>
+      </Section>
+
+      <Section title="Spacing and cutting">
+        <div className="flex items-center justify-between gap-3 py-1">
+          <span className="text-[13px]">Gap between cut lines</span>
+          <NumberField label="" className="w-28" valueMm={page.spacing} unit={unit} dpi={page.dpi} min={0} max={100} onCommit={(spacing) => setPage({ spacing })} />
+        </div>
+        <div className="flex items-center justify-between gap-3 py-1">
+          <span className="text-[13px]">Gap between card front and back</span>
+          <NumberField label="" className="w-28" valueMm={page.pairGap} unit={unit} dpi={page.dpi} min={0} max={100} onCommit={(pairGap) => setPage({ pairGap })} />
+        </div>
+        <p className="mb-2 text-[12px] text-ink-muted">
+          Measured between cut paths, not image boxes. Auto Arrange and card pairs keep at least this much, more where bleeds would
+          otherwise touch. Sizes never change.
+        </p>
+        <Field label="Print cut lines (thin proof line)" htmlFor="g-cut">
+          <Switch id="g-cut" checked={page.guides.cutlines} onCheckedChange={(cutlines) => setPage({ guides: { ...page.guides, cutlines } })} />
         </Field>
-        <Note icon={<FlipHorizontal2 />}>
-          {page.mirrorOutput
-            ? "Exports and prints are flipped for transfer. Do not mirror again in the printer driver."
-            : page.process === "dtf"
-              ? "DTF film prints as seen. Leave mirroring off."
-              : "Output is not mirrored. Sublimation paper usually needs mirroring."}
+        <Field label="Centre marks (front/back alignment)" htmlFor="g-centre">
+          <Switch id="g-centre" checked={page.guides.centreMarks} onCheckedChange={(centreMarks) => setPage({ guides: { ...page.guides, centreMarks } })} />
+        </Field>
+        <Field label="Corner registration squares" htmlFor="g-reg">
+          <Switch id="g-reg" checked={page.guides.registration} onCheckedChange={(registration) => setPage({ guides: { ...page.guides, registration } })} />
+        </Field>
+        {page.guides.registration && (
+          <div className="flex items-center justify-between gap-3 py-1">
+            <span className="text-[13px]">Square size</span>
+            <NumberField label="" className="w-28" valueMm={page.guides.registrationSize} unit={unit} dpi={page.dpi} min={2} max={20} onCommit={(registrationSize) => setPage({ guides: { ...page.guides, registrationSize } })} />
+          </div>
+        )}
+        {page.process === "sticker" && (
+          <Field label="Cut around the whole sheet (kiss-cut sheet)" htmlFor="g-sheet">
+            <Switch id="g-sheet" checked={page.sheetCut} onCheckedChange={(sheetCut) => setPage({ sheetCut })} />
+          </Field>
+        )}
+        <Note icon={<Ruler />} className="mt-2">
+          Generic marks only: cutting machines that read their own registration marks need them added in their own software. Your
+          printer or cutter supplier&apos;s artwork specs take precedence over these settings.
         </Note>
       </Section>
 

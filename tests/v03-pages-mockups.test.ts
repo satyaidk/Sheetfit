@@ -46,7 +46,7 @@ describe("free spot", () => {
 });
 
 describe("product placement", () => {
-  const a4 = makePage({ sheet: "a4", process: "sublimation", mirrorOutput: true, margins: { top: 5, right: 5, bottom: 5, left: 5 } });
+  const a4 = makePage({ sheet: "a4", process: "sublimation", mirrorMode: "auto", margins: { top: 5, right: 5, bottom: 5, left: 5 } });
 
   it("lets an empty page adopt the sheet a product needs", () => {
     const plan = planProductPlacement(findProduct("tumbler-30oz")!, a4, []);
@@ -100,7 +100,7 @@ describe("product placement", () => {
 
   it("switches an empty page to the product's process", () => {
     const plan = planProductPlacement(findProduct("cap-front")!, a4, []);
-    expect(plan.page).toMatchObject({ process: "dtf", mirrorOutput: false });
+    expect(plan.page).toMatchObject({ process: "dtf", mirrorMode: "auto" });
   });
 
   it("picks a roll, then a custom sheet, for very large boxes", () => {

@@ -35,24 +35,32 @@ import { PrintSheet } from "./PrintSheet";
 import { DesignNode } from "./ImageLayer";
 import { Rulers } from "./Rulers";
 import { designAt, designBounds, pageSize, placementStatus, printableRect, rectsOverlap } from "@/lib/layout/sheet-layout";
-import { boxFollowsImage, computeImageRect, croppedSourceSize, normalizeBox, type Rect as RectT } from "@/lib/image/image-fit";
+import { boxFollowsImage, computeImageRect, effectiveCrop, effectiveSourceSize, normalizeBox, type Rect as RectT } from "@/lib/image/image-fit";
+import { CropOverlay } from "./CropOverlay";
+import { registrationMarks, centreMarksFor } from "@/lib/render/guides";
+import { trimBounds } from "@/lib/render/render-plan";
+import { measuredPairGap, pairMembers } from "@/lib/layout/card-pair";
 import { resolveDrag } from "@/lib/layout/drag";
 import { measureGaps, type Gap } from "@/lib/layout/measure";
 import { CROP_MARK, cropMarksFor } from "@/lib/render/render-plan";
 import type { SnapGuide } from "@/lib/layout/alignment";
 import { unionBounds } from "@/lib/layout/alignment";
 import { resolutionReport } from "@/lib/image/image-resolution";
-import { ASSET_DRAG_TYPE, placeAssetAt, uploadFiles, uploadIntoSlot } from "@/lib/editor-actions";
+import { ASSET_DRAG_TYPE, placeAssetAt, uploadCardSides, uploadFiles } from "@/lib/editor-actions";
 import { loadSampleSheet } from "@/lib/sample";
 import { ACCEPT_ATTR } from "@/lib/image/image-loader";
 import { Button } from "@/components/ui/button";
 import { formatUnit } from "@/lib/layout/coordinate-conversion";
 import { CanvasContextMenu } from "./CanvasContextMenu";
+import { cn } from "@/lib/utils";
 
 /** Group scale and resulting box of a resize gesture in progress. */
 type LiveResize = { scale: { x: number; y: number }; box: Pick<Design, "x" | "y" | "width" | "height" | "rotation"> };
 
 const MIN_BOX_MM = 1;
+/** Touch long-press that opens crop mode (ms), and how far a finger may wander before it counts as a drag (px). */
+const LONG_PRESS_MS = 550;
+const LONG_PRESS_SLOP = 8;
 const ACCENT = "#077d89";
 const GUIDE = "#ec2f8f";
 
@@ -74,6 +82,8 @@ export function CanvasWorkspace() {
   const pan = useEditor((s) => s.pan);
   const viewport = useEditor((s) => s.viewport);
   const unit = useEditor((s) => s.unit);
+  const cropEditing = useEditor((s) => s.cropEditing);
+  const longPress = useRef<{ timer: number; x: number; y: number; id: string } | null>(null);
 
   const pxPerMm = zoom * PX_PER_MM;
   const page = pageSize(doc.page);
@@ -168,10 +178,49 @@ export function CanvasWorkspace() {
 
   /* ---------- design pointer and drag handling ---------- */
 
+  const cancelLongPress = () => {
+    if (longPress.current) window.clearTimeout(longPress.current.timer);
+    longPress.current = null;
+  };
+
+  // Any finger lift or extra finger ends a pending long-press.
+  useEffect(() => {
+    const end = () => cancelLongPress();
+    const events = ["touchend", "touchcancel", "pointerup", "pointercancel"] as const;
+    for (const ev of events) window.addEventListener(ev, end);
+    return () => {
+      for (const ev of events) window.removeEventListener(ev, end);
+    };
+  }, []);
+
   const onDesignPointerDown = (d: Design) => (e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
     const evt = e.evt as MouseEvent;
     if (evt.button === 1 || spaceDown) return; // let the stage pan
     e.cancelBubble = true;
+    // Touch arrives as a TouchEvent or as a PointerEvent with pointerType "touch", depending on the browser.
+    const raw = e.evt as unknown as Partial<TouchEvent> & Partial<PointerEvent>;
+    const isTouch = !!raw.touches || raw.pointerType === "touch";
+    const fingers = raw.touches ? raw.touches.length : 1;
+    const t = raw.touches ? raw.touches[0] : { clientX: raw.clientX ?? NaN, clientY: raw.clientY ?? NaN };
+    if (isTouch && fingers === 1 && t && d.assetId && !d.locked) {
+      // Press and hold an image on a touch screen: crop and adjust it.
+      cancelLongPress();
+      const node = e.currentTarget as Konva.Node;
+      longPress.current = {
+        id: d.id,
+        x: t.clientX,
+        y: t.clientY,
+        timer: window.setTimeout(() => {
+          longPress.current = null;
+          node.stopDrag();
+          setGuides([]);
+          setGaps([]);
+          setReadout(null);
+          useEditor.getState().setInteracting(false);
+          useEditor.getState().startCrop(d.id);
+        }, LONG_PRESS_MS),
+      };
+    } else if (isTouch) cancelLongPress();
     if (evt.button === 2) {
       if (!useEditor.getState().selection.includes(d.id)) useEditor.getState().select([d.id]);
       return;
@@ -190,6 +239,10 @@ export function CanvasWorkspace() {
 
   const onDragMove = (d: Design) => (e: Konva.KonvaEventObject<DragEvent>) => {
     const node = e.target;
+    const lp = longPress.current;
+    const te = e.evt as unknown as TouchEvent & PointerEvent;
+    const pt = te.touches?.[0] ?? te;
+    if (lp && pt && Number.isFinite(pt.clientX) && Math.hypot(pt.clientX - lp.x, pt.clientY - lp.y) > LONG_PRESS_SLOP) cancelLongPress();
     const { doc: current, selection: sel } = useEditor.getState();
     const candidate = { ...d, x: node.x() - d.width / 2, y: node.y() - d.height / 2 };
     const others = current.designs.filter((o) => !sel.includes(o.id) && o.id !== d.id);
@@ -243,7 +296,7 @@ export function CanvasWorkspace() {
     let height = Math.max(MIN_BOX_MM, d.height * Math.abs(node.scaleY()));
     const asset = d.assetId ? useEditor.getState().assets[d.assetId] : undefined;
     if (asset && boxFollowsImage(d.fitMode)) {
-      const source = croppedSourceSize({ width: asset.naturalWidth, height: asset.naturalHeight }, d.crop);
+      const source = effectiveSourceSize(d, { width: asset.naturalWidth, height: asset.naturalHeight });
       ({ width, height } = normalizeBox({ ...d, width, height }, source));
     }
     return { width, height, x: node.x() - width / 2, y: node.y() - height / 2, rotation: node.rotation() };
@@ -380,8 +433,7 @@ export function CanvasWorkspace() {
     const files = [...e.dataTransfer.files];
     if (files.length === 0) return;
     if (target) {
-      void uploadIntoSlot(files[0], target);
-      if (files.length > 1) void uploadFiles(files.slice(1));
+      void uploadCardSides(files, target);
     } else {
       void uploadFiles(files, { at: point });
     }
@@ -399,8 +451,8 @@ export function CanvasWorkspace() {
     const a = d.assetId ? assets[d.assetId] : undefined;
     if (!a || live[d.id]) return [];
     const natural = { width: a.naturalWidth, height: a.naturalHeight };
-    const rect = computeImageRect(d, croppedSourceSize(natural, d.crop));
-    const q = resolutionReport(natural, d.crop, rect);
+    const rect = computeImageRect(d, effectiveSourceSize(d, natural));
+    const q = resolutionReport(natural, effectiveCrop(d, natural), rect);
     return q.level === "low" ? [{ d, dpi: Math.round(q.effectiveDpi) }] : [];
   });
 
@@ -459,8 +511,12 @@ export function CanvasWorkspace() {
                       onHover={(h) => setHovered(h ? d.id : null)}
                       onPointerDown={onDesignPointerDown(d)}
                       onDblClick={() => {
+                        cancelLongPress();
+                        const st = useEditor.getState();
+                        // Double-click one side of a card pair to work on that side alone.
+                        if (d.pairId && st.selection.length > 1) st.select([d.id], "replace", { exact: true });
                         if (!d.assetId) fileInput.current?.click();
-                        else useEditor.getState().setInspectorOpen(true);
+                        else st.startCrop(d.id);
                       }}
                       onDragStart={onDragStart}
                       onDragMove={onDragMove(d)}
@@ -468,6 +524,7 @@ export function CanvasWorkspace() {
                       onTransform={onTransform(d)}
                       onTransformEnd={onTransformEnd}
                       previewScale={live[d.id]?.scale}
+                      showCut={doc.page.guides.cutlines}
                     />
                   );
                 })}
@@ -477,6 +534,14 @@ export function CanvasWorkspace() {
                       <Line key={`mark-${d.id}-${i}`} points={[m.x1, m.y1, m.x2, m.y2]} stroke="#000" strokeWidth={CROP_MARK.width} listening={false} />
                     )),
                   )}
+                {doc.page.guides.centreMarks &&
+                  shown.flatMap((d) =>
+                    centreMarksFor(trimBounds(d)).map((m, i) => (
+                      <Line key={`cm-${d.id}-${i}`} points={[m.x1, m.y1, m.x2, m.y2]} stroke="#000" strokeWidth={CROP_MARK.width} listening={false} />
+                    )),
+                  )}
+                {doc.page.guides.registration &&
+                  registrationMarks(doc.page).map((r, i) => <Rect key={`reg-${i}`} {...r} fill="#000" listening={false} />)}
                 {outOfBounds.map((d) => {
                   const b = designBounds(d);
                   return (
@@ -582,6 +647,54 @@ export function CanvasWorkspace() {
           );
         })}
 
+        {shown
+          .filter((d) => d.side)
+          .map((d) => {
+            const b = designBounds(d);
+            const pos = toScreen(b.x, b.y);
+            return (
+              <span
+                key={`side-${d.id}`}
+                data-testid={`side-label-${d.side}`}
+                className={cn(
+                  "pointer-events-none absolute z-10 -translate-y-full rounded-t-md px-1.5 py-px text-[10px] font-bold tracking-wide text-white",
+                  d.side === "front" ? "bg-accent" : "bg-ink",
+                )}
+                style={{ left: pos.left, top: pos.top }}
+              >
+                {d.side === "front" ? "FRONT" : "BACK"}
+                {d.pairId ? "" : " (one-sided)"}
+              </span>
+            );
+          })}
+
+        {(() => {
+          // Live gap between the two sides of a selected card pair.
+          const sel = doc.designs.find((d) => selection.includes(d.id) && d.pairId);
+          const [front, back] = pairMembers(shown, sel?.pairId ?? null);
+          if (!front || !back) return null;
+          const gap = measuredPairGap(front, back);
+          const fb = designBounds(front);
+          const bb = designBounds(back);
+          const pos = toScreen((fb.x + fb.width + bb.x) / 2, Math.min(fb.y, bb.y) + Math.min(fb.height, bb.height) / 2);
+          return (
+            <span
+              data-testid="pair-gap"
+              className="tnum pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-1/2 rounded-full bg-guide px-1.5 py-px text-[10.5px] font-semibold text-white shadow"
+              style={pos}
+            >
+              {formatUnit(gap, u, doc.page.dpi)} {u}
+            </span>
+          );
+        })()}
+
+        {cropEditing &&
+          (() => {
+            const d = doc.designs.find((x) => x.id === cropEditing);
+            const a = d?.assetId ? assets[d.assetId] : undefined;
+            return d && a ? <CropOverlay key={d.id} design={d} asset={a} pan={pan} pxPerMm={pxPerMm} /> : null;
+          })()}
+
         {lowDpi.map(({ d, dpi }) => {
           const b = designBounds(d);
           const pos = toScreen(b.x, b.y);
@@ -636,10 +749,8 @@ export function CanvasWorkspace() {
             const files = e.target.files ? [...e.target.files] : [];
             const sel = useEditor.getState().selection;
             const slot = sel.length === 1 ? useEditor.getState().doc.designs.find((d) => d.id === sel[0] && !d.assetId) : undefined;
-            if (slot && files[0]) {
-              void uploadIntoSlot(files[0], slot.id);
-              if (files.length > 1) void uploadFiles(files.slice(1));
-            } else if (files.length) void uploadFiles(files);
+            if (slot && files[0]) void uploadCardSides(files, slot.id);
+            else if (files.length) void uploadFiles(files);
             e.target.value = "";
           }}
         />

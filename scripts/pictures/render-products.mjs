@@ -64,8 +64,9 @@ await wait(300);
 const cards = await page.evaluate(() =>
   [...document.querySelectorAll("button[aria-label^='View '][aria-label$=' in 3D']")].map((btn) => {
     const src = btn.closest(".group")?.querySelector("img")?.getAttribute("src") ?? "";
-    const m = src.match(/products%2F([^.%]+)\.webp|products\/([^.]+)\.webp/);
-    return { label: btn.getAttribute("aria-label"), id: m ? (m[1] ?? m[2]) : null };
+    // Ids may contain dots (name-badge-1.5x3), so match up to the ".webp" extension.
+    const m = decodeURIComponent(src).match(/products\/([^/?&]+?)\.webp/);
+    return { label: btn.getAttribute("aria-label"), id: m ? m[1] : null };
   }),
 );
 const view = '[role="dialog"] [data-testid="product-3d-view"]';

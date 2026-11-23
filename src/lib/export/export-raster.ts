@@ -12,6 +12,33 @@ import { jpegExifOrientation, rasterToPng } from "@/lib/image/image-loader";
 import { createCheckedCanvas, drawPlan, pagePixelSize } from "./rasterize";
 import { setJpegDpi, setPngDpi } from "./dpi-metadata";
 import { buildPdf, pdfSourceFromBlob, type PdfImageSource } from "./export-pdf";
+import { buildSvg } from "./export-svg";
+
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error("The image could not be read."));
+    reader.readAsDataURL(blob);
+  });
+}
+
+/**
+ * SVG for cutting software: vector cut paths in real millimetres, optionally
+ * with the artwork embedded (original bytes as data URLs, never re-encoded).
+ */
+export async function exportSvg(plan: RenderPlan, assets: AssetLookup, options: { artwork: boolean; title: string }) {
+  let images: Map<string, string> | undefined;
+  if (options.artwork) {
+    images = new Map();
+    for (const item of plan.items) {
+      if (images.has(item.assetId)) continue;
+      const asset = assets.get(item.assetId);
+      if (asset) images.set(item.assetId, await blobToDataUrl(asset.blob));
+    }
+  }
+  return new Blob([buildSvg(plan, { images, title: options.title })], { type: "image/svg+xml" });
+}
 
 export type AssetLookup = Map<string, LoadedAsset>;
 

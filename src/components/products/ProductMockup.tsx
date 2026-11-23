@@ -186,6 +186,10 @@ function shapes(kind: ArtKind, t: Tone, p: MockupProduct): ShapeSpec {
       return flat({ x: 14, y: 14, w: 72, h: 72 }, 1.5);
     case "magnet":
       return flat({ x: 22, y: 12, w: 56, h: 76 }, 5);
+    case "sticker":
+      return p.shape === "circle"
+        ? { ...flat({ x: 14, y: 14, w: 72, h: 72 }, 36) }
+        : flat({ x: 14, y: 14, w: 72, h: 72 }, 6);
     case "card":
       return flat({ x: 8, y: 20, w: 84, h: 60 }, 4.5);
     case "photo-panel": {

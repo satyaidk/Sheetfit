@@ -36,6 +36,8 @@ import {
   Ungroup,
   Shirt,
   FileOutput,
+  Crop,
+  LayoutGrid,
 } from "lucide-react";
 import { useEditor } from "@/store/editor-store";
 import {
@@ -97,6 +99,15 @@ function MenuBody() {
         >
           <Package /> Add a product template
         </ContextMenuItem>
+        <ContextMenuItem
+          disabled={designs.length === 0}
+          onSelect={() => {
+            s().setArrangeOptions({ scope: "all" });
+            s().setDialog("arrange");
+          }}
+        >
+          <LayoutGrid /> Auto Arrange
+        </ContextMenuItem>
         <ContextMenuItem onSelect={() => s().setDialog("sheet")}>
           <Ruler /> Sheet size…
         </ContextMenuItem>
@@ -115,6 +126,11 @@ function MenuBody() {
           <ContextMenuItem onSelect={() => s().openMockup(first.id)}>
             <Shirt /> Preview on product
           </ContextMenuItem>
+          {first.assetId && !first.locked && (
+            <ContextMenuItem onSelect={() => s().startCrop(first.id)}>
+              <Crop /> Crop and adjust
+            </ContextMenuItem>
+          )}
           <ContextMenuSeparator />
         </>
       )}

@@ -10,7 +10,7 @@
  */
 
 import { useState } from "react";
-import { Check, Droplets, Layers3, Sparkles } from "lucide-react";
+import { Check, Droplets, Layers3, Sparkles, Sticker } from "lucide-react";
 import { useEditor } from "@/store/editor-store";
 import type { PrintProcess } from "@/types/editor";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -27,16 +27,19 @@ export const ONBOARDED_KEY = "sheetfit:onboarded";
 const PROCESSES: { value: PrintProcess; title: string; body: string; icon: React.ReactNode }[] = [
   { value: "sublimation", title: "Sublimation", body: "Mugs, tumblers, coasters, polyester shirts. Prints mirrored on transfer paper.", icon: <Droplets /> },
   { value: "dtf", title: "DTF transfers", body: "Shirts, hoodies, caps, totes. Film printed as seen, often on gang sheets.", icon: <Layers3 /> },
+  { value: "sticker", title: "Stickers", body: "Print-and-cut on sticker media: die-cut, kiss-cut and sticker sheets with cut files.", icon: <Sticker /> },
 ];
 
 const SHEET_CHOICES: Record<PrintProcess, string[]> = {
   sublimation: ["a4", "letter", "legal", "a3", "a3plus", "roll-13x19"],
   dtf: ["a4", "a3", "a3plus", "dtf-22x12", "dtf-22x24", "dtf-22x36", "dtf-22x60", "dtf-22x120"],
+  sticker: ["a4", "letter", "a3", "roll-13x19"],
 };
 
 const STARTERS: Record<PrintProcess, string[]> = {
   sublimation: ["mug-11oz", "tumbler-20oz", "coaster-square", "mousepad-rect", "tee-left-chest", "keychain-round"],
   dtf: ["tee-left-chest", "tee-full-front", "tee-full-back", "hoodie-front", "cap-front", "tote"],
+  sticker: ["sticker-die-2", "sticker-die-3", "sticker-die-4", "sticker-kiss-round-3", "sticker-kiss-square-3"],
 };
 
 export function markOnboarded() {
@@ -93,7 +96,7 @@ function StartBody() {
         <DialogDescription>Sets the sheet, mirroring and product templates. You can change all of it later.</DialogDescription>
       </DialogHeader>
       <div className="scroll-thin flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto p-5">
-        <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Print process">
+        <div className="grid gap-2 sm:grid-cols-3" role="radiogroup" aria-label="Print process">
           {PROCESSES.map((p) => {
             const active = process === p.value;
             return (

@@ -6,9 +6,11 @@
  * go? The rules are deliberately conservative:
  *
  * 1. Every mode except `stretch` preserves the source aspect ratio exactly.
- * 2. No mode ever places image pixels outside the box, so nothing is cropped
- *    by the fit itself. Cropping is a separate, opt-in `crop` setting that
- *    changes which source pixels count as "the image" before fitting.
+ * 2. No mode ever places image pixels outside the box. Cropping is opt-in and
+ *    non-destructive: the `crop` insets and the `cover` mode only change which
+ *    source pixels count as "the image" before fitting (`effectiveSourceRect`).
+ *    `cover` picks the largest window of the box's shape (then `view` pans and
+ *    zooms it), so the image fills the box and only the excess is left out.
  * 3. When the box and the image disagree on aspect ratio, the difference is
  *    left as empty space (or background colour in `fill` mode) and reported
  *    through `describeFit` so the UI can explain it.
@@ -17,7 +19,7 @@
  * ratio of the source size matters to the geometry.
  */
 
-import type { CropInsets, Design, FitMode } from "@/types/editor";
+import type { CropInsets, CropView, Design, FitMode } from "@/types/editor";
 
 export interface Size {
   width: number;
@@ -60,6 +62,123 @@ export function sourceCropRect(natural: Size, crop: CropInsets | null): Rect {
     y: crop ? natural.height * crop.top : 0,
     ...size,
   };
+}
+
+/** Inner (padded) box in millimetres. */
+export function innerBox(design: Pick<Design, "width" | "height" | "padding">): Size {
+  const pad = Math.min(design.padding, design.width / 2, design.height / 2);
+  return { width: Math.max(0, design.width - pad * 2), height: Math.max(0, design.height - pad * 2) };
+}
+
+export const DEFAULT_VIEW: CropView = { zoom: 1, x: 0.5, y: 0.5 };
+export const MAX_COVER_ZOOM = 8;
+
+const clamp01 = (v: number) => Math.min(1, Math.max(0, Number.isFinite(v) ? v : 0.5));
+
+/** Clamp a view into its valid range (zoom 1–8, position 0–1). */
+export function normalizeView(view: CropView | null | undefined): CropView {
+  const v = view ?? DEFAULT_VIEW;
+  const zoom = Number.isFinite(v.zoom) ? Math.min(MAX_COVER_ZOOM, Math.max(1, v.zoom)) : 1;
+  return { zoom, x: clamp01(v.x), y: clamp01(v.y) };
+}
+
+/**
+ * The window of `base` (source pixels) that covers a box of `targetAspect`
+ * (width / height): the largest such window at zoom 1, smaller as zoom grows,
+ * positioned inside `base` by `view.x` / `view.y`.
+ */
+export function coverWindow(base: Rect, targetAspect: number, view: CropView | null): Rect {
+  if (base.width <= 0 || base.height <= 0 || !(targetAspect > 0)) return base;
+  const v = normalizeView(view);
+  let w = base.width;
+  let h = base.height;
+  if (base.width / base.height > targetAspect) w = base.height * targetAspect;
+  else h = base.width / targetAspect;
+  w /= v.zoom;
+  h /= v.zoom;
+  return { x: base.x + (base.width - w) * v.x, y: base.y + (base.height - h) * v.y, width: w, height: h };
+}
+
+type SourceInput = Pick<Design, "crop" | "fitMode" | "width" | "height" | "padding"> & { view?: CropView | null };
+
+/**
+ * Source pixels that are actually drawn: the crop insets, then (in `cover`
+ * mode) the cover window. Every renderer and every resolution check uses this.
+ */
+export function effectiveSourceRect(design: SourceInput, natural: Size): Rect {
+  const base = sourceCropRect(natural, design.crop);
+  if (design.fitMode !== "cover") return base;
+  const inner = innerBox(design);
+  if (inner.width <= 0 || inner.height <= 0) return base;
+  return coverWindow(base, inner.width / inner.height, design.view ?? null);
+}
+
+/** Size of `effectiveSourceRect`, the source the fitting engine fits into the box. */
+export function effectiveSourceSize(design: SourceInput, natural: Size): Size {
+  const r = effectiveSourceRect(design, natural);
+  return { width: r.width, height: r.height };
+}
+
+/** `effectiveSourceRect` as crop insets (fractions of the source), or null when nothing is cut. */
+export function effectiveCrop(design: SourceInput, natural: Size): CropInsets | null {
+  const r = effectiveSourceRect(design, natural);
+  if (natural.width <= 0 || natural.height <= 0) return null;
+  const insets = {
+    left: r.x / natural.width,
+    top: r.y / natural.height,
+    right: 1 - (r.x + r.width) / natural.width,
+    bottom: 1 - (r.y + r.height) / natural.height,
+  };
+  const none = Object.values(insets).every((v) => Math.abs(v) < 1e-9);
+  return none ? null : insets;
+}
+
+/** Share of the (crop-inset) source left out by `cover`, 0–1, for "x % cropped" notes. */
+export function coverCroppedFraction(design: SourceInput, natural: Size): number {
+  if (design.fitMode !== "cover") return 0;
+  const base = sourceCropRect(natural, design.crop);
+  const win = effectiveSourceRect(design, natural);
+  const a = base.width * base.height;
+  return a > 0 ? Math.max(0, 1 - (win.width * win.height) / a) : 0;
+}
+
+/**
+ * Move a cover view by a drag of (dxMm, dyMm) on the printed box: the image
+ * follows the pointer. Pure, so the crop gesture is testable.
+ */
+export function panView(design: SourceInput, natural: Size, dxMm: number, dyMm: number): CropView {
+  const v = normalizeView(design.view);
+  const base = sourceCropRect(natural, design.crop);
+  const win = effectiveSourceRect({ ...design, fitMode: "cover" }, natural);
+  const inner = innerBox(design);
+  if (inner.width <= 0 || win.width <= 0) return v;
+  const pxPerMm = win.width / inner.width;
+  const freeX = base.width - win.width;
+  const freeY = base.height - win.height;
+  return normalizeView({
+    zoom: v.zoom,
+    x: freeX > 1e-9 ? v.x - (dxMm * pxPerMm) / freeX : 0.5,
+    y: freeY > 1e-9 ? v.y - (dyMm * pxPerMm) / freeY : 0.5,
+  });
+}
+
+/** Zoom a cover view, keeping the window centre where it is. */
+export function zoomView(design: SourceInput, natural: Size, zoom: number): CropView {
+  const v = normalizeView(design.view);
+  const base = sourceCropRect(natural, design.crop);
+  const before = effectiveSourceRect({ ...design, fitMode: "cover", view: v }, natural);
+  const cx = before.x + before.width / 2;
+  const cy = before.y + before.height / 2;
+  const nz = normalizeView({ ...v, zoom }).zoom;
+  const w = (before.width * v.zoom) / nz;
+  const h = (before.height * v.zoom) / nz;
+  const freeX = base.width - w;
+  const freeY = base.height - h;
+  return normalizeView({
+    zoom: nz,
+    x: freeX > 1e-9 ? (cx - w / 2 - base.x) / freeX : 0.5,
+    y: freeY > 1e-9 ? (cy - h / 2 - base.y) / freeY : 0.5,
+  });
 }
 
 /** Modes whose box shape is derived from the image rather than typed in. */
@@ -116,7 +235,8 @@ export function computeImageRect(design: FitInput, source: Size): Rect {
     width: Math.max(0, design.width - pad * 2),
     height: Math.max(0, design.height - pad * 2),
   };
-  if (design.fitMode === "stretch") {
+  // `cover` draws a source window of the box's own shape, so it fills the box exactly.
+  if (design.fitMode === "stretch" || design.fitMode === "cover") {
     return { x: pad, y: pad, ...inner };
   }
   const fitted = fitContain(source, inner);

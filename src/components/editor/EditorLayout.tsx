@@ -30,6 +30,8 @@ import { StartDialog, ONBOARDED_KEY } from "./StartDialog";
 import { ShortcutsDialog } from "./ShortcutsDialog";
 import { SheetDialog } from "@/components/settings/SheetDialog";
 import { ExportDialog } from "@/components/export/ExportDialog";
+import { ArrangeDialog } from "./ArrangeDialog";
+import { StripDialog } from "@/components/settings/StripDialog";
 import { useEditorShortcuts } from "./use-editor-shortcuts";
 import { loadSampleSheet } from "@/lib/sample";
 import { parseEditorLink } from "@/lib/editor-link";
@@ -137,6 +139,8 @@ export default function EditorLayout() {
         </div>
         <Footer />
         <ExportDialog />
+        <ArrangeDialog />
+        <StripDialog />
         <SheetDialog />
         <StartDialog />
         <ShortcutsDialog />

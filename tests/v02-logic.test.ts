@@ -96,7 +96,7 @@ describe("migration from v0.1", () => {
       designs: [{ id: "d", name: "Logo", assetId: "a1", x: 1, y: 2, width: 3, height: 4 }],
     };
     const doc = migrateDocument(legacy);
-    expect(doc.page).toMatchObject({ sheet: "a4", orientation: "landscape", process: "sublimation", mirrorOutput: false });
+    expect(doc.page).toMatchObject({ sheet: "a4", orientation: "landscape", process: "sublimation", mirrorMode: "off" });
     expect(doc.designs[0]).toMatchObject({ assetId: "a1", productId: null, bleed: 0, flipX: false, flipY: false, x: 1 });
   });
 });
@@ -127,7 +127,7 @@ describe("mirror and flip in outputs", () => {
   it("mirrors the whole sheet horizontally for sublimation", () => {
     const d = makeDesign({ x: 20, y: 30, width: 50, height: 50 });
     const plain = record(buildRenderPlan(makeDoc([d]), { a1: makeAsset() }));
-    const mirrored = record(buildRenderPlan(makeDoc([d], { mirrorOutput: true }), { a1: makeAsset() }));
+    const mirrored = record(buildRenderPlan(makeDoc([d], { mirrorMode: "on" }), { a1: makeAsset() }));
     const xs = (pts: { x: number }[]) => pts.map((p) => p.x).sort((a, b) => a - b);
     expect(xs(plain)).toEqual([20, 70].map((v) => expect.closeTo(v, 6)));
     expect(xs(mirrored)).toEqual([140, 190].map((v) => expect.closeTo(v, 6)));
@@ -147,7 +147,7 @@ describe("mirror and flip in outputs", () => {
 
   it("builds a mirrored, flipped PDF on a non-A4 sheet", async () => {
     const plan = buildRenderPlan(
-      makeDoc([makeDesign({ flipX: true, flipY: true })], { sheet: "a3", mirrorOutput: true }),
+      makeDoc([makeDesign({ flipX: true, flipY: true })], { sheet: "a3", mirrorMode: "on" }),
       { a1: makeAsset({ naturalWidth: 1, naturalHeight: 1 }) },
     );
     const pdf = await PDFDocument.load(await buildPdf(plan, new Map([["a1", { bytes: TINY_PNG, format: "png" as const }]]), { title: "A3" }));

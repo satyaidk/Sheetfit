@@ -43,3 +43,5 @@ next-env.d.ts
 
 # Raw 3D renders for product pictures (scripts/pictures)
 /scripts/pictures/.renders
+# Browser-check images, downloads and screenshots (scripts/e2e)
+/scripts/e2e/.out

@@ -53,7 +53,8 @@ function processFor(product: ProductPreset, page: PageSettings): PrintProcess {
 
 function withProcess(page: PageSettings, process: PrintProcess): PageSettings {
   if (process === page.process) return page;
-  return { ...page, process, mirrorOutput: process === "sublimation" };
+  // A page made for another process starts on its own default mirror, not a leftover override.
+  return { ...page, process, mirrorMode: "auto" };
 }
 
 function fits(slot: Size, page: PageSettings): boolean {

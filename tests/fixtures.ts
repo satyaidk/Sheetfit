@@ -6,7 +6,7 @@ export function makePage(overrides: Partial<PageSettings> = {}): PageSettings {
     sheet: "a4",
     customSize: null,
     process: "dtf",
-    mirrorOutput: false,
+    mirrorMode: "auto",
     orientation: "portrait",
     margins: { top: 10, right: 10, bottom: 10, left: 10 },
     background: "#ffffff",
@@ -17,6 +17,10 @@ export function makePage(overrides: Partial<PageSettings> = {}): PageSettings {
     snapToGuides: true,
     constrainToPrintable: false,
     cropMarks: false,
+    spacing: 5,
+    pairGap: 5,
+    guides: { cutlines: false, centreMarks: false, registration: false, registrationSize: 5 },
+    sheetCut: false,
     ...overrides,
   };
 }
@@ -46,6 +50,11 @@ export function makeDesign(overrides: Partial<Design> = {}): Design {
     crop: null,
     groupId: null,
     locked: false,
+    view: null,
+    lockRotation: false,
+    side: null,
+    pairId: null,
+    cut: null,
     ...overrides,
   };
 }

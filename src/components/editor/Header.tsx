@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { useEditor } from "@/store/editor-store";
 import type { PrintProcess } from "@/types/editor";
+import { PROCESS_HINTS, PROCESS_LABELS, PROCESS_ORDER } from "@/lib/catalogue/processes";
 import { Button } from "@/components/ui/button";
 import { Tooltip } from "@/components/ui/tooltip";
 import {
@@ -198,10 +199,11 @@ export function Header() {
 function ProcessSwitch() {
   const process = useEditor((s) => s.doc.page.process);
   const setProcess = useEditor((s) => s.setProcess);
-  const options: { value: PrintProcess; label: string; hint: string }[] = [
-    { value: "sublimation", label: "Sublimation", hint: "Mirrored output" },
-    { value: "dtf", label: "DTF", hint: "Not mirrored, transparent PNG" },
-  ];
+  const options: { value: PrintProcess; label: string; hint: string }[] = PROCESS_ORDER.map((value) => ({
+    value,
+    label: PROCESS_LABELS[value],
+    hint: PROCESS_HINTS[value],
+  }));
   return (
     <div role="radiogroup" aria-label="Print process" className="hidden h-9 items-center rounded-lg bg-subtle p-1 lg:flex">
       {options.map((o) => (
