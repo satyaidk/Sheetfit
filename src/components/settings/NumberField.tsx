@@ -64,12 +64,13 @@ export function NumberField({
   return (
     <label
       className={cn(
-        "flex h-8 min-w-0 items-center rounded-md border border-line bg-surface pl-2 text-[13px] transition-colors focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/15 hover:border-line-strong",
+        "flex h-(--control-h) min-w-0 items-center rounded-md border border-line-strong border-b-line-control bg-surface pl-2 text-body transition-colors duration-(--duration-fast) hover:border-line-control focus-within:border-accent focus-within:ring-1 focus-within:ring-accent",
         disabled && "pointer-events-none opacity-50",
         className,
       )}
     >
-      <span className="w-4 shrink-0 text-[11px] font-semibold text-ink-faint">{label}</span>
+      {/* Letters (W, H, X) sit in a fixed slot; words (Bleed, Border) take their own width instead of overlapping the value. */}
+      <span className={cn("shrink-0 text-caption font-semibold whitespace-nowrap text-ink-muted", label.length > 1 ? "pr-1" : "w-4")}>{label}</span>
       <input
         id={id}
         inputMode="decimal"
@@ -96,7 +97,7 @@ export function NumberField({
           }
         }}
       />
-      <span className="shrink-0 pr-2 text-[11px] text-ink-faint">{suffix ?? (raw ? "" : u)}</span>
+      <span className="shrink-0 pr-2 text-caption text-ink-faint">{suffix ?? (raw ? "" : u)}</span>
     </label>
   );
 }

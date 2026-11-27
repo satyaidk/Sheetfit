@@ -46,13 +46,14 @@ import { CROP_MARK, cropMarksFor } from "@/lib/render/render-plan";
 import type { SnapGuide } from "@/lib/layout/alignment";
 import { unionBounds } from "@/lib/layout/alignment";
 import { resolutionReport } from "@/lib/image/image-resolution";
-import { ASSET_DRAG_TYPE, placeAssetAt, uploadCardSides, uploadFiles } from "@/lib/editor-actions";
+import { ASSET_DRAG_TYPE, placeAssetAt, putAssetInSlot, uploadCardSides, uploadFiles } from "@/lib/editor-actions";
 import { loadSampleSheet } from "@/lib/sample";
 import { ACCEPT_ATTR } from "@/lib/image/image-loader";
 import { Button } from "@/components/ui/button";
 import { formatUnit } from "@/lib/layout/coordinate-conversion";
 import { CanvasContextMenu } from "./CanvasContextMenu";
 import { cn } from "@/lib/utils";
+import { cricutArea, printsCutGuide, stickerBorderFill } from "@/lib/cut/cut-method";
 
 /** Group scale and resulting box of a resize gesture in progress. */
 type LiveResize = { scale: { x: number; y: number }; box: Pick<Design, "x" | "y" | "width" | "height" | "rotation"> };
@@ -424,10 +425,8 @@ export function CanvasWorkspace() {
     const point = toSheet(e.clientX, e.clientY);
     const assetId = e.dataTransfer.getData(ASSET_DRAG_TYPE);
     if (assetId) {
-      if (target) {
-        useEditor.getState().fillSlot(target, assetId);
-        useEditor.getState().select([target]);
-      } else placeAssetAt(assetId, point);
+      if (target) putAssetInSlot(target, assetId);
+      else placeAssetAt(assetId, point);
       return;
     }
     const files = [...e.dataTransfer.files];
@@ -443,6 +442,11 @@ export function CanvasWorkspace() {
 
   const shown = doc.designs.map((d) => (live[d.id] ? { ...d, ...live[d.id].box } : d));
   const outOfBounds = shown.filter((d) => placementStatus(d, doc.page).exceedsPrintable);
+  // Sticker pages show the white border and the printed cutting line exactly as they print.
+  const stickerFill = stickerBorderFill(doc.page);
+  const stickerGuide = printsCutGuide(doc.page) ? doc.page.cutGuide : null;
+  const sticker = stickerFill || stickerGuide ? { fill: stickerFill, guide: stickerGuide } : undefined;
+  const ptcArea = doc.page.process === "sticker" && doc.page.cutMethod === "cricut" ? cricutArea(doc.page) : null;
   const selectionBounds = unionBounds(shown.filter((d) => selection.includes(d.id)).map(designBounds));
   const printable = printableRect(doc.page);
   const toScreen = (x: number, y: number) => ({ left: pan.x + x * pxPerMm, top: pan.y + y * pxPerMm });
@@ -476,6 +480,8 @@ export function CanvasWorkspace() {
           }
         }}
         onDrop={onDrop}
+        id="sheet-canvas"
+        tabIndex={-1}
         role="application"
         aria-label="Sheet editor canvas. Use the quick actions bar and the properties panel for precise values."
       >
@@ -525,9 +531,23 @@ export function CanvasWorkspace() {
                       onTransformEnd={onTransformEnd}
                       previewScale={live[d.id]?.scale}
                       showCut={doc.page.guides.cutlines}
+                      sticker={sticker}
                     />
                   );
                 })}
+                {ptcArea && (
+                  <Rect
+                    x={ptcArea.x}
+                    y={ptcArea.y}
+                    width={ptcArea.width}
+                    height={ptcArea.height}
+                    stroke="#077d89"
+                    strokeWidth={1.25}
+                    strokeScaleEnabled={false}
+                    dash={[8, 5]}
+                    listening={false}
+                  />
+                )}
                 {doc.page.cropMarks &&
                   shown.flatMap((d) =>
                     cropMarksFor(designBounds(d)).map((m, i) => (
@@ -639,7 +659,7 @@ export function CanvasWorkspace() {
           return (
             <span
               key={`gl${i}`}
-              className="tnum pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-1/2 rounded-full bg-guide px-1.5 py-px text-[10.5px] font-semibold text-white shadow"
+              className="tnum pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-1/2 rounded-full bg-guide-strong px-1.5 py-px text-badge font-semibold text-white shadow-card"
               style={pos}
             >
               {formatUnit(g.value, u, doc.page.dpi)}
@@ -657,8 +677,8 @@ export function CanvasWorkspace() {
                 key={`side-${d.id}`}
                 data-testid={`side-label-${d.side}`}
                 className={cn(
-                  "pointer-events-none absolute z-10 -translate-y-full rounded-t-md px-1.5 py-px text-[10px] font-bold tracking-wide text-white",
-                  d.side === "front" ? "bg-accent" : "bg-ink",
+                  "pointer-events-none absolute z-10 -translate-y-full rounded-t-md px-1.5 py-px text-badge font-bold tracking-wide",
+                  d.side === "front" ? "bg-accent text-on-accent" : "bg-inverse text-on-inverse",
                 )}
                 style={{ left: pos.left, top: pos.top }}
               >
@@ -680,7 +700,7 @@ export function CanvasWorkspace() {
           return (
             <span
               data-testid="pair-gap"
-              className="tnum pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-1/2 rounded-full bg-guide px-1.5 py-px text-[10.5px] font-semibold text-white shadow"
+              className="tnum pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-1/2 rounded-full bg-guide-strong px-1.5 py-px text-badge font-semibold text-white shadow-card"
               style={pos}
             >
               {formatUnit(gap, u, doc.page.dpi)} {u}
@@ -701,7 +721,7 @@ export function CanvasWorkspace() {
           return (
             <span
               key={`dpi-${d.id}`}
-              className="tnum pointer-events-none absolute z-10 rounded-md bg-danger px-1.5 py-0.5 text-[10.5px] font-semibold text-white shadow"
+              className="tnum pointer-events-none absolute z-10 rounded-md bg-danger px-1.5 py-0.5 text-badge font-semibold text-on-danger shadow-card"
               style={{ left: pos.left + 4, top: pos.top + 4 }}
             >
               {dpi} DPI
@@ -711,7 +731,7 @@ export function CanvasWorkspace() {
 
         {readout && readoutPos && (
           <div
-            className="tnum pointer-events-none absolute z-20 -translate-x-1/2 rounded-md bg-ink px-2 py-1 text-[11px] font-medium whitespace-nowrap text-white shadow-lg"
+            className="tnum pointer-events-none absolute z-20 -translate-x-1/2 rounded-md bg-inverse px-2 py-1 text-caption font-medium whitespace-nowrap text-on-inverse shadow-pop"
             style={{ left: readoutPos.left, top: Math.min(readoutPos.top + 36, viewport.height - 32) }}
           >
             {readout}
@@ -732,7 +752,7 @@ export function CanvasWorkspace() {
 
         {dropActive && !dropTarget && (
           <div className="pointer-events-none absolute inset-3 z-30 flex items-start justify-center rounded-xl border-2 border-dashed border-accent bg-accent/5 pt-6">
-            <div className="flex items-center gap-2 rounded-full bg-surface px-4 py-2 text-[13px] font-medium shadow-pop">
+            <div className="flex items-center gap-2 rounded-full bg-surface px-4 py-2 text-body font-medium shadow-pop">
               <ImagePlus className="size-4 text-accent" />
               Drop to place on the sheet, or onto an empty product box
             </div>
@@ -772,9 +792,9 @@ function EmptySheet({ rect, onUpload }: { rect: RectT; onUpload: () => void }) {
         <span className="flex size-11 items-center justify-center rounded-full bg-accent-soft text-accent">
           <ImagePlus className="size-5" />
         </span>
-        <p className="text-[17px] font-semibold tracking-tight text-ink">Start your print sheet</p>
+        <p className="text-title font-semibold tracking-tight text-ink">Start your print sheet</p>
         {!compact && (
-          <p className="text-[13px] leading-relaxed text-ink-muted">
+          <p className="text-body leading-relaxed text-ink-muted">
             Drop images here, or pick a product to get a template at its real print size. Nothing is ever cropped.
           </p>
         )}
@@ -793,7 +813,7 @@ function EmptySheet({ rect, onUpload }: { rect: RectT; onUpload: () => void }) {
             Choose a product
           </Button>
         </div>
-        <button type="button" onClick={() => void loadSampleSheet()} className="flex items-center gap-1.5 text-[12.5px] font-medium text-accent hover:underline">
+        <button type="button" onClick={() => void loadSampleSheet()} className="flex items-center gap-1.5 text-caption font-medium text-accent hover:underline">
           <Sparkles className="size-3.5" />
           Or open the sample sheet
         </button>

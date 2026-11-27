@@ -48,19 +48,19 @@ export function SheetPanel() {
         <div className="mt-3">
           <MirrorControl page={page} onChange={(mirrorMode) => setPage({ mirrorMode })} />
         </div>
-        <p className="mt-2 text-[11.5px] text-ink-faint">Saved with this page. New pages and projects start on Auto.</p>
+        <p className="mt-2 text-caption text-ink-faint">Saved with this page. New pages and projects start on Auto.</p>
       </Section>
 
       <Section title="Spacing and cutting">
         <div className="flex items-center justify-between gap-3 py-1">
-          <span className="text-[13px]">Gap between cut lines</span>
+          <span className="text-body">Gap between cut lines</span>
           <NumberField label="" className="w-28" valueMm={page.spacing} unit={unit} dpi={page.dpi} min={0} max={100} onCommit={(spacing) => setPage({ spacing })} />
         </div>
         <div className="flex items-center justify-between gap-3 py-1">
-          <span className="text-[13px]">Gap between card front and back</span>
+          <span className="text-body">Gap between card front and back</span>
           <NumberField label="" className="w-28" valueMm={page.pairGap} unit={unit} dpi={page.dpi} min={0} max={100} onCommit={(pairGap) => setPage({ pairGap })} />
         </div>
-        <p className="mb-2 text-[12px] text-ink-muted">
+        <p className="mb-2 text-caption text-ink-muted">
           Measured between cut paths, not image boxes. Auto Arrange and card pairs keep at least this much, more where bleeds would
           otherwise touch. Sizes never change.
         </p>
@@ -75,7 +75,7 @@ export function SheetPanel() {
         </Field>
         {page.guides.registration && (
           <div className="flex items-center justify-between gap-3 py-1">
-            <span className="text-[13px]">Square size</span>
+            <span className="text-body">Square size</span>
             <NumberField label="" className="w-28" valueMm={page.guides.registrationSize} unit={unit} dpi={page.dpi} min={2} max={20} onCommit={(registrationSize) => setPage({ guides: { ...page.guides, registrationSize } })} />
           </div>
         )}
@@ -126,7 +126,7 @@ export function SheetPanel() {
               key={v}
               type="button"
               onClick={() => setPage({ margins: uniformMargins(v) })}
-              className="tnum h-7 rounded-md bg-subtle px-2 text-[11.5px] font-medium text-ink-muted hover:bg-subtle-2 hover:text-ink"
+              className="tnum h-7 rounded-md bg-subtle px-2 text-caption font-medium text-ink-muted hover:bg-subtle-2 hover:text-ink"
             >
               {v === 0 ? "None" : v === 12.7 ? "½ in" : `${v} mm`}
             </button>
@@ -138,7 +138,7 @@ export function SheetPanel() {
           <NumberField label="L" valueMm={m.left} unit={unit} dpi={page.dpi} min={0} max={100} onCommit={(left) => setPage({ margins: { ...m, left } })} />
           <NumberField label="R" valueMm={m.right} unit={unit} dpi={page.dpi} min={0} max={100} onCommit={(right) => setPage({ margins: { ...m, right } })} />
         </div>
-        <p className="mt-2 text-[12px] text-ink-muted">
+        <p className="mt-2 text-caption text-ink-muted">
           Desktop printers lose the outer 3 to 5 mm. DTF gang sheets usually keep ½ in clear at the edges.
         </p>
         <Field label="Keep designs inside margins" htmlFor="constrain">
@@ -149,7 +149,7 @@ export function SheetPanel() {
       <Section title="Background">
         <ColorChoices value={page.background} onChange={(background) => setPage({ background })} />
         {page.background === null && (
-          <p className="mt-2 text-[12px] text-ink-muted">Transparent. PNG keeps transparency, which DTF needs; JPEG uses white.</p>
+          <p className="mt-2 text-caption text-ink-muted">Transparent. PNG keeps transparency, which DTF needs; JPEG uses white.</p>
         )}
       </Section>
 
@@ -164,13 +164,13 @@ export function SheetPanel() {
           <Switch id="snap-grid" checked={page.snapToGrid} onCheckedChange={(snapToGrid) => setPage({ snapToGrid })} />
         </Field>
         <div className="flex items-center justify-between gap-3 py-1">
-          <span className="text-[13px]">Grid spacing</span>
+          <span className="text-body">Grid spacing</span>
           <NumberField label="" className="w-28" valueMm={page.gridSize} unit={unit} dpi={page.dpi} min={1} max={50} onCommit={(gridSize) => setPage({ gridSize })} />
         </div>
         <Field label="Crop marks" htmlFor="crop-marks">
           <Switch id="crop-marks" checked={page.cropMarks} onCheckedChange={(cropMarks) => setPage({ cropMarks })} />
         </Field>
-        <p className="text-[12px] text-ink-muted">Hold Alt while dragging to place freely.</p>
+        <p className="text-caption text-ink-muted">Hold Alt while dragging to place freely.</p>
       </Section>
 
       <Section title="Units and resolution" className="border-b-0">
@@ -185,7 +185,7 @@ export function SheetPanel() {
             { value: "px", label: "px" },
           ]}
         />
-        <p className="mt-3 mb-1.5 text-[12px] font-medium text-ink-muted">Export resolution</p>
+        <p className="mt-3 mb-1.5 text-caption font-medium text-ink-muted">Export resolution</p>
         <Segmented
           ariaLabel="Export DPI"
           value={String(page.dpi)}

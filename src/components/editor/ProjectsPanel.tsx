@@ -58,8 +58,8 @@ export function ProjectsPanel() {
   return (
     <div>
       <Section title="Current project">
-        <p className="truncate text-[13px] font-medium">{project.name}</p>
-        <p className="text-[12px] text-ink-muted">
+        <p className="truncate text-body font-medium">{project.name}</p>
+        <p className="text-caption text-ink-muted">
           {project.savedAt ? `Saved ${new Date(project.savedAt).toLocaleString()}` : "Not saved yet"}
           {project.dirty ? ", with unsaved changes" : ""}
         </p>
@@ -87,9 +87,9 @@ export function ProjectsPanel() {
       </Section>
       <Section title="Saved in this browser">
         {error && <Note tone="error">{error}</Note>}
-        {!error && projects === null && <p className="text-[12px] text-ink-muted">Loading…</p>}
+        {!error && projects === null && <p className="text-caption text-ink-muted">Loading…</p>}
         {!error && projects?.length === 0 && (
-          <p className="text-[12px] text-ink-muted">No saved projects. Use Save in the top bar or press Ctrl S.</p>
+          <p className="text-caption text-ink-muted">No saved projects. Use Save in the top bar or press Ctrl S.</p>
         )}
         <ul className="flex flex-col gap-2">
           {projects?.map((p) => (
@@ -99,16 +99,16 @@ export function ProjectsPanel() {
                 className="flex w-full gap-2.5 text-left"
                 onClick={() => (project.dirty && p.id !== project.id ? setConfirm({ kind: "open", id: p.id }) : void openProject(p.id))}
               >
-                <span className="flex h-14 w-10 shrink-0 items-center justify-center overflow-hidden rounded-[3px] border border-line bg-white">
+                <span className="flex h-14 w-10 shrink-0 items-center justify-center overflow-hidden rounded-[3px] border border-line bg-paper">
                   {p.thumbnail ? <img src={p.thumbnail} alt="" className="max-h-full max-w-full" /> : <FileText className="size-4 text-ink-faint" />}
                 </span>
                 <span className="min-w-0">
-                  <span className="block truncate text-[13px] font-medium">{p.name}</span>
-                  <span className="block text-[11px] text-ink-muted">
+                  <span className="block truncate text-body font-medium">{p.name}</span>
+                  <span className="block text-caption text-ink-muted">
                     {p.designCount} {p.designCount === 1 ? "design" : "designs"}
                     {p.pageCount > 1 && `, ${p.pageCount} pages`}
                   </span>
-                  <span className="block text-[11px] text-ink-muted">{new Date(p.updatedAt).toLocaleDateString()}</span>
+                  <span className="block text-caption text-ink-muted">{new Date(p.updatedAt).toLocaleDateString()}</span>
                 </span>
               </button>
               <div className="mt-1.5 flex justify-end gap-1">

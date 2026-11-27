@@ -32,7 +32,7 @@ export function DesignsPanel() {
   return (
     <div className="flex flex-col gap-4 p-4">
       <div className="flex items-start justify-between gap-3">
-        <p className="text-[12.5px] leading-snug text-ink-muted">
+        <p className="text-caption leading-snug text-ink-muted">
           Original designs made by Sheetfit, free to print. A new set appears every time.
         </p>
         <Button size="sm" onClick={() => setSeed(randomSeed())}>
@@ -57,8 +57,8 @@ export function DesignsPanel() {
 function DesignGrid({ title, hint, designs, aspect }: { title: string; hint: string; designs: SampleDesign[]; aspect: number }) {
   return (
     <section>
-      <h3 className="text-[13px] font-semibold">{title}</h3>
-      <p className="mb-2 text-[11.5px] text-ink-muted">{hint}</p>
+      <h3 className="text-body font-semibold">{title}</h3>
+      <p className="mb-2 text-caption text-ink-muted">{hint}</p>
       <ul className="grid grid-cols-2 gap-2">
         {designs.map((d) => (
           <li key={d.id}>
@@ -72,7 +72,7 @@ function DesignGrid({ title, hint, designs, aspect }: { title: string; hint: str
                 {/* eslint-disable-next-line @next/next/no-img-element -- generated SVG data URL */}
                 <img src={sampleUrl(d, Math.min(2, Math.max(0.5, aspect)))} alt="" className="max-h-full max-w-full transition-transform duration-200 group-hover:scale-[1.04]" />
               </span>
-              <span className="mt-1 block truncate text-[12px] font-medium">{d.name}</span>
+              <span className="mt-1 block truncate text-caption font-medium">{d.name}</span>
             </button>
           </li>
         ))}

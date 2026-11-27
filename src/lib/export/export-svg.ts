@@ -6,7 +6,8 @@
  * (`width="210mm"`, `viewBox="0 0 210 297"`): one user unit is one
  * millimetre. Cut paths are true vectors, never rasterised, in named groups:
  *
- *   ARTWORK       the placed images (optional; omitted in a cut-only file)
+ *   ARTWORK       the placed images and white sticker borders (optional; omitted in a cut-only file)
+ *   CUT_GUIDE     the printed hand-cutting line (sticker pages cut by hand)
  *   CUTLINE       one closed path per sticker/card (`data-cut="kiss|die"`)
  *   SHEET_CUT     the outline of a kiss-cut sheet
  *   REGISTRATION  generic corner squares, when switched on
@@ -32,6 +33,8 @@ export interface SvgOptions {
   title?: string;
 }
 
+const itemTransform = (item: PlanItem) => `translate(${n(item.center.x)} ${n(item.center.y)}) rotate(${n(item.rotation)})`;
+
 function artworkItem(item: PlanItem, href: string): string {
   const { image: dst, sourceRect: src, naturalSize } = item;
   if (dst.width <= 0 || dst.height <= 0) return "";
@@ -40,12 +43,29 @@ function artworkItem(item: PlanItem, href: string): string {
   const cx = dst.x + dst.width / 2;
   const cy = dst.y + dst.height / 2;
   const flip = item.flipX || item.flipY ? ` transform="translate(${n(cx)} ${n(cy)}) scale(${sx} ${sy}) translate(${n(-cx)} ${n(-cy)})"` : "";
+  // The white sticker border sits under the artwork (even-odd, so cut holes stay open).
+  const underlay = item.underlay
+    ? `<path d="${item.underlay.paths.map(pathToSvgD).join(" ")}" fill="${item.underlay.color}" fill-rule="evenodd"/>`
+    : "";
   // A nested viewport shows exactly the source window (crop and cover) at the image rectangle.
   return (
-    `<g transform="translate(${n(item.center.x)} ${n(item.center.y)}) rotate(${n(item.rotation)})">` +
+    `<g transform="${itemTransform(item)}">${underlay}` +
     `<g${flip}><svg x="${n(dst.x)}" y="${n(dst.y)}" width="${n(dst.width)}" height="${n(dst.height)}" ` +
     `viewBox="${n(src.x)} ${n(src.y)} ${n(src.width)} ${n(src.height)}" preserveAspectRatio="none" overflow="hidden">` +
     `<image width="${naturalSize.width}" height="${naturalSize.height}" href="${esc(href)}"/></svg></g></g>`
+  );
+}
+
+/** The printed hand-cutting line; inside placement is clipped to the sticker. */
+function guideItem(item: PlanItem, index: number): string {
+  const g = item.guide;
+  if (!g) return "";
+  const d = g.paths.map(pathToSvgD).join(" ");
+  const clip = g.inside ? `<clipPath id="guide-clip-${index}"><path d="${d}" clip-rule="evenodd"/></clipPath>` : "";
+  const width = g.inside ? g.width * 2 : g.width;
+  return (
+    `<g transform="${itemTransform(item)}">${clip}` +
+    `<path d="${d}" fill="none" stroke="${g.color}" stroke-width="${n(width)}" stroke-linejoin="round"${g.inside ? ` clip-path="url(#guide-clip-${index})"` : ""}/></g>`
   );
 }
 
@@ -59,6 +79,10 @@ export function buildSvg(plan: RenderPlan, options: SvgOptions = {}): string {
       return href ? artworkItem(item, href) : "";
     });
     parts.push(`<g id="ARTWORK">${art.join("")}</g>`);
+  }
+  // The cutting line is printed, so only printable files (with artwork) carry it.
+  if (options.images && plan.items.some((i) => i.guide)) {
+    parts.push(`<g id="CUT_GUIDE">${plan.items.map(guideItem).join("")}</g>`);
   }
   const cuts = planCutPaths(plan, false)
     .map(

@@ -103,3 +103,15 @@ Notice: tests run IndexedDB code in Node with `fake-indexeddb`. Errors are trans
 Read: [`print.ts`](../src/lib/export/print.ts), the `@media print` block in [`globals.css`](../src/app/globals.css), and the [printing guide](printing-guide.md).
 
 Exercise: print the sample sheet at 100% and measure the 90 mm box with a ruler. Then print with "Fit to page" and measure again.
+
+## 9. Cutting stickers and filling sheets (v0.10)
+
+1. Read `src/lib/cut/cut-method.ts`: what each cut method needs, and the numbers with their sources.
+2. Follow one sticker through `src/components/editor/use-sticker-outlines.ts` → `generateContour` in
+   `src/lib/editor-actions.ts` → `src/lib/image/background.ts` and `src/lib/cut/contour.ts`. The tests in
+   `tests/v10-stickers-fill.test.ts` build masks by hand; change a tolerance and watch them.
+3. See how one render-plan field reaches every output: `PlanItem.guide` in `render-plan.ts`, then `strokeCutGuide`
+   (canvas), `cutGuideOps` (PDF) and `guideItem` (SVG).
+4. Read `src/lib/layout/fill.ts` with `tests/v10-stickers-fill.test.ts` ("fill sheet planning"): why a grid first,
+   why twins are replaced, and how clearance rectangles keep spacing between cut paths.
+5. Read `src/lib/layout/strap.ts`: a strap is just a box, and the fold is a 180° turn of the second half.

@@ -10,7 +10,7 @@
  */
 
 import { useState } from "react";
-import { Check, Droplets, Layers3, Sparkles, Sticker } from "lucide-react";
+import { Check, Droplets, Layers3, Ribbon, Sparkles, Sticker } from "lucide-react";
 import { useEditor } from "@/store/editor-store";
 import type { PrintProcess } from "@/types/editor";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -24,19 +24,24 @@ import { cn } from "@/lib/utils";
 
 export const ONBOARDED_KEY = "sheetfit:onboarded";
 
-const PROCESSES: { value: PrintProcess; title: string; body: string; icon: React.ReactNode }[] = [
-  { value: "sublimation", title: "Sublimation", body: "Mugs, tumblers, coasters, polyester shirts. Prints mirrored on transfer paper.", icon: <Droplets /> },
+type Choice = PrintProcess | "strap";
+
+const PROCESSES: { value: Choice; title: string; body: string; icon: React.ReactNode }[] = [
+  { value: "sublimation", title: "Sublimation", body: "Mugs, tumblers, coasters, keyrings, polyester shirts. Prints mirrored on transfer paper.", icon: <Droplets /> },
   { value: "dtf", title: "DTF transfers", body: "Shirts, hoodies, caps, totes. Film printed as seen, often on gang sheets.", icon: <Layers3 /> },
-  { value: "sticker", title: "Stickers", body: "Print-and-cut on sticker media: die-cut, kiss-cut and sticker sheets with cut files.", icon: <Sticker /> },
+  { value: "sticker", title: "Stickers", body: "Upload any image: the cut outline is added for you. Cut by hand, Cricut or Silhouette.", icon: <Sticker /> },
+  { value: "strap", title: "Lanyard and keychain straps", body: "12, 16 or 20 mm sublimation ribbon. Fills an A4 sheet with strips at your strap length.", icon: <Ribbon /> },
 ];
 
-const SHEET_CHOICES: Record<PrintProcess, string[]> = {
+const SHEET_CHOICES: Record<Choice, string[]> = {
+  strap: ["a4", "letter", "a3"],
   sublimation: ["a4", "letter", "legal", "a3", "a3plus", "roll-13x19"],
   dtf: ["a4", "a3", "a3plus", "dtf-22x12", "dtf-22x24", "dtf-22x36", "dtf-22x60", "dtf-22x120"],
   sticker: ["a4", "letter", "a3", "roll-13x19"],
 };
 
-const STARTERS: Record<PrintProcess, string[]> = {
+const STARTERS: Record<Choice, string[]> = {
+  strap: [],
   sublimation: ["mug-11oz", "tumbler-20oz", "coaster-square", "mousepad-rect", "tee-left-chest", "keychain-round"],
   dtf: ["tee-left-chest", "tee-full-front", "tee-full-back", "hoodie-front", "cap-front", "tote"],
   sticker: ["sticker-die-2", "sticker-die-3", "sticker-die-4", "sticker-kiss-round-3", "sticker-kiss-square-3"],
@@ -71,7 +76,7 @@ export function StartDialog() {
 function StartBody() {
   const currentProcess = useEditor((s) => s.doc.page.process);
   const hasWork = useEditor((s) => s.doc.designs.length > 0);
-  const [process, setProcess] = useState<PrintProcess>(currentProcess);
+  const [process, setProcess] = useState<Choice>(currentProcess);
   const [sheet, setSheet] = useState(currentProcess === "dtf" ? "dtf-22x24" : "a4");
   const [product, setProduct] = useState<string | null>(null);
 
@@ -79,14 +84,15 @@ function StartBody() {
     const s = useEditor.getState();
     markOnboarded();
     s.setDialog(null);
-    if (product) {
+    if (product && process !== "strap") {
       openProductDesign(product, { process, sheet });
       return;
     }
     s.newProject();
-    s.setProcess(process);
+    s.setProcess(process === "strap" ? "sublimation" : process);
     s.setSheet(sheet);
     useEditor.setState((x) => ({ past: [], future: [], project: { ...x.project, dirty: false } }));
+    if (process === "strap") s.setDialog("strip");
   };
 
   return (
@@ -96,7 +102,7 @@ function StartBody() {
         <DialogDescription>Sets the sheet, mirroring and product templates. You can change all of it later.</DialogDescription>
       </DialogHeader>
       <div className="scroll-thin flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto p-5">
-        <div className="grid gap-2 sm:grid-cols-3" role="radiogroup" aria-label="Print process">
+        <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="What you are printing">
           {PROCESSES.map((p) => {
             const active = process === p.value;
             return (
@@ -115,12 +121,12 @@ function StartBody() {
                   active ? "bg-accent-soft ring-2 ring-accent" : "ring-line hover:bg-subtle",
                 )}
               >
-                <span className={cn("flex size-10 shrink-0 items-center justify-center rounded-lg [&_svg]:size-5", active ? "bg-accent text-white" : "bg-subtle text-ink-muted")}>
+                <span className={cn("flex size-10 shrink-0 items-center justify-center rounded-lg [&_svg]:size-5", active ? "bg-accent text-on-accent" : "bg-subtle text-ink-muted")}>
                   {p.icon}
                 </span>
                 <span>
-                  <span className="block text-[14px] font-semibold">{p.title}</span>
-                  <span className="mt-0.5 block text-[12.5px] leading-snug text-ink-muted">{p.body}</span>
+                  <span className="block text-body font-semibold">{p.title}</span>
+                  <span className="mt-0.5 block text-caption leading-snug text-ink-muted">{p.body}</span>
                 </span>
               </button>
             );
@@ -128,15 +134,15 @@ function StartBody() {
         </div>
 
         <div>
-          <p className="mb-2 text-[13px] font-semibold">Sheet</p>
+          <p className="mb-2 text-body font-semibold">Sheet</p>
           <div className="max-w-[360px]">
             <SheetSelect value={sheet} onChange={setSheet} allowCustom={false} include={SHEET_CHOICES[process]} ariaLabel="Sheet" />
           </div>
-          <p className="mt-1.5 text-[12px] text-ink-muted">With a product chosen, a bigger sheet is picked automatically if the product needs it.</p>
+          <p className="mt-1.5 text-caption text-ink-muted">With a product chosen, a bigger sheet is picked automatically if the product needs it.</p>
         </div>
 
-        <div>
-          <p className="mb-2 text-[13px] font-semibold">
+        {STARTERS[process].length > 0 && <div>
+          <p className="mb-2 text-body font-semibold">
             Start with a product <span className="font-normal text-ink-faint">optional</span>
           </p>
           <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
@@ -154,10 +160,10 @@ function StartBody() {
                   <span className="flex aspect-square items-center justify-center rounded-md bg-subtle">
                     <ProductArt product={p} className="size-[80%]" />
                   </span>
-                  <span className="mt-1 block truncate text-[11.5px] font-semibold">{p.name}</span>
-                  <span className="block truncate text-[11px] text-ink-muted">{p.detail}</span>
+                  <span className="mt-1 block truncate text-caption font-semibold">{p.name}</span>
+                  <span className="block truncate text-caption text-ink-muted">{p.detail}</span>
                   {active && (
-                    <span className="absolute top-2 right-2 flex size-5 items-center justify-center rounded-full bg-accent text-white">
+                    <span className="absolute top-2 right-2 flex size-5 items-center justify-center rounded-full bg-accent text-on-accent">
                       <Check className="size-3" />
                     </span>
                   )}
@@ -165,8 +171,8 @@ function StartBody() {
               );
             })}
           </div>
-        </div>
-        {hasWork && <p className="text-[12px] text-warn">Starting replaces the current sheet. Save it first if you need it.</p>}
+        </div>}
+        {hasWork && <p className="text-caption text-warn">Starting replaces the current sheet. Save it first if you need it.</p>}
       </div>
       <DialogFooter className="justify-between">
         <Button
@@ -181,7 +187,7 @@ function StartBody() {
           Explore the sample sheet
         </Button>
         <Button variant="primary" size="lg" onClick={start}>
-          Start designing
+          {process === "strap" ? "Set up straps" : "Start designing"}
         </Button>
       </DialogFooter>
     </DialogContent>

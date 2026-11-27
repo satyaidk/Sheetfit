@@ -14,10 +14,13 @@
  * renderers.
  */
 
-import type { CutSpec, Design, EditorDocument, OutputGuides, PageSettings, PrintProcess } from "@/types/editor";
+import type { CutSpec, Design, EditorDocument, OutputGuides, PageSettings, PrintProcess, StrapInfo } from "@/types/editor";
 import { DEFAULT_SHEET_ID } from "@/lib/catalogue/sheets";
 import { mirrorModeFor } from "@/lib/render/mirror";
 import { normalizeView } from "@/lib/image/image-fit";
+import { cutGuideOf, cutMethodOf } from "@/lib/cut/cut-method";
+
+const HEX_COLOR = /^#[0-9a-f]{6}$/i;
 
 /** Older pages: `paper` instead of `sheet` (v0.1), boolean `mirrorOutput` (v0.2–v0.8). */
 type LegacyPage = Partial<PageSettings> & { paper?: string; mirrorOutput?: boolean };
@@ -61,6 +64,12 @@ export function migratePage(page: LegacyPage): PageSettings {
     pairGap: finite(page.pairGap, 5, 0, 100),
     guides: { ...DEFAULT_GUIDES, ...(page.guides ?? {}) },
     sheetCut: page.sheetCut ?? false,
+    // v0.10: pages saved before printed cut guides existed keep printing
+    // exactly as before (no line, no painted border); new pages start with
+    // hand cutting in the store's DEFAULT_PAGE.
+    cutMethod: cutMethodOf(page.cutMethod),
+    cutGuide: cutGuideOf(page.cutGuide),
+    borderFill: typeof page.borderFill === "string" && HEX_COLOR.test(page.borderFill) ? page.borderFill : null,
   };
 }
 
@@ -81,6 +90,17 @@ function migrateCut(cut: Partial<CutSpec> | null | undefined): CutSpec | null {
     through: cut.through === "kiss" ? "kiss" : "die",
     safeInset: finite(cut.safeInset, 0, 0),
     contour,
+  };
+}
+
+function migrateStrap(s: Partial<StrapInfo> | null | undefined): StrapInfo | null {
+  if (!s || typeof s !== "object") return null;
+  return {
+    fold: s.fold === true,
+    endZone: finite(s.endZone, 0, 0, 200),
+    mode: s.mode === "repeat" || s.mode === "fill" ? s.mode : "once",
+    along: s.along !== false,
+    sourceAssetId: typeof s.sourceAssetId === "string" ? s.sourceAssetId : null,
   };
 }
 
@@ -107,6 +127,7 @@ export function migrateDesign(d: Partial<Design>): Design {
     side: d.side === "front" || d.side === "back" ? d.side : null,
     pairId: d.pairId ?? null,
     cut: migrateCut(d.cut),
+    strap: migrateStrap(d.strap),
   };
 }
 

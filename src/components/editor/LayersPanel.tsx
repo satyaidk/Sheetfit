@@ -32,7 +32,7 @@ export function LayersPanel() {
   const visual = [...designs].reverse();
 
   if (designs.length === 0) {
-    return <p className="p-6 text-center text-[13px] text-ink-muted">Layers appear here as you add designs.</p>;
+    return <p className="p-6 text-center text-body text-ink-muted">Layers appear here as you add designs.</p>;
   }
 
   return (
@@ -102,8 +102,8 @@ export function LayersPanel() {
                 )}
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-[13px] font-medium">{d.name || "Untitled"}</span>
-                <span className="tnum block text-[11px] text-ink-muted">
+                <span className="block truncate text-body font-medium">{d.name || "Untitled"}</span>
+                <span className="tnum block text-caption text-ink-muted">
                   {fmt(d.width)} × {fmt(d.height)} {u}
                   {!d.assetId ? ", empty" : ""}
                 </span>

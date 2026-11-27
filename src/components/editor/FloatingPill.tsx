@@ -20,7 +20,9 @@ import {
   Scan,
   Trash2,
   Ungroup,
+  Grid2x2Plus,
 } from "lucide-react";
+import { fillWithToast } from "./CanvasContextMenu";
 import { PAGES_BAR_PX, PX_PER_MM, QUICK_BAR_PX, RULER_PX, useEditor } from "@/store/editor-store";
 import { designBounds } from "@/lib/layout/sheet-layout";
 import { unionBounds } from "@/lib/layout/alignment";
@@ -62,7 +64,7 @@ export function FloatingPill() {
     <div className="pointer-events-none absolute z-20" style={{ left, top, transform: "translateX(-50%)" }}>
       <Toolbar
         aria-label="Selection actions"
-        className="pointer-events-auto h-10 rounded-full bg-surface px-1 shadow-bar ring-1 ring-black/5 animate-fade"
+        className="pointer-events-auto h-10 rounded-full bg-surface px-1 shadow-bar ring-1 ring-line animate-fade"
       >
         <Tooltip label="Duplicate" shortcut="Ctrl D">
           <ToolbarButton className="rounded-full" aria-label="Duplicate" onClick={() => s().duplicateSelection()}>
@@ -118,6 +120,14 @@ export function FloatingPill() {
             <DropdownMenuItem onSelect={() => s().zoomToSelection()} shortcut="Shift 3">
               <Scan /> Zoom to selection
             </DropdownMenuItem>
+            {picked.length === 1 && !first.pairId && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem disabled={first.locked} onSelect={() => fillWithToast(first.id)}>
+                  <Grid2x2Plus /> Fill sheet with copies
+                </DropdownMenuItem>
+              </>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       </Toolbar>

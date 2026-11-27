@@ -42,11 +42,11 @@ export function ImageUploader() {
           over ? "border-accent bg-accent-soft" : "border-line-strong bg-subtle hover:border-accent hover:bg-accent-soft",
         )}
       >
-        <span className="flex size-10 items-center justify-center rounded-full bg-accent text-white">
+        <span className="flex size-10 items-center justify-center rounded-full bg-accent text-on-accent">
           <ImagePlus className="size-5" />
         </span>
-        <span className="text-[14px] font-semibold">Upload images</span>
-        <span className="text-[12px] text-ink-muted">PNG, JPG or WebP, up to 60 MB. Drop files here or click.</span>
+        <span className="text-body font-semibold">Upload images</span>
+        <span className="text-caption text-ink-muted">PNG, JPG or WebP, up to 60 MB. Drop files here or click.</span>
       </button>
       <input
         ref={input}
@@ -62,10 +62,10 @@ export function ImageUploader() {
 
       {list.length > 0 && (
         <div>
-          <h3 className="mb-2 text-[13px] font-semibold">
+          <h3 className="mb-2 text-body font-semibold">
             In this project <span className="font-normal text-ink-faint">{list.length}</span>
           </h3>
-          <p className="mb-2 text-[12px] text-ink-muted">Click to add, or drag onto the sheet or into a product box.</p>
+          <p className="mb-2 text-caption text-ink-muted">Click to add, or drag onto the sheet or into a product box.</p>
           <ul className="grid grid-cols-2 gap-2">
             {list.map((a) => (
               <li key={a.id}>
@@ -81,7 +81,7 @@ export function ImageUploader() {
                   title={`Click to add ${a.name}, or drag it onto the sheet or a product box`}
                 >
                   <ImagePreview asset={a} />
-                  <span className="absolute top-2.5 right-2.5 flex size-6 items-center justify-center rounded-md bg-ink text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+                  <span className="absolute top-2.5 right-2.5 flex size-6 items-center justify-center rounded-md bg-inverse text-on-inverse opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
                     <Plus className="size-3.5" />
                   </span>
                 </button>

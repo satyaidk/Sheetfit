@@ -56,9 +56,9 @@ function SheetDialogBody() {
       <div className="grid min-h-0 flex-1 gap-5 overflow-y-auto p-5 md:grid-cols-[1fr_220px]">
         <div className="flex flex-col gap-4">
           <div>
-            <p className="mb-1.5 text-[12px] font-semibold text-ink-muted">Sheet</p>
+            <p className="mb-1.5 text-caption font-semibold text-ink-muted">Sheet</p>
             <SheetSelect value={sheet} onChange={setSheetId} unit={unit} customLabel="Custom size" />
-            {sheet !== "custom" && <p className="mt-1.5 text-[12px] text-ink-muted">{findSheet(sheet)?.usedFor}</p>}
+            {sheet !== "custom" && <p className="mt-1.5 text-caption text-ink-muted">{findSheet(sheet)?.usedFor}</p>}
           </div>
           <div>
             {sheet === "custom" && (
@@ -84,7 +84,7 @@ function SheetDialogBody() {
           />
           <div className="flex h-48 items-center justify-center rounded-md bg-canvas p-3">
             <div
-              className="bg-white shadow-[0_1px_3px_rgb(0_0_0/0.15)]"
+              className="bg-paper shadow-[0_1px_3px_rgb(0_0_0/0.15)]"
               style={{
                 aspectRatio: `${size.width} / ${size.height}`,
                 width: size.width >= size.height ? "100%" : "auto",
@@ -94,7 +94,7 @@ function SheetDialogBody() {
               }}
             />
           </div>
-          <p className="tnum text-center text-[12px] text-ink-muted">
+          <p className="tnum text-center text-caption text-ink-muted">
             {fmt(size.width)} × {fmt(size.height)} {u}
           </p>
           {outside > 0 && (

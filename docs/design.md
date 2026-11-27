@@ -212,3 +212,22 @@ Prints are not textures on the garment. `printPatch` cuts the panel's own triang
 Two lighting findings came out of measuring renders. three.js overrides each material's `envMapIntensity` with the scene's `environmentIntensity` when `scene.environment` is set, so a model now reports its share of the studio light (`ProductModel.environment`, 0.4 for cloth). And the studio HDRI is cool overall (blue about 1.3 times red), so it is white-balanced on load (`lib/three/studio.ts`).
 
 The same generator exports `public/models/tshirt.glb` (`npm run model:tshirt`), and a test fails if the file drifts from the code.
+
+## 20. Cutting, filling and straps (0.10)
+
+- **Cut methods** (ADR 0018). A sticker page is cut by hand, by Cricut, by Silhouette, or from a cut file. Hand
+  cutting prints a thin line along every cut path (`PlanItem.guide`, clipped inside the cut) and every sticker page
+  paints a white border inside its cut paths (`PlanItem.underlay`). Both live in the render plan, so canvas, PDF, SVG,
+  print and the editor draw them identically.
+- **Automatic outlines.** `use-sticker-outlines` traces any sticker without a current outline after uploads, drops,
+  replacements and resizes, folding the trace into the user's undo step. `lib/image/background.ts` finds a plain
+  background by flood fill from the edges (rim colour on 60 % of the rim; only edge-connected background removed).
+  Hand cutting adds a morphological closing (`ContourOptions.closePx`) so no slot is narrower than 3 mm.
+- **Fill sheet** (ADR 0019). `lib/layout/fill.ts` picks the best clean grid (as is, turned, or mixed with a turned
+  band), or packs around other designs with MaxRects; copies already on the page are replaced.
+- **Straps** (ADR 0020). `lib/layout/strap.ts` plans the artwork on a ribbon-wide strip (once, repeated, filling;
+  along the strap; folded halves turned 180°); `composeStrapImage` draws it at 600 DPI and the Fill engine lays the
+  sheet out.
+- **Layout** (ADR 0021). One side panel at a time below 1280 px; a tabbed inspector; container queries for the quick
+  bar; a next-step checklist when nothing is selected.
+- **Catalogue** (ADR 0022). 58 sourced templates; shaped blanks carry outlines used for the cut guide and the 3D model.

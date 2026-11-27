@@ -36,6 +36,11 @@ import { planProductPlacement, type PlacementReason } from "@/lib/layout/product
 import { designBounds } from "@/lib/layout/sheet-layout";
 import { applyPlacements, arrangeGrid, suggestLayoutFixes, type LayoutGap } from "@/lib/layout/auto-arrange";
 import { maxPrintSizeAt } from "@/lib/image/image-resolution";
+import { DEFAULT_CUT_GUIDE } from "@/lib/cut/cut-method";
+import { MAX_FILL, fillTurns, planFill } from "@/lib/layout/fill";
+
+/** True when two rotations differ by an odd number of quarter turns. */
+const turnsDiffer = (a: number, b: number) => Math.abs(Math.round((a - b) / 90)) % 2 === 1;
 
 const HISTORY_LIMIT = 100;
 export const MIN_ZOOM = 0.1;
@@ -50,8 +55,12 @@ export const QUICK_BAR_PX = 48;
 export const PAGES_BAR_PX = 64;
 /** Width of the docked live product preview, plus its margin. */
 export const PREVIEW_DOCK_PX = 248;
-/** Narrowest canvas that still shows the preview dock expanded. */
-export const PREVIEW_DOCK_MIN_CANVAS = 540;
+/**
+ * Narrowest canvas that still shows the preview dock expanded. Below this the
+ * dock folds to a "Preview" pill so the sheet keeps the room (on a 1366 px
+ * laptop with both panels open the canvas is about 650 px wide).
+ */
+export const PREVIEW_DOCK_MIN_CANVAS = 760;
 
 export const DEFAULT_PAGE: PageSettings = {
   sheet: DEFAULT_SHEET_ID,
@@ -72,11 +81,18 @@ export const DEFAULT_PAGE: PageSettings = {
   pairGap: 5,
   guides: { ...DEFAULT_GUIDES },
   sheetCut: false,
+  // Used on sticker pages only. Most people cut stickers by hand, so new pages
+  // print a thin cutting line and paint the sticker border white.
+  cutMethod: "hand",
+  cutGuide: { ...DEFAULT_CUT_GUIDE },
+  borderFill: "#ffffff",
 };
 
 export function emptyDocument(): EditorDocument {
   return { page: structuredClone(DEFAULT_PAGE), designs: [] };
 }
+
+export type InspectorTab = "design" | "arrange" | "cut";
 
 export type SidebarTab = "products" | "designs" | "uploads" | "layers" | "sheet" | "projects";
 
@@ -151,13 +167,15 @@ export interface EditorState {
   arrangeOptions: ArrangeOptions;
   /** Design whose image is being cropped or adjusted on the canvas. */
   cropEditing: string | null;
-  dialog: "export" | "print" | "sheet" | "shortcuts" | "start" | "mockup" | "viewer3d" | "arrange" | "strip" | null;
+  dialog: "export" | "print" | "sheet" | "shortcuts" | "start" | "mockup" | "viewer3d" | "arrange" | "strip" | "commands" | null;
   /** Product shown in the catalogue 3D viewer (opened from a product card). */
   viewer3dProductId: string | null;
   /** Design shown in the product preview dialog. */
   mockupDesignId: string | null;
   /** Right-hand precise properties panel. */
   inspectorOpen: boolean;
+  /** Which inspector tab is shown (kept while the selection changes). */
+  inspectorTab: InspectorTab;
   /** Left panel pinned open (Ctrl+/ toggles). */
   panelOpen: boolean;
   /** A drag or transform is in progress on the canvas. */
@@ -206,6 +224,8 @@ export interface EditorState {
   setArrangeOptions: (patch: Partial<ArrangeOptions>) => void;
   /** Make the total number of copies of a design `total`, packed with Auto Arrange. */
   setQuantity: (id: string, total: number) => LayoutReport;
+  /** Fill the free space of the page with copies of one design (step and repeat); one undo step. */
+  fillSheet: (id: string, options?: { rotate?: boolean }) => LayoutReport;
 
   /** Crop mode: pan and zoom the image inside its fixed box. */
   startCrop: (id: string) => void;
@@ -238,6 +258,7 @@ export interface EditorState {
   setLayoutGap: (gap: LayoutGap) => void;
   setDialog: (dialog: EditorState["dialog"]) => void;
   setInspectorOpen: (open: boolean) => void;
+  setInspectorTab: (tab: InspectorTab) => void;
   setPanelOpen: (open: boolean) => void;
   setInteracting: (interacting: boolean) => void;
   setLeaveIntent: (intent: LeaveIntent | null) => void;
@@ -322,6 +343,7 @@ function baseDesign(): Omit<Design, "width" | "height"> {
     side: null,
     pairId: null,
     cut: null,
+    strap: null,
   };
 }
 
@@ -455,6 +477,7 @@ export const useEditor = create<EditorState>()((set, get) => {
     cropEditing: null,
     dialog: null,
     inspectorOpen: true,
+    inspectorTab: "design",
     leaveIntent: null,
     previewDock: true,
     rightInset: 0,
@@ -1007,21 +1030,83 @@ export const useEditor = create<EditorState>()((set, get) => {
 
     setArrangeOptions: (patch) => set((s) => ({ arrangeOptions: { ...s.arrangeOptions, ...patch } })),
 
+    fillSheet: (id, options = {}) => {
+      const s = get();
+      const { doc } = s;
+      const source = doc.designs.find((d) => d.id === id);
+      const none = { placed: 0, unplaced: 0, suggestions: [] as string[] };
+      if (!source || source.pairId || source.locked) return none;
+      const plan = planFill(source, doc.page, doc.designs, { rotate: options.rotate ?? fillTurns(source, s.arrangeOptions.rotate) });
+      if (plan.slots.length === 0) {
+        const report = { ...none, unplaced: 1, suggestions: ["The design is larger than the free printable area. Nothing was resized."] };
+        set({ lastLayoutReport: report });
+        return report;
+      }
+      const [first, ...rest] = plan.slots;
+      const copies = cloneDesigns(rest.map((slot) => ({ ...source, groupId: null, ...slot })));
+      const designs = doc.designs.filter((d) => !plan.replaces.includes(d.id)).map((d) => (d.id === source.id ? { ...d, ...first } : d));
+      designs.splice(designs.findIndex((d) => d.id === source.id) + 1, 0, ...copies);
+      commitDoc({ ...doc, designs });
+      const turnedCount = plan.slots.filter((x) => turnsDiffer(x.rotation, source.rotation)).length;
+      const report: LayoutReport = { placed: plan.slots.length, unplaced: 0, suggestions: [], turned: turnedCount };
+      set({ selection: [source.id], lastLayoutReport: report });
+      return report;
+    },
+
     setQuantity: (id, total) => {
-      const { doc } = get();
+      const s = get();
+      const { doc } = s;
       const source = doc.designs.find((d) => d.id === id);
       if (!source || source.pairId) return { placed: 0, unplaced: 0, suggestions: [] };
-      const want = Math.max(1, Math.min(500, Math.round(total)));
-      const copies = cloneDesigns(Array.from({ length: want - 1 }, () => ({ ...source, groupId: null })));
-      if (copies.length === 0) return { placed: 1, unplaced: 0, suggestions: [] };
-      // Copies first land on the source; Auto Arrange (selection scope) then packs them.
-      commitDoc({ ...doc, designs: [...doc.designs, ...copies] });
-      const ids = [source.id, ...copies.map((c) => c.id)];
-      set({ selection: ids });
-      const before = get().past.length;
-      const report = get().autoArrange("selection");
-      // Fold the two commits into one undo step.
-      if (get().past.length === before + 1) set((x) => ({ past: x.past.slice(0, -1) }));
+      const want = Math.max(1, Math.min(MAX_FILL, Math.round(total)));
+      const rotate = fillTurns(source, s.arrangeOptions.rotate);
+      // This page first (around the other designs), then fresh pages with the same sheet.
+      const here = planFill(source, doc.page, doc.designs, { rotate, max: want });
+      const perPage = planFill(source, doc.page, [source], { rotate, emptyPage: true }).slots.length;
+      if (here.slots.length === 0 && perPage === 0) {
+        const report = { placed: 0, unplaced: want, suggestions: ["The design is larger than the printable area of this sheet. Nothing was resized."] };
+        set({ lastLayoutReport: report });
+        return report;
+      }
+      let remaining = want - here.slots.length;
+      const newPages: Design[][] = [];
+      while (remaining > 0 && perPage > 0 && newPages.length < 50) {
+        const n = Math.min(perPage, remaining);
+        const slots = planFill(source, doc.page, [source], { rotate, emptyPage: true, max: n }).slots;
+        newPages.push(cloneDesigns(slots.map((slot) => ({ ...source, groupId: null, ...slot }))));
+        remaining -= n;
+      }
+      let designs = doc.designs.filter((d) => !here.replaces.includes(d.id));
+      if (here.slots.length > 0) {
+        const [first, ...rest] = here.slots;
+        const copies = cloneDesigns(rest.map((slot) => ({ ...source, groupId: null, ...slot })));
+        designs = designs.map((d) => (d.id === source.id ? { ...d, ...first } : d));
+        designs.splice(designs.findIndex((d) => d.id === source.id) + 1, 0, ...copies);
+      } else {
+        // Nothing fits here: the source moves to the first new page with its copies.
+        designs = designs.filter((d) => d.id !== source.id);
+        if (newPages[0]?.[0]) newPages[0][0] = { ...newPages[0][0], id: source.id };
+      }
+      const next: EditorDocument = { ...doc, designs };
+      if (newPages.length === 0) commitDoc(next);
+      else {
+        // One project-level undo step: this page plus the pages it created.
+        const before = stashPages(s);
+        const added = newPages.map((ds) => pageEntry({ page: structuredClone(doc.page), designs: ds }));
+        commitDoc(next);
+        const after = stashPages(get());
+        after.splice(s.activePage + 1, 0, ...added);
+        set({ pages: after });
+        projectSteps.set(next, { before, after, added: added.map((p) => p.id) });
+      }
+      const placed = want - Math.max(0, remaining);
+      const report: LayoutReport = {
+        placed,
+        unplaced: Math.max(0, remaining),
+        suggestions: remaining > 0 ? [`Stopped at 50 new pages; ${remaining} copies were not made.`] : [],
+        pagesAdded: newPages.length,
+      };
+      set({ selection: designs.some((d) => d.id === source.id) ? [source.id] : [], lastLayoutReport: report });
       return report;
     },
 
@@ -1200,6 +1285,7 @@ export const useEditor = create<EditorState>()((set, get) => {
     setLayoutGap: (layoutGap) => set({ layoutGap }),
     setDialog: (dialog) => set({ dialog }),
     setInspectorOpen: (inspectorOpen) => set({ inspectorOpen }),
+    setInspectorTab: (inspectorTab) => set({ inspectorTab }),
     setPanelOpen: (panelOpen) => set({ panelOpen }),
     setInteracting: (interacting) => set({ interacting }),
     setLeaveIntent: (leaveIntent) => set({ leaveIntent }),

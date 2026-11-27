@@ -50,8 +50,8 @@ export async function printSheet(plans: RenderPlan | RenderPlan[], assets: Asset
   const list = Array.isArray(plans) ? plans : [plans];
   const urls: string[] = [];
   for (const plan of list) {
-    // 300 DPI is plenty for office printers and keeps memory use reasonable.
-    const canvas = renderPageCanvas(plan, assets, Math.min(dpi, 300), plan.background ?? "#ffffff");
+    // 300 DPI by default; 600 on request, for small text and thin cutting lines.
+    const canvas = renderPageCanvas(plan, assets, Math.min(dpi, 600), plan.background ?? "#ffffff");
     const blob = await new Promise<Blob>((resolve, reject) =>
       canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("Could not prepare the print image."))), "image/png"),
     );

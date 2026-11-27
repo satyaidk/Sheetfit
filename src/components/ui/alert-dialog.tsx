@@ -25,16 +25,16 @@ export function AlertDialogContent({
 }) {
   return (
     <AlertPrimitive.Portal>
-      <AlertPrimitive.Overlay className="fixed inset-0 z-50 bg-[rgb(16_24_40/0.42)] animate-fade" />
-      <AlertPrimitive.Content className="fixed top-1/2 left-1/2 z-50 w-[calc(100vw-32px)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg bg-surface p-5 shadow-pop ring-1 ring-black/5 animate-pop">
-        <AlertPrimitive.Title className="text-[19px] font-semibold tracking-tight">
+      <AlertPrimitive.Overlay className="fixed inset-0 z-50 bg-scrim animate-fade" />
+      <AlertPrimitive.Content className="fixed top-1/2 left-1/2 z-50 w-[calc(100vw-32px)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg bg-surface p-6 text-ink shadow-dialog ring-1 ring-line animate-pop">
+        <AlertPrimitive.Title className="text-title font-semibold tracking-tight">
           {title}
         </AlertPrimitive.Title>
         <AlertPrimitive.Description asChild>
-          <div className="mt-2 text-[13px] leading-relaxed text-ink-muted">{description}</div>
+          <div className="mt-2 text-body text-ink-muted">{description}</div>
         </AlertPrimitive.Description>
         {children}
-        <div className="mt-5 flex justify-end gap-2">
+        <div className="mt-6 flex justify-end gap-2">
           <AlertPrimitive.Cancel className={buttonVariants({ variant: "default" })}>{cancelLabel}</AlertPrimitive.Cancel>
           <AlertPrimitive.Action
             className={cn(buttonVariants({ variant: tone === "danger" ? "danger" : "primary" }))}

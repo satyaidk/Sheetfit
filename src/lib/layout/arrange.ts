@@ -4,7 +4,7 @@
  *
  * Rules (all tested in `tests/v09-arrange.test.ts`):
  * - Sizes, crops and aspect ratios never change. The only change besides
- *   position is an optional 90Â° turn, and only for a single design that is not
+ *   position is an optional 90° turn, and only for a single design that is not
  *   rotation-locked, when the user allows turning.
  * - Card pairs (`pairId`) and groups (`groupId`) move as one rigid block and
  *   are never turned, so a front stays next to its back.
@@ -26,7 +26,7 @@ import { registrationMarks } from "@/lib/render/guides";
 
 export interface ArrangeOptions {
   scope: "all" | "selection";
-  /** Allow 90Â° turns of single designs. */
+  /** Allow 90° turns of single designs. */
   rotate: boolean;
   /** Put what does not fit on new pages (same sheet settings). */
   extraPages: boolean;
@@ -99,9 +99,9 @@ export function arrangeBlocks(designs: Design[]): Design[][] {
   return [...blocks.values()];
 }
 
-const turned = (d: Design): Design => ({ ...d, rotation: (((d.rotation + 90) % 360) + 360) % 360 });
+export const turned = (d: Design): Design => ({ ...d, rotation: (((d.rotation + 90) % 360) + 360) % 360 });
 
-function orientationFor(members: Design[], spacing: number): { o: NestOrientation; clearance: Rect } {
+export function orientationFor(members: Design[], spacing: number): { o: NestOrientation; clearance: Rect } {
   const clearance = union(members.map((m) => clearanceRect(m, spacing)));
   const content = union(members.map(contentBounds));
   const inset: Insets = {
@@ -121,7 +121,7 @@ export interface ArrangeReport {
   tooLarge: string[];
   /** New pages needed (or created). */
   pagesAdded: number;
-  /** Printed area / printable area, per page, 0â€“1. */
+  /** Printed area / printable area, per page, 0–1. */
   utilisation: number[];
   turned: number;
 }
@@ -135,7 +135,7 @@ export interface ArrangePlan {
 }
 
 /** Corner registration marks as obstacles, so designs keep clear of them. */
-function markObstacles(page: PageSettings): Rect[] {
+export function markObstacles(page: PageSettings): Rect[] {
   if (!page.guides?.registration) return [];
   const s = page.spacing / 2;
   return registrationMarks(page).map((m) => ({ x: m.x - s, y: m.y - s, width: m.width + 2 * s, height: m.height + 2 * s }));

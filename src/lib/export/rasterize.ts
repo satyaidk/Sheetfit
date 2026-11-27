@@ -32,6 +32,36 @@ export function tracePath(ctx: Pick<Ctx2D, "moveTo" | "lineTo" | "bezierCurveTo"
   }
 }
 
+/** Fill cut paths even-odd (cut holes stay empty): the white sticker border. */
+export function fillPathsEvenOdd(ctx: Ctx2D, paths: Path[], color: string): void {
+  ctx.beginPath();
+  for (const p of paths) tracePath(ctx, p);
+  ctx.fillStyle = color;
+  ctx.fill("evenodd");
+}
+
+/**
+ * Stroke the printed cutting line. Inside placement clips to the sticker
+ * (even-odd) and strokes twice as wide, so exactly the inner half shows and
+ * the line ends precisely at the cut.
+ */
+export function strokeCutGuide(ctx: Ctx2D, guide: { paths: Path[]; color: string; width: number; inside: boolean }): void {
+  ctx.save();
+  if (guide.inside) {
+    ctx.beginPath();
+    for (const p of guide.paths) tracePath(ctx, p);
+    ctx.clip("evenodd");
+  }
+  ctx.beginPath();
+  for (const p of guide.paths) tracePath(ctx, p);
+  ctx.strokeStyle = guide.color;
+  ctx.lineWidth = guide.inside ? guide.width * 2 : guide.width;
+  ctx.lineJoin = "round";
+  ctx.setLineDash([]);
+  ctx.stroke();
+  ctx.restore();
+}
+
 export function drawPlan(
   ctx: Ctx2D,
   plan: RenderPlan,
@@ -62,6 +92,7 @@ export function drawPlan(
     ctx.scale(s, s);
     ctx.translate(item.center.x, item.center.y);
     ctx.rotate((item.rotation * Math.PI) / 180);
+    if (item.underlay) fillPathsEvenOdd(ctx, item.underlay.paths, item.underlay.color);
     if (item.background) {
       const r = item.background.rect;
       ctx.fillStyle = item.background.color;
@@ -93,6 +124,7 @@ export function drawPlan(
       ctx.lineWidth = item.border.width;
       ctx.strokeRect(r.x, r.y, r.width, r.height);
     }
+    if (item.guide) strokeCutGuide(ctx, item.guide);
     if (plan.showCutlines) {
       ctx.strokeStyle = CUTLINE_COLORS[item.cut.through];
       ctx.lineWidth = plan.cutlineWidth;

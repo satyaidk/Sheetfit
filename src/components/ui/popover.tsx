@@ -16,7 +16,7 @@ export function PopoverContent({
       <PopoverPrimitive.Content
         sideOffset={sideOffset}
         className={cn(
-          "z-50 w-72 rounded-lg bg-surface p-3 shadow-pop ring-1 ring-black/5 outline-none animate-pop",
+          "z-50 w-72 rounded-lg bg-surface-raised p-3 text-ink shadow-pop ring-1 ring-line outline-none animate-pop",
           className,
         )}
         {...props}

@@ -14,12 +14,49 @@ export function Section({
   className?: string;
 }) {
   return (
-    <section className={cn("border-b border-line px-4 py-3.5", className)}>
+    <section className={cn("border-b border-line px-(--panel-pad) py-3.5", className)}>
       <div className="mb-2.5 flex items-center justify-between gap-2">
-        <h3 className="text-[14px] font-semibold tracking-[0.01em] text-ink">{title}</h3>
+        <h3 className="text-body font-semibold tracking-[0.01em] text-ink">{title}</h3>
         {aside}
       </div>
       {children}
+    </section>
+  );
+}
+
+/** A section whose body is folded away until opened (for settings most people never need). */
+export function Disclosure({
+  title,
+  defaultOpen = false,
+  children,
+  className,
+}: {
+  title: string;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  const [open, setOpen] = React.useState(defaultOpen);
+  const id = React.useId();
+  return (
+    <section className={cn("border-b border-line px-(--panel-pad) py-2", className)}>
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls={id}
+        onClick={() => setOpen(!open)}
+        className="flex h-(--control-h) w-full items-center justify-between text-body font-medium text-ink-muted hover:text-ink"
+      >
+        {title}
+        <svg viewBox="0 0 16 16" className={cn("size-4 transition-transform", open && "rotate-180")} aria-hidden>
+          <path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+      {open && (
+        <div id={id} className="pt-1 pb-2">
+          {children}
+        </div>
+      )}
     </section>
   );
 }
@@ -43,7 +80,7 @@ export function Note({
     error: "bg-danger-soft text-danger",
   } as const;
   return (
-    <div className={cn("flex gap-2 rounded-md px-2.5 py-2 text-[12px] leading-snug [&_svg]:mt-px [&_svg]:size-3.5 [&_svg]:shrink-0", tones[tone], className)}>
+    <div className={cn("flex gap-2 rounded-md px-2.5 py-2 text-caption leading-snug [&_svg]:mt-px [&_svg]:size-3.5 [&_svg]:shrink-0", tones[tone], className)}>
       {icon}
       <div className="min-w-0">{children}</div>
     </div>
@@ -53,7 +90,7 @@ export function Note({
 export function Field({ label, children, htmlFor }: { label: string; children: React.ReactNode; htmlFor?: string }) {
   return (
     <div className="flex items-center justify-between gap-3 py-1">
-      <label htmlFor={htmlFor} className="text-[13px] text-ink">
+      <label htmlFor={htmlFor} className="text-body text-ink">
         {label}
       </label>
       {children}

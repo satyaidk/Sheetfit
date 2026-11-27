@@ -43,7 +43,7 @@ export function SideRail({ horizontal = false, onPick }: { horizontal?: boolean;
         "flex shrink-0 bg-surface",
         horizontal
           ? "h-[60px] w-full items-stretch justify-around border-t border-line px-1 pb-[env(safe-area-inset-bottom)]"
-          : "w-[72px] flex-col items-center gap-1 border-r border-line py-3",
+          : "w-(--rail-w) flex-col items-center gap-1 border-r border-line py-2",
       )}
     >
       {TABS.map((t) => {
@@ -62,22 +62,22 @@ export function SideRail({ horizontal = false, onPick }: { horizontal?: boolean;
               onPick?.(t.id);
             }}
             className={cn(
-              "group relative flex flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors",
-              horizontal ? "flex-1" : "w-16 py-1.5",
+              "group relative flex flex-col items-center justify-center gap-1 text-caption font-medium transition-colors duration-(--duration-fast)",
+              horizontal ? "flex-1" : "w-full py-1.5",
               active ? "text-ink" : "text-ink-muted hover:text-ink",
             )}
           >
             <span
               className={cn(
-                "flex h-8 w-11 items-center justify-center rounded-lg transition-colors [&_svg]:size-[20px] [&_svg]:stroke-[1.75]",
-                active ? "bg-accent-soft text-accent" : "group-hover:bg-subtle",
+                "flex h-8 w-12 items-center justify-center rounded-full transition-colors duration-(--duration-fast) [&_svg]:size-5 [&_svg]:stroke-[1.75]",
+                active ? "bg-accent-soft text-accent" : "group-hover:bg-subtle-2",
               )}
             >
               {t.icon}
             </span>
             {t.label}
             {t.id === "layers" && layerCount > 0 && (
-              <span className="tnum absolute top-0.5 right-2 min-w-4 rounded-full bg-ink px-1 text-center text-[9.5px] leading-4 font-semibold text-white">
+              <span className="tnum absolute top-0 right-1.5 min-w-4 rounded-full bg-inverse px-1 text-center text-badge font-semibold text-on-inverse">
                 {layerCount}
               </span>
             )}
@@ -91,6 +91,7 @@ export function SideRail({ horizontal = false, onPick }: { horizontal?: boolean;
 export function SidePanelContent({ onClose }: { onClose?: () => void }) {
   const tab = useEditor((s) => s.sidebarTab);
   const setPanelOpen = useEditor((s) => s.setPanelOpen);
+  const process = useEditor((s) => s.doc.page.process);
   const meta = TABS.find((t) => t.id === tab)!;
   const close = onClose ?? (() => setPanelOpen(false));
   return (
@@ -100,21 +101,22 @@ export function SidePanelContent({ onClose }: { onClose?: () => void }) {
         if (e.key === "Escape" && !(e.target as HTMLElement).closest("input")) close();
       }}
     >
-      <div className="flex h-12 shrink-0 items-center justify-between px-4">
-        <h2 className="text-[15px] font-semibold tracking-tight">{meta.title}</h2>
+      <div className="flex h-12 shrink-0 items-center justify-between pr-2 pl-(--panel-pad)">
+        <h2 className="text-subtitle font-semibold tracking-tight">{meta.title}</h2>
         <Tooltip label={onClose ? "Close" : "Hide panel"} shortcut={onClose ? undefined : "Ctrl /"}>
           <button
             type="button"
             aria-label="Close panel"
             onClick={close}
-            className="flex size-8 items-center justify-center rounded-md text-ink-muted hover:bg-subtle hover:text-ink"
+            className="flex size-8 items-center justify-center rounded-md text-ink-muted hover:bg-subtle-2 hover:text-ink"
           >
             {onClose ? <X className="size-4" /> : <ChevronsLeft className="size-4" />}
           </button>
         </Tooltip>
       </div>
       <div key={tab} className="scroll-thin min-h-0 flex-1 overflow-y-auto animate-fade">
-        {tab === "products" && <ProductsPanel />}
+        {/* Remount on a process change so the filter follows the page (stickers show sticker templates). */}
+        {tab === "products" && <ProductsPanel key={process} />}
         {tab === "designs" && <DesignsPanel />}
         {tab === "uploads" && <ImageUploader />}
         {tab === "layers" && <LayersPanel />}

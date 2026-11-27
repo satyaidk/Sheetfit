@@ -70,6 +70,30 @@ export type PrintProcess = "sublimation" | "dtf" | "sticker";
  */
 export type MirrorMode = "auto" | "on" | "off";
 
+/**
+ * How the printed stickers on a page are cut. It decides what is printed
+ * around each sticker and which downloads the export dialog offers:
+ * - `hand`        scissors or a craft knife: a thin line is printed along every cut path
+ * - `cricut`      Cricut Print Then Cut: artwork only; Design Space adds its own marks
+ * - `silhouette`  Silhouette Print & Cut: artwork only; Silhouette Studio adds its own marks
+ * - `file`        another cutting plotter or a print shop: vector cut lines in SVG and PDF
+ */
+export type CutMethod = "hand" | "cricut" | "silhouette" | "file";
+
+/** The line printed along every cut path when stickers are cut by hand. */
+export interface CutGuideStyle {
+  /** Line colour (hex). */
+  color: string;
+  /** Line width in mm. */
+  width: number;
+  /**
+   * `inside`: the whole line lies inside the cut path, so cutting along its
+   * outer edge leaves a thin, even outline on the sticker. `centre`: the line
+   * is centred on the cut path (cut through the middle of it).
+   */
+  placement: "inside" | "centre";
+}
+
 /** Marks drawn around designs in print and export (never part of the artwork). */
 export interface OutputGuides {
   /** Print each design's cut path as a thin proof line (hand trimming, proofs). */
@@ -109,6 +133,25 @@ export type CutThrough = "kiss" | "die";
 export interface ContourData {
   paths: number[][];
   generatedFor: { assetId: string; width: number; height: number; offset: number; key: string };
+}
+
+/**
+ * A lanyard or keychain strap printed on white sublimation ribbon (see
+ * `lib/layout/strap.ts`). The box is the strip of ribbon: its width is the
+ * ribbon width and its height the cut length. The printed image is composed
+ * from `sourceAssetId` with these settings.
+ */
+export interface StrapInfo {
+  /** Print on both halves, the second turned 180°, for straps folded at the middle. */
+  fold: boolean;
+  /** Artwork kept this far from each end (crimp or clamp), mm. */
+  endZone: number;
+  /** Once (centred), repeated along the strap, or filling it (cropped). */
+  mode: "once" | "repeat" | "fill";
+  /** Artwork turned to run along the strap (lanyard style) rather than across it. */
+  along: boolean;
+  /** The original artwork the strap image is composed from. */
+  sourceAssetId: string | null;
 }
 
 /**
@@ -155,6 +198,16 @@ export interface PageSettings {
   guides: OutputGuides;
   /** Cut around the whole carrier sheet (kiss-cut sticker sheets), at the margins. */
   sheetCut: boolean;
+  /** How stickers on this page are cut (sticker pages only); see `CutMethod`. */
+  cutMethod: CutMethod;
+  /** The printed cutting line used when `cutMethod` is `hand` (sticker pages only). */
+  cutGuide: CutGuideStyle;
+  /**
+   * Colour painted inside every cut path under the artwork, so a contour cut
+   * leaves an even sticker border (and transparent PNGs for cutter software
+   * keep it). `null` paints nothing. Sticker pages only.
+   */
+  borderFill: string | null;
 }
 
 export interface Design {
@@ -202,6 +255,8 @@ export interface Design {
   pairId: string | null;
   /** Cut path for print-and-cut and hand trimming; `null` cuts at the trim box. */
   cut: CutSpec | null;
+  /** Lanyard or keychain strap settings; `null` for every other design. */
+  strap: StrapInfo | null;
 }
 
 /** One page of a project: a sheet and the designs on it. */

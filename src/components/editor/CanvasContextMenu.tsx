@@ -38,7 +38,9 @@ import {
   FileOutput,
   Crop,
   LayoutGrid,
+  Grid2x2Plus,
 } from "lucide-react";
+import { toast } from "sonner";
 import { useEditor } from "@/store/editor-store";
 import {
   ContextMenu,
@@ -51,6 +53,18 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import type { AlignTarget } from "@/lib/layout/alignment";
+
+/** Fill the sheet with copies of one design and say what happened (shared by the pill and this menu). */
+export function fillWithToast(id: string) {
+  const r = useEditor.getState().fillSheet(id);
+  const spacing = useEditor.getState().doc.page.spacing;
+  if (r.placed > 0)
+    toast.success(`Sheet filled with ${r.placed} copies`, {
+      description: `${spacing} mm between cut lines${r.turned ? `, ${r.turned} turned to fit` : ""}. Nothing was resized.`,
+      action: { label: "Undo", onClick: () => useEditor.getState().undo() },
+    });
+  else if (r.suggestions[0]) toast.error(r.suggestions[0]);
+}
 
 export const ALIGN_ITEMS: { target: AlignTarget; label: string; icon: React.ReactNode }[] = [
   { target: "left", label: "Left", icon: <AlignStartVertical /> },
@@ -143,6 +157,11 @@ function MenuBody() {
       <ContextMenuItem onSelect={() => s().duplicateSelection()} shortcut="Ctrl D">
         <CopyPlus /> Duplicate
       </ContextMenuItem>
+      {picked.length === 1 && !first.pairId && (
+        <ContextMenuItem disabled={first.locked} onSelect={() => fillWithToast(first.id)}>
+          <Grid2x2Plus /> Fill sheet with copies
+        </ContextMenuItem>
+      )}
       <ContextMenuItem danger onSelect={() => s().deleteSelection()} shortcut="Del">
         <Trash2 /> Delete
       </ContextMenuItem>

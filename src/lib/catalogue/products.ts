@@ -23,8 +23,10 @@
 
 import type { CutSpec, PrintProcess } from "@/types/editor";
 import { smallestSheetFor, type SheetDefinition } from "./sheets";
+import type { OutlineKind } from "./blank-outlines";
+import { V10_PRODUCTS } from "./products-v10";
 
-export type ProductGroup = "drinkware" | "flat" | "keyring" | "id" | "apparel" | "accessory" | "sticker";
+export type ProductGroup = "drinkware" | "flat" | "ornament" | "keyring" | "id" | "decor" | "jewelry" | "apparel" | "accessory" | "sticker";
 
 /** Silhouette used for the reference illustration. */
 export type ProductArt =
@@ -61,7 +63,16 @@ export type ProductArt =
   | "onesie"
   | "cap"
   | "tote"
-  | "flag";
+  | "flag"
+  | "clock"
+  | "sign"
+  | "wall-panel"
+  | "clipboard"
+  | "pillow"
+  | "bracelet"
+  | "pendant"
+  | "cutting-board"
+  | "strap";
 
 export type Confidence = "high" | "medium" | "low";
 
@@ -103,6 +114,8 @@ export interface ProductPreset {
   checked?: string;
   /** Extra search words (keyring, bag tag, ID card...). */
   aliases?: string[];
+  /** Outline of a pre-cut shaped blank (heart, star...), drawn to its bounding size. */
+  outline?: OutlineKind;
 }
 
 const IN = 25.4;
@@ -153,8 +166,8 @@ export const PRODUCTS: ProductPreset[] = [
   { id: "keyring-oval-63x35", name: "Keyring", detail: "Oval 63 × 35 mm, aluminium", group: "keyring", processes: SUB, width: 63, height: 35, shape: "circle", wrap: false, bleed: 2, art: "keychain", sides: 2, supplier: TP, sku: "20UNI05917", material: "Unisub aluminium", checked: CHECKED, confidence: "high", source: "https://www.thetransferpress.co.uk/unisub-aluminium-keyring-oval-c2x17079630", aliases: ["keychain", "key ring"] },
   { id: "pet-tag", name: "Pet tag", detail: "Round 1.25 × 1.5 in", group: "keyring", processes: SUB, ...inch(1.25, 1.5), shape: "rect", wrap: false, bleed: 2, art: "pet-tag", sides: 2, confidence: "high", source: "https://swingdesign.com/products/unisub-sublimation-pet-tag-blanks-2-sided" },
   { id: "pet-tag-circle-31", name: "Pet tag", detail: "Circle 31 mm, aluminium", group: "keyring", processes: SUB, width: 31, height: 31, shape: "circle", wrap: false, bleed: 1.5, art: "pet-tag", sides: 1, supplier: TP, sku: "20UNI05773", material: "White aluminium", checked: CHECKED, confidence: "high", source: "https://www.thetransferpress.co.uk/unisub-pet-tag-circle-c2x17039184", note: "Printable on one side only. Supplied with a metal fixing ring.", aliases: ["dog tag"] },
-  { id: "pet-tag-heart-31", name: "Pet tag", detail: "Heart 31 × 31 mm, aluminium", group: "keyring", processes: SUB, width: 31, height: 31, shape: "rect", wrap: false, bleed: 1.5, art: "pet-tag", sides: 1, supplier: TP, sku: "20UNI05770", material: "White aluminium", checked: CHECKED, confidence: "high", source: "https://www.thetransferpress.co.uk/unisub-pet-tag-heart-c2x17039150", note: "Overall size 31 × 31 mm, one side. The heart outline is the blank's; the guide shows its bounding box.", aliases: ["dog tag"] },
-  { id: "pet-tag-bone-38x25", name: "Pet tag", detail: "Bone 38 × 25 mm, aluminium", group: "keyring", processes: SUB, width: 38, height: 25, shape: "rect", wrap: false, bleed: 1.5, art: "pet-tag", sides: 1, supplier: TP, sku: "20UNI05771", material: "White aluminium", checked: CHECKED, confidence: "high", source: "https://www.thetransferpress.co.uk/unisub-pet-tag-bone-c2x17039165", note: "38 × 25 mm at the widest and longest parts, one side. The bone outline is the blank's; the guide shows its bounding box.", aliases: ["dog tag", "dog bone"] },
+  { id: "pet-tag-heart-31", name: "Pet tag", detail: "Heart 31 × 31 mm, aluminium", group: "keyring", processes: SUB, width: 31, height: 31, shape: "rect", wrap: false, bleed: 1.5, art: "pet-tag", outline: "heart", sides: 1, supplier: TP, sku: "20UNI05770", material: "White aluminium", checked: CHECKED, confidence: "high", source: "https://www.thetransferpress.co.uk/unisub-pet-tag-heart-c2x17039150", note: "Overall size 31 × 31 mm, one side. The heart outline is drawn to that size as a guide; the blank defines the real edge.", aliases: ["dog tag"] },
+  { id: "pet-tag-bone-38x25", name: "Pet tag", detail: "Bone 38 × 25 mm, aluminium", group: "keyring", processes: SUB, width: 38, height: 25, shape: "rect", wrap: false, bleed: 1.5, art: "pet-tag", outline: "bone", sides: 1, supplier: TP, sku: "20UNI05771", material: "White aluminium", checked: CHECKED, confidence: "high", source: "https://www.thetransferpress.co.uk/unisub-pet-tag-bone-c2x17039165", note: "38 × 25 mm at the widest and longest parts, one side. The bone outline is drawn to that size as a guide; the blank defines the real edge.", aliases: ["dog tag", "dog bone"] },
   { id: "id-tag-alu", name: "ID tag", detail: "Aluminium 31.7 × 50.8 mm", group: "keyring", processes: SUB, width: 31.7, height: 50.8, shape: "rect", wrap: false, bleed: 1.5, art: "pet-tag", sides: 2, supplier: TP, sku: "20UNI05916", material: "Aluminium", checked: CHECKED, confidence: "high", source: "https://www.thetransferpress.co.uk/unisub-aluminium-id-tag-c2x21695591", note: "Sized 3.17 × 5.08 cm. Both-sides code 20UNI05916; one-side code 20UNI05588 (add no back). Out of stock when checked.", aliases: ["dog tag", "military tag", "equipment tag"] },
   { id: "luggage-tag", name: "Luggage tag", detail: "2.5 × 4.25 in", group: "keyring", processes: SUB, ...inch(2.5, 4.25), shape: "rect", wrap: false, bleed: 2, art: "luggage-tag", sides: 2, confidence: "high", source: "https://heatpressnation.com/products/unisub-sublimation-blank-bag-tag-rectangle-2-5-x-4-25-5-pack", aliases: ["bag tag"] },
   { id: "luggage-tag-44x88", name: "Luggage tag", detail: "44 × 88 mm", group: "keyring", processes: SUB, width: 44, height: 88, shape: "rect", wrap: false, bleed: 2, art: "luggage-tag", sides: 2, supplier: TP, sku: "20UNI05556", material: "Glossy plastic", checked: CHECKED, confidence: "high", source: "https://www.thetransferpress.co.uk/unisub-luggage-tags-c2x35720796", note: "Printable on both sides. Has a fastening slot (position not published); loops sold separately.", aliases: ["bag tag"] },
@@ -204,13 +217,19 @@ export const PRODUCTS: ProductPreset[] = [
   { id: "sticker-kiss-round-3", name: "Kiss-cut sticker", detail: "Round 3 in", group: "sticker", processes: STICKER, ...inch(3, 3), shape: "circle", wrap: false, bleed: 1.5, art: "sticker", cut: { shape: "ellipse", offset: 0, through: "kiss", safeInset: 3 }, checked: CHECKED, confidence: "medium", source: "https://www.stickermule.com/products/die-cut-stickers", note: "3 in is a size the source offers; the round shape and the 1.5 mm bleed and 3 mm safe area are starting values. Use your printer's specs.", aliases: ["circle", "label"] },
   { id: "sticker-kiss-square-3", name: "Kiss-cut sticker", detail: "Rounded square 3 in", group: "sticker", processes: STICKER, ...inch(3, 3), shape: "rect", wrap: false, bleed: 1.5, art: "sticker", cut: { shape: "rect", radius: 3, offset: 0, through: "kiss", safeInset: 3 }, checked: CHECKED, confidence: "medium", source: "https://www.stickermule.com/products/die-cut-stickers", note: "3 in is a size the source offers; radius, bleed and safe area are starting values. Use your printer's specs.", aliases: ["square", "label"] },
   { id: "garden-flag", name: "Garden flag", detail: "12 × 18 in", group: "accessory", processes: SUB, ...inch(12, 18), shape: "rect", wrap: false, bleed: 3, art: "flag", confidence: "medium", source: "https://help.gearment.com/en-us/article/flag-products-1xbyzzi", note: "Needs A3+ or a roll." },
+  // v0.10: ornaments, more keyrings and tags, coasters, desk mats, home decor,
+  // jewellery and DTF placements (see products-v10.ts for the sources).
+  ...V10_PRODUCTS,
 ];
 
 export const GROUP_LABELS: Record<ProductGroup, string> = {
   drinkware: "Drinkware",
   flat: "Flat goods",
+  ornament: "Ornaments",
   keyring: "Keyrings and tags",
   id: "ID cards and badges",
+  decor: "Home and decor",
+  jewelry: "Jewellery",
   apparel: "Apparel",
   accessory: "Accessories",
   sticker: "Stickers",

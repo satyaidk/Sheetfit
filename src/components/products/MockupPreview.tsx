@@ -68,13 +68,14 @@ export function ColorSwatches({
               aria-label={c.name}
               onClick={() => onChange(c)}
               className={cn(
-                "flex items-center justify-center rounded-full ring-1 ring-black/10 transition-transform hover:scale-110",
+                "flex items-center justify-center rounded-full ring-1 ring-ink/20 transition-transform hover:scale-110",
                 size === "sm" ? "size-6" : "size-7",
                 active && "ring-2 ring-accent ring-offset-2 ring-offset-surface",
               )}
               style={{ background: c.hex }}
             >
-              {active && <Check className={cn("size-3.5", c.dark ? "text-white" : "text-ink")} />}
+              {/* The mark follows the swatch colour (data), not the theme. */}
+              {active && <Check className={cn("size-3.5", c.dark ? "text-white" : "text-black/80")} />}
             </button>
           </Tooltip>
         );
@@ -119,7 +120,7 @@ export function ProductSection({ design }: { design: Design }) {
   return (
     <div className="flex flex-col gap-2.5">
       <div>
-        <p className="mb-1.5 text-[12px] font-medium text-ink-muted">
+        <p className="mb-1.5 text-caption font-medium text-ink-muted">
           Blank colour <span className="text-ink">{color.name}</span>
         </p>
         <div aria-label="Blank colour" role="group">
@@ -150,11 +151,11 @@ export function SampleStrip({ design }: { design: Design }) {
   return (
     <div>
       <div className="mb-1.5 flex items-center justify-between">
-        <p className="text-[12px] font-medium text-ink-muted">Try a sample design</p>
+        <p className="text-caption font-medium text-ink-muted">Try a sample design</p>
         <button
           type="button"
           onClick={() => setSeed(randomSeed())}
-          className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[12px] font-medium text-accent hover:bg-accent-soft"
+          className="flex items-center gap-1 rounded px-1.5 py-0.5 text-caption font-medium text-accent hover:bg-accent-soft"
         >
           <Shuffle className="size-3.5" /> Shuffle
         </button>
@@ -260,7 +261,7 @@ function MockupBody() {
       </DialogHeader>
       <div className="grid min-h-0 flex-1 overflow-y-auto md:grid-cols-[1fr_320px]">
         <div className="relative flex h-[min(560px,60vh)] min-h-[320px] items-center justify-center bg-[radial-gradient(circle_at_50%_40%,var(--surface),var(--subtle-2))]">
-          <div className="absolute top-3 left-3 z-10 rounded-lg bg-surface/95 shadow-sm">
+          <div className="absolute top-3 left-3 z-10 rounded-lg bg-surface/95 shadow-card">
             <Segmented<"3d" | "flat">
               ariaLabel="Preview type"
               value={view}
@@ -288,7 +289,7 @@ function MockupBody() {
           </div>
           )}
           {!image && (
-            <p className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-surface px-3 py-1 text-[12px] font-medium shadow">
+            <p className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-surface px-3 py-1 text-caption font-medium shadow-card">
               Add an image to the box to see it on the product
             </p>
           )}
@@ -297,7 +298,7 @@ function MockupBody() {
         <div className="flex flex-col gap-4 border-l border-line p-5">
           {!isProductBox && (
             <div>
-              <p className="mb-1.5 text-[12px] font-medium text-ink-muted">Show on</p>
+              <p className="mb-1.5 text-caption font-medium text-ink-muted">Show on</p>
               <div className="grid grid-cols-4 gap-1.5">
                 {PREVIEW_PRODUCTS.map((id) => {
                   const p = findProduct(id)!;
@@ -325,7 +326,7 @@ function MockupBody() {
           )}
 
           <div>
-            <p className="mb-1.5 text-[12px] font-medium text-ink-muted">
+            <p className="mb-1.5 text-caption font-medium text-ink-muted">
               Blank colour <span className="text-ink">{color.name}</span>
             </p>
             <ColorSwatches colors={colorsFor(product)} value={color} onChange={setColor} />
@@ -335,7 +336,7 @@ function MockupBody() {
           </div>
 
           {view === "3d" && (
-            <label className="flex items-center justify-between gap-3 text-[13px]">
+            <label className="flex items-center justify-between gap-3 text-body">
               <span className="flex items-center gap-1.5">
                 {spin ? <Pause className="size-3.5 text-ink-muted" /> : <Play className="size-3.5 text-ink-muted" />} Turn automatically
               </span>
@@ -345,7 +346,7 @@ function MockupBody() {
 
           {view === "flat" && product.wrap && (
             <div>
-              <div className="mb-1.5 flex items-center justify-between text-[12px] font-medium text-ink-muted">
+              <div className="mb-1.5 flex items-center justify-between text-caption font-medium text-ink-muted">
                 <span className="flex items-center gap-1">
                   <RotateCw className="size-3.5" /> Turn the {product.name.toLowerCase().includes("mug") ? "mug" : "product"}
                 </span>
@@ -356,20 +357,20 @@ function MockupBody() {
           )}
 
           {view === "flat" && (
-            <label className="flex items-center justify-between gap-3 text-[13px]">
+            <label className="flex items-center justify-between gap-3 text-body">
               Show print area
               <Switch checked={showArea} onCheckedChange={setShowArea} aria-label="Show print area" />
             </label>
           )}
 
           {!isProductBox && (
-            <p className="text-[12px] leading-relaxed text-ink-muted">
+            <p className="text-caption leading-relaxed text-ink-muted">
               This image is not in a product box, so it is shown scaled to the {product.detail.toLowerCase()} area. Add a
               product from Products to print it at that exact size.
             </p>
           )}
           {isProductBox && (
-            <p className="tnum text-[12px] text-ink-muted">
+            <p className="tnum text-caption text-ink-muted">
               Box on the sheet: {+size.width.toFixed(1)} × {+size.height.toFixed(1)} mm
               {product.wrap ? " including 6 mm seam overlap" : product.bleed ? ` including ${product.bleed} mm bleed` : ""}.
             </p>
@@ -377,7 +378,7 @@ function MockupBody() {
 
           {productBoxes.length > 1 && (
             <div>
-              <p className="mb-1.5 text-[12px] font-medium text-ink-muted">Other products on this page</p>
+              <p className="mb-1.5 text-caption font-medium text-ink-muted">Other products on this page</p>
               <div className="grid grid-cols-4 gap-1.5">
                 {productBoxes.map((d) => (
                   <OtherProduct key={d.id} design={d} active={d.id === design.id} />

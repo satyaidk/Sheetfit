@@ -56,6 +56,10 @@ export interface Product3DViewProps {
   toolbar?: boolean;
   /** Called when the user takes control (drags or uses the toolbar), e.g. to stop auto-rotation. */
   onInteract?: () => void;
+  /** A die-cut sticker's own outline (box-relative), so the model has the real shape. */
+  cutOutline?: number[] | null;
+  /** Kiss-cut stickers are shown on their backing sheet. */
+  kissCut?: boolean;
 }
 
 type View = "front" | "side" | "back";
@@ -129,7 +133,11 @@ export default function Product3DView({
   onModel,
   toolbar = true,
   onInteract,
+  cutOutline = null,
+  kissCut = false,
 }: Product3DViewProps) {
+  // Compared by value: callers build the outline array on every render.
+  const outlineKey = cutOutline && cutOutline.length >= 6 ? cutOutline.map((v) => v.toFixed(4)).join(",") : "";
   const root = useRef<HTMLDivElement>(null);
   const host = useRef<HTMLDivElement>(null);
   const interact = useRef(onInteract);
@@ -333,6 +341,8 @@ export default function Product3DView({
       const model = buildProductModel(product, {
         color,
         process,
+        cutOutline: outlineKey ? outlineKey.split(",").map(Number) : null,
+        kissCut,
         textures: {
           print: style === "overlay" ? null : artTex,
           overlay: style === "overlay" ? artTex : null,
@@ -401,7 +411,7 @@ export default function Product3DView({
     return () => {
       cancelled = true;
     };
-  }, [product, color, designUrl, process, onModel]);
+  }, [product, color, designUrl, process, onModel, outlineKey, kissCut]);
 
   useEffect(() => {
     interact.current = onInteract;
@@ -494,16 +504,16 @@ export default function Product3DView({
       data-loading={loading ? "true" : "false"}
     >
       <div ref={host} className="absolute inset-0" />
-      {error && <p className="absolute inset-x-6 top-1/2 -translate-y-1/2 rounded-lg bg-surface/95 p-3 text-center text-[13px] text-ink-muted shadow">{error}</p>}
+      {error && <p className="absolute inset-x-6 top-1/2 -translate-y-1/2 rounded-lg bg-surface/95 p-3 text-center text-body text-ink-muted shadow">{error}</p>}
       {loading && !error && (
-        <span className={cn("absolute top-3 left-1/2 -translate-x-1/2 rounded-full px-3 py-1 text-[12px] font-medium", backdrop.dark ? "bg-white/15 text-white" : "bg-white/80 text-ink-muted")}>
+        <span className={cn("absolute top-3 left-1/2 -translate-x-1/2 rounded-full px-3 py-1 text-caption font-medium", backdrop.dark ? "bg-white/15 text-white" : "bg-white/80 text-ink-muted")}>
           Building the 3D model…
         </span>
       )}
       {hint && toolbar && !loading && !error && (
         <span
           className={cn(
-            "pointer-events-none absolute top-3 left-1/2 -translate-x-1/2 rounded-full px-3 py-1 text-[12px] font-medium whitespace-nowrap animate-fade",
+            "pointer-events-none absolute top-3 left-1/2 -translate-x-1/2 rounded-full px-3 py-1 text-caption font-medium whitespace-nowrap animate-fade",
             backdrop.dark ? "bg-white/15 text-white" : "bg-white/85 text-ink-muted shadow-sm",
           )}
         >
@@ -526,7 +536,7 @@ export default function Product3DView({
               type="button"
               onClick={() => showView(v)}
               aria-label={`${v[0].toUpperCase()}${v.slice(1)} view`}
-              className={cn("h-7 rounded-full px-2.5 text-[12px] font-semibold capitalize", backdrop.dark ? "hover:bg-white/15" : "hover:bg-black/6")}
+              className={cn("h-7 rounded-full px-2.5 text-caption font-semibold capitalize", backdrop.dark ? "hover:bg-white/15" : "hover:bg-black/6")}
             >
               {v}
             </button>

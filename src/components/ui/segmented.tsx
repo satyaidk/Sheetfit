@@ -22,7 +22,7 @@ export function Segmented<T extends string>({
       value={value}
       aria-label={ariaLabel}
       onValueChange={(v) => v && onValueChange(v as T)}
-      className={cn("flex h-8 rounded-md border border-line bg-subtle-2 p-0.5", className)}
+      className={cn("flex h-(--control-h) rounded-md bg-subtle-2 p-0.5", className)}
     >
       {options.map((o) => (
         <ToggleGroup.Item
@@ -30,7 +30,7 @@ export function Segmented<T extends string>({
           value={o.value}
           title={o.title}
           aria-label={o.title}
-          className="flex flex-1 items-center justify-center gap-1 rounded-[4px] px-2 text-[12px] font-medium text-ink-muted transition-colors hover:text-ink data-[state=on]:bg-surface data-[state=on]:text-ink data-[state=on]:shadow-[0_0_0_1px_var(--line)] [&_svg]:size-3.5"
+          className="flex flex-1 items-center justify-center gap-1 rounded-[6px] px-2 text-caption font-medium text-ink-muted transition-colors duration-(--duration-fast) hover:text-ink data-[state=on]:bg-control-selected data-[state=on]:text-ink data-[state=on]:shadow-card [&_svg]:size-3.5"
         >
           {o.label}
         </ToggleGroup.Item>

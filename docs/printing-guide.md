@@ -55,3 +55,36 @@ Auto mirrors sublimation and does not mirror DTF or stickers. The effective resu
   marks their own software adds.
 - Card gaps are measured between cut lines. If the bleed of two cards would touch, the gap widens automatically.
 - Supplier specifications for bleed, safe area and spacing take precedence over Sheetfit's starting values.
+
+## Stickers: cutting by hand (v0.10)
+
+New sticker pages are set to **By hand**. Every sticker gets its outline automatically after the upload, a white
+border (3 mm by default) and a thin black line (0.25 mm) printed just inside the cut.
+
+1. Print the PDF at 100 % on white sticker paper (matte, glossy or vinyl). For thin lines and small text choose
+   **High, 600 DPI** in the print dialog, or download the PDF (vectors at any size).
+2. Laminate first if you want to; let it dry.
+3. Cut just outside the black line with sharp scissors; use a craft knife for tight inner curves. Rounded outlines and
+   at least 3 mm between stickers keep the blades off the next sticker.
+4. Change the line colour (black, dark or light grey), thickness (hairline to bold) or where it sits (inside the edge
+   or on the cut) in **Cut → Cutting line**. Change the border in **Cut → Sticker outline**, for one sticker or all.
+
+## Stickers: Cricut and Silhouette (v0.10)
+
+Choose **Cricut** or **Silhouette** in **Cut → How will you cut?**. No line is printed; the sticker border stays white.
+
+- **Cricut Print Then Cut.** On A4 or US Letter the dashed rectangle is the largest Print Then Cut image
+  (7.2 × 10.62 in on A4, 7.44 × 9.94 in on Letter). **Use it as the printable area**, then Fill sheet or Auto Arrange.
+  Download **Cutter PNG** (only the stickers, transparent, 300 DPI), upload it to Design Space as a Print Then Cut
+  image, set its size to the inches shown in the download dialog, and print from Design Space. Design Space adds the
+  registration marks. The dialog warns if the stickers are larger than the Print Then Cut limit.
+- **Silhouette.** Download the Cutter PNG (or the SVG cut file with Designer Edition), set its size in Studio, trace
+  the outer edge or use the cut file, turn on registration marks and match Page Setup to your paper.
+
+## Lanyard and keychain straps (v0.10)
+
+Open **Products → Lanyard and keychain straps** (or choose it when starting). Pick 12, 16 or 20 mm (or type a width),
+type your strap's cut length, add the artwork and choose once, repeated or filling the strap. **Both faces** turns the
+second half upside down, so a strap folded through a ring reads upright on both sides. The sheet is filled with as many
+strips as fit, with your gap between them, and printed mirrored like any sublimation transfer: lay pieces of white
+sublimation ribbon on the printed strips and press.

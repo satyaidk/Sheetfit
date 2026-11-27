@@ -1,6 +1,9 @@
 "use client";
 
-/** Keyboard shortcut sheet (`?`), grouped like Canva's: Basics, Designs, View, Sheet. */
+/**
+ * Keyboard shortcut sheet (`?`), grouped: Basics, Designs, View, Placing.
+ * Menu items show the same shortcuts the platform's way (Cmd on a Mac).
+ */
 
 import { useEditor } from "@/store/editor-store";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -10,10 +13,12 @@ export const SHORTCUTS: { group: string; items: [string, string[]][] }[] = [
   {
     group: "Basics",
     items: [
+      ["Search actions and products", ["Ctrl", "K"]],
       ["Undo", ["Ctrl", "Z"]],
       ["Redo", ["Ctrl", "Shift", "Z"]],
       ["Save in browser", ["Ctrl", "S"]],
       ["Print", ["Ctrl", "P"]],
+      ["Download for print", ["Ctrl", "Shift", "E"]],
       ["Show or hide side panel", ["Ctrl", "/"]],
       ["Shortcuts", ["?"]],
     ],
@@ -71,10 +76,10 @@ export function ShortcutsDialog() {
         <div className="scroll-thin grid min-h-0 flex-1 gap-x-8 gap-y-5 overflow-y-auto p-5 sm:grid-cols-2">
           {SHORTCUTS.map((g) => (
             <section key={g.group}>
-              <h3 className="mb-2 text-[12px] font-semibold text-ink-muted">{g.group}</h3>
+              <h3 className="mb-2 text-caption font-semibold text-ink-muted">{g.group}</h3>
               <dl className="flex flex-col gap-1.5">
                 {g.items.map(([label, keys]) => (
-                  <div key={label} className="flex items-center justify-between gap-3 text-[13px]">
+                  <div key={label} className="flex items-center justify-between gap-3 text-body">
                     <dt>{label}</dt>
                     <dd className="flex shrink-0 gap-1">
                       {keys.map((k) => (

@@ -4,24 +4,26 @@
 
 # Sheetfit
 
-**A Canva-style editor for sublimation and DTF print sheets. Every design printed whole, at its true size.**
+**A Canva-style editor for sublimation, DTF and sticker print sheets. Every design printed whole, at its true size.**
 
 [![CI](https://github.com/satyaidk/Sheetfit/actions/workflows/ci.yml/badge.svg)](https://github.com/satyaidk/Sheetfit/actions/workflows/ci.yml)
 ![Node](https://img.shields.io/badge/node-%E2%89%A520.9-339933?logo=node.js&logoColor=white)
 ![Next.js](https://img.shields.io/badge/Next.js-16.4-000000?logo=nextdotjs)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)
-![Coverage](https://img.shields.io/badge/coverage-93%25%20lines-18804a)
+![Coverage](https://img.shields.io/badge/coverage-95%25%20lines-18804a)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 [Overview](#overview) · [Features](#key-features) · [Architecture](#architecture) · [Getting started](#getting-started) · [Testing](#testing--quality) · [Design decisions](#design-decisions-adrs) · [Docs](#documentation) · [Status](AGENTS.md)
 
-<img src="docs/images/editor.png" alt="Sheetfit editor: the sample A4 sheet with a mug wrap selected, the live 3D preview of the mug docked beside it, product cards showing rendered 3D products on the left and the properties panel on the right" width="900" />
+<img src="docs/images/editor.png" alt="Sheetfit editor: the sample sheet with a mug wrap selected, the live 3D preview of the mug docked beside it, product cards on the left and the tabbed properties panel on the right" width="900" />
 
 </div>
 
 ## Overview
 
-Sheetfit is a browser-based layout editor for sublimation and DTF printing. You pick what you are printing (an 11 oz mug wrap, a 20 oz tumbler, a left-chest transfer, or any custom size), drop images into product templates at their real print size, and arrange them on a sheet: A4, A3, US Letter, US Legal, A3+ or a 22 in DTF gang sheet. The output is a print-ready PDF, PNG or JPEG in which every design has exactly that physical size and position, mirrored for sublimation transfers and left unmirrored for DTF.
+Sheetfit is a browser-based layout editor for sublimation, DTF and sticker printing. You pick what you are printing (an 11 oz mug wrap, a 20 oz tumbler, a heart ornament, a left-chest transfer, a sheet of stickers, keychain straps, or any custom size), drop images into product templates at their real print size, and fill a sheet: A4, A3, US Letter, US Legal, A3+ or a 22 in DTF gang sheet. The output is a print-ready PDF, PNG or JPEG in which every design has exactly that physical size and position, mirrored for sublimation transfers and left unmirrored for DTF and stickers.
+
+Stickers get their cut outline the moment they are uploaded, from the image's transparency or, for a JPEG on a plain background, from the background itself. Cut them by hand along a thin printed line, or send a transparent PNG to a Cricut or Silhouette. **Fill sheet** repeats any design as many times as fit and says how many before it does.
 
 Clicking a product starts a design for that product on the sheet it needs, with a live preview of the product docked beside the canvas that updates as you work. Switching to another product asks whether to save or discard the current design (or add the product to the current sheet instead), so designs for different products are never merged by accident. A project can also have several pages, each with its own sheet, for gang sheets that mix sizes. Every product can be inspected as an interactive 3D model at its real size, with the design on it, in any blank colour.
 
@@ -35,27 +37,31 @@ Everything runs in the browser. There is no account, no server and no upload: im
 
 - **Non-cropping fitting engine.** Six modes: fit entire image (default), fit width, fit height, fill remaining space with a colour, manual scale, and stretch. Stretch requires confirmation; cropping is a separate switch that is off by default and never alters the source file.
 - **Physical units throughout.** The document model is millimetres. Inputs accept mm, cm, inches or pixels (at the export DPI), with an aspect-ratio lock that derives the other side from the image.
-- **73 product templates.** Mugs, tumblers, cans, bottles, coasters, mouse pads, ornaments, keyrings, pet, ID and luggage tags, name badges, two-sided ID cards, stickers, panels, puzzles, plates, and T-shirt, hoodie, kids, cap and tote placements. Sizes come from blank suppliers and DTF placement guides, each with its source and a confidence level, and stay editable. Each card shows an original illustration of the product in a blank colour with a sample design on it, and a new mix of designs appears every time the panel opens.
+- **131 product templates.** Mugs, tumblers, cans, bottles, coasters and car coasters, mouse pads and desk mats, ornaments in 16 shapes and sizes (star, tree, heart, bell, snowflake, bone, cross...), keyrings, pet, ID, bag and luggage tags, magnets, name badges, two-sided ID cards, stickers, panels, wood prints, clocks, signs, clipboards, pillow covers, glass cutting boards, cuff bracelets, pendants, puzzles, plates, and T-shirt, sweatshirt, hoodie, jacket, tank, kids, cap and tote placements. Sizes come from blank suppliers and DTF placement guides, each with its source, product code, date checked and a confidence level ([sources](docs/catalogue-sources.md)), and stay editable. Shaped blanks show their real outline on the sheet and in 3D.
+- **Stickers, cut by hand or by machine.** Choose how you cut ([ADR 0018](docs/adr/0018-sticker-cut-methods-and-printed-cutting-line.md)). By hand: every sticker gets a white border and a thin black cutting line (0.25 mm, inside the cut, adjustable) in the PDF, PNG and print, with rounded one-piece outlines that scissors can follow. Cricut or Silhouette: a transparent 300 DPI cutter PNG with white borders and no line, the Cricut Print Then Cut area shown on the sheet, and import steps with the exact size. Outlines are added automatically after every upload, from transparency or a plain background; a busy photo is cut as a rounded rectangle and you are told why.
+- **Fill sheet for every product.** One click fills the free space with copies of any design, at the sheet's spacing between cut lines, in a clean centred grid (turned copies only where they fit more). The count is shown first, filling twice gives the same sheet, and "Exactly N" adds pages for the rest ([ADR 0019](docs/adr/0019-fill-sheet-step-and-repeat.md)). Add an image to one empty product box and the other empty boxes of that product get it too.
+- **Lanyard and keychain straps.** Pick 12, 16 or 20 mm white sublimation ribbon (or any width) and your strap length; the artwork is placed once, repeated or filling the strap, turned along it, with the second half upside down for straps folded through a ring. The dialog shows how many fit on A4 and previews one strap, then fills the sheet at 600 DPI ([ADR 0020](docs/adr/0020-straps-on-transfer-sheets.md)).
+- **Remove background and trim.** Make a white or flat background transparent (DTF would print it as a box; white inside the artwork stays), and trim empty transparent margins so designs pack tighter, keeping their printed size.
+- **A layout that adapts.** Below 1280 px only one side panel shows at a time, the 3D preview folds away when the canvas is narrow, the quick-actions bar adapts to the canvas width, and the inspector has three tabs (Design, Arrange, Cut) instead of one long scroll ([ADR 0021](docs/adr/0021-adaptive-editor-layout-and-tabbed-inspector.md)). With nothing selected it shows the next step.
 - **A design per product.** Clicking a template opens a new design on the smallest sheet that holds it, with the empty product box zoomed to fill the canvas and labelled with its exact size. If the current design has work in it, a dialog offers Save and open, Discard and open, Add to this sheet, or Cancel. The "+" on each card adds the product to the current sheet directly.
 - **Product boxes.** A template becomes an empty box at its print size (with bleed for flat goods and seam overlap for wraps); drop an image onto it, or pick one from Uploads, and it is fitted whole.
 - **Live product preview.** A preview docked on the canvas shows the selected product (or the first one on the page) with the design on it, in the chosen blank colour, and stays visible while designing.
 - **Sheet size dropdown.** A grouped dropdown (paper, DTF gang sheets and rolls, custom) in the header, the Sheet panel and the start dialog, with each sheet's size and typical use. If designs end up off a smaller sheet, a notice offers Undo.
 - **Pages, each with its own sheet.** A4, US Letter, US Legal, A3, A3+ and 22 in DTF gang sheets, or a custom size, per page. A template goes into the first free spot on the current page; one that is too big, or printed with the other process, gets a new page with the smallest sheet that holds it, so other designs never change sheet. Pages can be added, duplicated and deleted from the page strip, and designs moved between them from the right-click menu.
 - **Realistic product pictures.** Every card, list and dialog shows a render of the product's own 3D model with a sample design, not a line drawing; small placements (left chest, sleeve, pocket, neck label, cap front) add a detail inset. The editor's live preview shows your design on the 3D model as you work.
-- **3D model of every product.** All 73 templates have a procedural 3D model at real size (three.js): glazed mugs with handles, steel tumblers with lids and straws, glass cans, bottles, bevelled coasters with cork backs, tags on rings, aluminium panels, real garment T-shirts (crew neck with a ribbed collar, set-in sleeves, seams, hems, fabric with an inside, folds; see [the T-shirt model](docs/models/tshirt.md)), padded hoodies with drape, caps with the print on the crown, totes and flags. The design is applied the way each process prints (sublimation dye blends into the blank, DTF sits on top as a film). Drag to turn, scroll to zoom, jump to the front, side or back, go full screen, auto-rotate, save an image; the backdrop adapts to the blank colour for contrast. three.js loads only when a 3D view opens.
+- **3D model of every product.** All 131 templates have a procedural 3D model at real size (three.js), plus die-cut stickers in their own traced shape and keychain straps: glazed mugs with handles, steel tumblers with lids and straws, glass cans, bottles, bevelled coasters with cork backs, tags on rings, aluminium panels, real garment T-shirts (crew neck with a ribbed collar, set-in sleeves, seams, hems, fabric with an inside, folds; see [the T-shirt model](docs/models/tshirt.md)), padded hoodies with drape, structured six-panel caps with a curved brim, shaped ornaments extruded from their outline, cuff bracelets, pillows, clocks, signs, totes and flags. The design is applied the way each process prints (sublimation dye blends into the blank, DTF sits on top as a film). Drag to turn, scroll to zoom, jump to the front, side or back, go full screen, auto-rotate, save an image; the backdrop adapts to the blank colour for contrast. three.js loads only when a 3D view opens.
 - **Large product previews.** See a product box on the mug, tumbler, shirt, cap or tote in any blank colour, turn a wrap around 360°, show the print area, and download the preview as a 1600 × 1600 px PNG for a customer. Sublimation previews blend the design with the blank colour (the dye is transparent) and warn on dark blanks; DTF previews print opaque.
 - **Sample designs.** Original emblems and patterns generated in the browser (no network, free to print), redrawn at the shape of the selected box. Fill a product box with one click from the Designs panel or the properties panel.
 - **Processes and an explicit mirror.** Sublimation, DTF and stickers. Output mirroring is Auto (process default), On or Off per page, shown and changeable in the download and print dialog with what to set in the printer driver, and applied exactly once in the file ([ADR 0014](docs/adr/0014-explicit-output-mirror.md)).
 - **Fill a fixed box, crop non-destructively.** "Fill box (crop)" covers a product's print area without distortion and leaves out only the excess; crop mode pans and zooms the photo inside the fixed box (drag, pinch, wheel, or a press and hold on touch) and warns when zooming lowers the effective DPI ([ADR 0015](docs/adr/0015-cover-fill-and-crop-view.md)).
 - **Two-sided cards and cut lines.** A CR80 card can have a front and a back, printed side by side with a set gap between cut paths; one image stays one-sided. Cut paths (rectangle, rounded, ellipse, or traced from a PNG's transparency), kiss or die cut, proof cut lines, centre marks, generic registration squares and an SVG cut file in millimetres ([ADR 0016](docs/adr/0016-cut-paths-cards-and-stickers.md)).
 - **Auto Arrange.** MaxRects packing of mixed sizes with the gap measured between cut paths, locked and unselected designs as obstacles, card pairs kept together, optional 90° turns and extra pages, a summary before applying, and one undo step ([ADR 0017](docs/adr/0017-maxrects-auto-arrange.md)).
-- **Stickers and lanyard ribbon.** Die-cut and kiss-cut sticker templates, quantities packed automatically, kiss-cut sheet outlines; a lanyard ribbon roll layout for ID-card straps and keychain wristlets using the ribbon sizes you enter.
 - **Canva-style editing.** Round and pill resize handles, magenta snap guides, live gap measurements in mm, space-drag panning, Shift+2/3 zoom to sheet or selection, a layers panel with drag-to-reorder, flip, distribute, group, lock, and Canva's keyboard shortcuts (`?` shows them all).
 - **Sheet tools.** Portrait and landscape, per-side margins, printable-area guides, millimetre rulers, an optional grid, crop marks, and an option that keeps designs inside the margins.
-- **Multiple designs per sheet.** Duplicate, copy and paste, multi-select, group, align, repeat a design in a grid ("fill sheet"), and auto-arrange mixed sizes without overlap. Layouts never resize anything; if designs do not fit, the editor says how many were left over and which change (orientation, spacing, margins) would help, checked by re-running the layout.
+- **Multiple designs per sheet.** Duplicate, copy and paste, multi-select, group, align, fill the sheet with one design, and auto-arrange mixed sizes without overlap. Layouts never resize anything; if designs do not fit, the editor says how many were left over and which change (orientation, spacing, margins) would help, checked by re-running the layout.
 - **Print-quality checks.** Effective DPI for each design at its printed size in the quick-actions bar and on the canvas, plus a pre-print check before export that lists designs off the sheet, in the margins, overlapping, low-resolution, stretched or still empty. Click an issue to select the design.
 - **Exports.** One PDF with a page per project page, each at its exact sheet size (A4 is 595.276 × 841.890 pt), with designs placed as vectors and PNG/JPEG sources embedded without recompression; PNG with transparency and JPEG at 150, 300 or 600 DPI with the DPI written into the file metadata, one file per page. All pages or only the current one.
-- **Browser printing at actual size.** A print-only render with one CSS named `@page` per sheet size and zero margins, and step-by-step guidance for the print dialog.
+- **Browser printing at actual size.** A print-only render at 300 or 600 DPI with one CSS named `@page` per sheet size and zero margins, and step-by-step guidance for the print dialog.
 - **Landing page with real prints.** Photos of sublimated and DTF-printed products (Unsplash and Pexels, credited), a four-step "how it works" with an interactive product and colour preview, and the facts that separate sublimation from DTF.
 - **Local projects.** Save, reopen, duplicate and delete projects in IndexedDB, including the original image files, or export a portable `.sheetfit` project file to continue on another computer.
 
@@ -64,6 +70,14 @@ Everything runs in the browser. There is no account, no server and no upload: im
 | 3D: 11 oz mug | 3D: T-shirt, full front | 3D: every product |
 | --- | --- | --- |
 | <img src="docs/images/3d-mug.png" alt="3D model of an 11 oz mug with a printed wrap, glazed ceramic, on a blue-grey backdrop" width="300" /> | <img src="docs/images/3d-tee-angles.png" alt="3D T-shirt with a full-front print from the front, three-quarter, side and back: crew neck, ribbed collar, set-in sleeves, folded hems" width="300" /> | <img src="docs/images/3d-gallery.png" alt="Grid of 3D renders of all 52 product templates" width="300" /> |
+
+| Stickers cut by hand | A JPEG on white, outlined | A 1366 px laptop |
+| --- | --- | --- |
+| <img src="docs/images/stickers-hand-cut.png" alt="A4 sticker sheet filled with six stickers, each with a white border and a thin black cutting line; the Cut tab shows By hand chosen and the line settings" width="300" /> | <img src="docs/images/sticker-jpeg-outline.png" alt="A JPEG badge on a white background placed on a sticker page, with a traced outline following the badge and the star instead of the rectangle" width="300" /> | <img src="docs/images/editor-1366.png" alt="The editor at 1366 by 768: narrower panels, the tabbed inspector and the 3D preview folded into a pill, so the sheet keeps most of the canvas" width="300" /> |
+
+| Keychain straps | 21 straps on A4 | Cricut cutter PNG |
+| --- | --- | --- |
+| <img src="docs/images/straps-dialog.png" alt="Lanyard and keychain straps dialog: 16 mm chosen, 130 mm length, repeat along a folded strap, 21 straps per A4 with a sheet and strap preview" width="300" /> | <img src="docs/images/straps-sheet.png" alt="An A4 sublimation sheet filled with 21 printed strap strips, mirrored output" width="300" /> | <img src="docs/images/cricut-export.png" alt="Download dialog for a Cricut sticker page: Cutter PNG chosen, transparent preview and Design Space steps with the exact size in inches" width="300" /> |
 
 | Live preview while designing | Switching product asks first | Sheet size dropdown |
 | --- | --- | --- |
@@ -154,13 +168,15 @@ npm run start      # serve the production build
 
 ## Usage
 
-1. Open `/editor`. On first visit, **What are you printing?** asks for the process (sublimation or DTF), the sheet, and optionally a starter product.
+1. Open `/editor`. On first visit, **What are you printing?** asks what you print (sublimation, DTF, stickers, or lanyard and keychain straps), the sheet, and optionally a starter product.
 2. Open **Products** and click a template, such as **Mug 11 oz, full wrap** or **T-shirt, full front**. A new design opens on the sheet the product needs, with the empty box zoomed to fill the canvas and the live preview docked beside it. If your current design has work in it, you are asked to save it, discard it, or add the product to the current sheet instead. To build a gang sheet, use the **+** on a card: the product goes into the first free spot, or onto a new page with the right sheet if it does not fit.
 3. Drop an image onto the box, drag one from **Uploads**, click **Add image** in the quick-actions bar, or pick a sample from **Designs**. The image is fitted whole; nothing is cropped.
 4. Watch the live preview as you design. Pick a blank colour there, or open the large preview to turn a mug or tumbler around and download the preview.
 5. For any other size, use **Custom size** in Products, or drop images straight onto the sheet. They are placed at their native size at 300 DPI.
-6. Change the sheet from the dropdown in the header. Switch pages in the strip under the canvas (Page Up / Page Down). Arrange with drag (live gaps in mm), arrow keys (1 mm, Shift for 10 mm), the **Position** menu, **Arrange all**, or **Repeat on sheet** in the properties panel.
-7. Check the DPI badge in the quick-actions bar, then click **Download** for PDF, PNG, JPEG or a `.sheetfit` file, or **Print**, for all pages or the current one. The pre-print check lists anything that would spoil the print, page by page.
+6. Change the sheet from the dropdown in the header. Switch pages in the strip under the canvas (Page Up / Page Down). Arrange with drag (live gaps in mm), arrow keys (1 mm, Shift for 10 mm), the **Position** menu, **Auto Arrange**, or **Fill sheet** (quick-actions bar, right-click, or the Arrange tab, with the count shown).
+7. **Stickers**: upload any image on a sticker page and the outline is added. Choose **By hand**, **Cricut**, **Silhouette** or a cutter file in the **Cut** tab; adjust the border and the cutting line there.
+8. **Straps**: Products → **Lanyard and keychain straps**. Pick 12, 16 or 20 mm, type your strap length, add the artwork, and lay out the sheet.
+9. Check the DPI badge in the quick-actions bar, then click **Download** for PDF, PNG, JPEG or a `.sheetfit` file, or **Print**, for all pages or the current one. The pre-print check lists anything that would spoil the print, page by page.
 
 Press `?` for every keyboard shortcut.
 
@@ -177,9 +193,10 @@ src/
     export/               Export and print dialog
     ui/                   shadcn/ui-style primitives on Radix
   lib/
-    catalogue/            Sheets, the 73 product presets (sizes, bleed, sources), blank colours, sample designs
+    catalogue/            Sheets, the 131 product presets (sizes, bleed, sources), shaped-blank outlines, blank colours, sample designs
+    cut/                  Cut paths, alpha contours, cut methods (hand, Cricut, Silhouette)
     image/                Fitting engine, resolution checks, file decoding
-    layout/               Units, sheet geometry, product placement, alignment, snapping, gaps, auto-arrange
+    layout/               Units, sheet geometry, product placement, alignment, snapping, gaps, auto-arrange, fill sheet, straps
     render/               Render plan shared by every output
     export/               Canvas rasteriser, PDF builder, DPI metadata, pre-print check, printing
     storage/              IndexedDB persistence, .sheetfit files, migrations
@@ -204,11 +221,11 @@ npm run test:coverage  # Vitest with V8 coverage and thresholds
 npm run check          # all of the above plus a production build
 ```
 
-The suite has 287 tests in 18 files. v0.9 added three suites: output correctness (mirror modes checked point by point in parsed PDF content and on a recording canvas, fill and crop geometry, cut paths, alpha contours, SVG cut files), Auto Arrange and two-sided cards (seeded random jobs checked for overlap, spacing between cut paths, margins and unchanged sizes; undo across added pages; save and reopen), and the catalogue schema and lanyard strip layout. Earlier suites cover product pictures (one per template, detail crops for small placements), the home page's example sheets and editor links, 3D models (every product built and size-checked, print mapping, backdrop contrast for every blank colour), fitting, units, sheets, the product catalogue, product placement and free-spot search, product designs and the save-or-discard rules, pages with per-page history, layout, snapping, live gaps, distribution, auto-arrange, the render plan with mirroring and flips, single- and multi-page PDF export, print page rules, DPI metadata, the pre-print check, sample designs, blank colours, file validation, migrations, IndexedDB storage, project files and the editor store. It includes every scenario listed in the original specification, for example a square logo in a 90 × 60 mm box, an extremely wide logo, a low-resolution image at 300 DPI, A4 portrait and landscape PDFs, and an image placed at a known coordinate. A property-style test checks that no non-distorting mode ever places image pixels outside the box.
+The suite has 335 tests in 20 files. v0.10 added two suites: sticker cutting and Fill sheet (migration of old pages, the cutting line and white border checked in the render plan, in the calls `drawPlan` makes, in PDF operators and in SVG text; plain-background detection on synthetic images; outline closing; fill grids checked for overlap, spacing and margins; refilling; exact quantities over pages and one undo step) and catalogue, straps and 3D (sources and sizes of the 58 new templates, every outline a simple polygon, strap folds and art placement, strap layouts on A4, the new 3D builders, the die-cut sticker model and the live preview choice). v0.9 added three suites: output correctness (mirror modes checked point by point in parsed PDF content and on a recording canvas, fill and crop geometry, cut paths, alpha contours, SVG cut files), Auto Arrange and two-sided cards (seeded random jobs checked for overlap, spacing between cut paths, margins and unchanged sizes; undo across added pages; save and reopen), and the catalogue schema and lanyard strip layout. Earlier suites cover product pictures (one per template, detail crops for small placements), the home page's example sheets and editor links, 3D models (every product built and size-checked, print mapping, backdrop contrast for every blank colour), fitting, units, sheets, the product catalogue, product placement and free-spot search, product designs and the save-or-discard rules, pages with per-page history, layout, snapping, live gaps, distribution, auto-arrange, the render plan with mirroring and flips, single- and multi-page PDF export, print page rules, DPI metadata, the pre-print check, sample designs, blank colours, file validation, migrations, IndexedDB storage, project files and the editor store. It includes every scenario listed in the original specification, for example a square logo in a 90 × 60 mm box, an extremely wide logo, a low-resolution image at 300 DPI, A4 portrait and landscape PDFs, and an image placed at a known coordinate. A property-style test checks that no non-distorting mode ever places image pixels outside the box.
 
-Coverage is measured over the domain, export and store layers (`src/lib`, `src/store`), excluding browser-only glue that needs a real DOM canvas: 94.85% of lines, 93.02% of statements, 80.89% of branches and 91.77% of functions. CI enforces minimums of 80% lines, statements and functions and 65% branches.
+Coverage is measured over the domain, export and store layers (`src/lib`, `src/store`), excluding browser-only glue that needs a real DOM canvas: 95.3% of lines, 93.6% of statements, 82.53% of branches and 92.2% of functions. CI enforces minimums of 80% lines, statements and functions and 65% branches.
 
-The v0.9 print-and-cut work has its own browser script in the repository, `scripts/e2e/v9func.mjs`: 28 checks against the production build (two-sided cards, the mirror verified in downloaded PDF files, crop mode with mouse and touch long-press, Auto Arrange of 11 mixed images, a traced sticker contour exported as an SVG cut file in millimetres, the lanyard roll layout), all passing with no console errors.
+The v0.10 work has its own browser script, `scripts/e2e/v10func.mjs`: 24 checks against the production build (automatic outlines for a transparent PNG and a JPEG on white, the cutting line and white border in a downloaded PDF, Fill sheet and refilling, the Cricut cutter PNG cropped inside the Print Then Cut limit and transparent, 21 straps on A4, one side panel at 1024 px, Remove background and Trim empty edges, the 600 DPI print option), all passing with no console errors. The v0.9 print-and-cut work has `scripts/e2e/v9func.mjs`: 28 checks against the production build (two-sided cards, the mirror verified in downloaded PDF files, crop mode with mouse and touch long-press, Auto Arrange of 11 mixed images, a traced sticker contour exported as an SVG cut file in millimetres, the lanyard roll layout), all passing with no console errors.
 
 Browser-only paths (landing page, Konva interaction, canvas export, file upload, IndexedDB round trip, printing, previews, 3D viewer, dialogs and dropdowns) were verified end to end in headless Chrome against the production build: 48 scripted checks for the whole app and 32 for the home page, all passing, with no console errors. A third script opens the 3D view of all 52 products and checks that each one renders. See [Evaluation](#evaluation).
 
@@ -251,6 +268,14 @@ Measured in headless Chrome against `npm run build && npm run start`, on the sam
 | v0.5: Save 3D image in the large preview | Downloads `skinny-tumbler-30-oz-straight-wrap-white-3d.png` |
 | v0.5: Escape in the 3D viewer | Closes the viewer; the side panel behind it stays open |
 | Mobile viewport (390 × 844) | No horizontal overflow |
+| v0.10: sticker upload (transparent PNG) | Outline traced automatically, one closed path; PDF has the white border (`f*`) before the image and a clipped 0.25 mm black line (`W* n`, `0.5 w`) after it |
+| v0.10: JPEG badge on white on a sticker page | Shaped outline (background found), not a rectangle |
+| v0.10: Fill sheet with a 3 × 3 in die-cut sticker on A4 | 6 copies; filling again keeps 6 |
+| v0.10: Cricut cutter PNG of six 3 in stickers | Cropped to the stickers: 1824 × 2740 px RGBA (6.08 × 9.13 in, inside the 7.2 × 10.62 in limit), transparent corner, opaque stickers |
+| v0.10: 16 × 130 mm keychain straps on A4, 3 mm gap | 21 straps, mirrored output |
+| v0.10: inspector for one sticker at 1440 × 900 | Design tab 1,174 px tall (v0.9: 2,853 px for one long inspector) |
+| v0.10: sample sheet at 1024 × 768 | A selection shows the inspector and folds the side panel |
+| v0.10: Trim empty edges on a 1200 px image with a 300 × 200 px motif | Box shrinks from 101.6 × 101.6 mm to 25.5 × 17 mm, artwork the same size |
 
 ## Design decisions (ADRs)
 
@@ -273,6 +298,11 @@ Measured in headless Chrome against `npm run build && npm run start`, on the sam
 | [0015](docs/adr/0015-cover-fill-and-crop-view.md) | Fill a fixed box with a non-destructive crop view |
 | [0016](docs/adr/0016-cut-paths-cards-and-stickers.md) | Cut paths as vector geometry; two-sided cards; stickers as a process |
 | [0017](docs/adr/0017-maxrects-auto-arrange.md) | Auto Arrange with MaxRects on clearance rectangles |
+| [0018](docs/adr/0018-sticker-cut-methods-and-printed-cutting-line.md) | Sticker cut methods, a printed cutting line, white borders and automatic outlines |
+| [0019](docs/adr/0019-fill-sheet-step-and-repeat.md) | Fill sheet (step and repeat) as one engine for every product |
+| [0020](docs/adr/0020-straps-on-transfer-sheets.md) | Lanyard and keychain straps printed on transfer sheets |
+| [0021](docs/adr/0021-adaptive-editor-layout-and-tabbed-inspector.md) | An adaptive editor layout and a tabbed inspector |
+| [0022](docs/adr/0022-shaped-blank-outlines.md) | Outlines for shaped blanks, shared by the cut guide and the 3D model |
 
 ## Documentation
 
@@ -282,7 +312,7 @@ Measured in headless Chrome against `npm run build && npm run start`, on the sam
 - [Learning path](docs/learning-path.md): a guided reading order through the code for new contributors
 - [Printing guide](docs/printing-guide.md): getting exact physical sizes on paper
 - [T-shirt 3D model](docs/models/tshirt.md): dimensions, UV layout, printable areas, GLB, integration, limitations
-- [Engineering audit](docs/engineering-audit.md): architecture map, root causes, defects by severity (v0.9)
+- [Engineering audit](docs/engineering-audit.md): architecture map, root causes, defects by severity (v0.9), and the v0.10 UX audit
 - [Feature plan and test matrix](docs/feature-implementation-plan.md): stages, automated, browser and physical checks
 - [Catalogue sources](docs/catalogue-sources.md): every sourced template, and what could not be verified
 - [Architecture decision records](docs/adr/)
@@ -291,8 +321,10 @@ Measured in headless Chrome against `npm run build && npm run start`, on the sam
 
 - Text tool and simple shapes
 - Arc templates for tapered products (12 oz latte mug, tapered tumblers)
-- Auto-pack with per-image quantities and 90° rotation for DTF gang sheets
-- Background removal and colour knockout for DTF artwork
+- Shape-aware nesting for contour stickers, and per-image quantities in Auto Arrange
+- Background removal for busy backgrounds (plain backgrounds are done)
+- A CutContour spot colour in PDF cut files for print-shop RIPs
+- Hoodies, onesies and caps from sewn-panel generators like the T-shirt
 - Photographic product mockups and scanned textures for the 3D models
 - Optional import from the user's own Pinterest boards through Pinterest's official API (needs an OAuth app and a small backend)
 - Browser end-to-end tests in CI (Playwright) for the canvas interactions verified manually today

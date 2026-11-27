@@ -298,10 +298,12 @@ try {
     await wait(1200);
     const input = await page.$(".canvas-surface input[type=file]");
     await input.uploadFile(path.join(IMG, "sticker.png"));
-    await wait(1500);
-    await clickText(page, "button", "Trace contour");
-    await wait(1500);
-    const traced = await page.evaluate(() => document.body.innerText.includes("Contour traced"));
+    // v0.10: the outline is traced automatically after the upload (no button); allow for software WebGL.
+    let traced = false;
+    for (let t = 0; t < 10000 && !traced; t += 250) {
+      traced = await page.evaluate(() => document.body.innerText.includes("Sticker outline added"));
+      if (!traced) await wait(250);
+    }
     check("contour traced from the PNG's transparency", traced);
     await page.screenshot({ path: path.join(SHOTS, "sticker-contour.png") });
     const svgPath = await exportFile(page, "Cut file (SVG)", ".svg");
@@ -319,7 +321,10 @@ try {
     await page.goto(`${BASE}/editor`, { waitUntil: "load" });
     await page.waitForSelector(".canvas-surface canvas");
     await wait(800);
-    await clickText(page, "button", "White polyester sublimation lanyard roll");
+    // v0.10: the straps dialog opens on transfer sheets; the ribbon-roll layout is its second tab.
+    await clickText(page, "button", "Lanyard and keychain straps");
+    await page.waitForSelector('[role="dialog"]');
+    await clickText(page, '[role="dialog"] button', "Along a ribbon roll");
     await page.waitForSelector('[aria-label="Ribbon width (mm)"]');
     const type = async (label, v) => {
       await page.click(`[aria-label="${label}"]`);

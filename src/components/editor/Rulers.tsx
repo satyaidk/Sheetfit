@@ -13,6 +13,7 @@ import { uiFontFamily } from "@/lib/utils";
 import type { Rect } from "@/lib/image/image-fit";
 
 import { RULER_PX } from "@/store/editor-store";
+import { useThemeColors, type ThemeColors } from "@/components/ui/use-theme-colors";
 
 const LABEL_STEPS = [1, 2, 5, 10, 20, 50, 100];
 
@@ -28,6 +29,7 @@ function drawRuler(
   pxPerMm: number,
   pageLength: number,
   highlight: { start: number; end: number } | null,
+  colors: ThemeColors,
 ) {
   const dpr = window.devicePixelRatio || 1;
   const w = axis === "x" ? length : RULER_PX;
@@ -39,31 +41,33 @@ function drawRuler(
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx.fillStyle = "#f5f6f8";
+  ctx.fillStyle = colors.subtle;
   ctx.fillRect(0, 0, w, h);
 
   // Page extent shown as a lighter band.
   const p0 = offset;
   const p1 = offset + pageLength * pxPerMm;
-  ctx.fillStyle = "#ffffff";
+  ctx.fillStyle = colors.surface;
   if (axis === "x") ctx.fillRect(p0, 0, p1 - p0, h);
   else ctx.fillRect(0, p0, w, p1 - p0);
 
   if (highlight) {
-    ctx.fillStyle = "rgba(7, 125, 137, 0.16)";
+    ctx.fillStyle = colors.accent;
+    ctx.globalAlpha = 0.18;
     const a = offset + highlight.start * pxPerMm;
     const b = offset + highlight.end * pxPerMm;
     if (axis === "x") ctx.fillRect(a, 0, b - a, h);
     else ctx.fillRect(0, a, w, b - a);
+    ctx.globalAlpha = 1;
   }
 
   const step = chooseStep(pxPerMm);
   const minor = step >= 10 ? step / 10 : step >= 5 ? 1 : step / 2;
   const startMm = Math.floor(-offset / pxPerMm / minor) * minor;
   const endMm = (length - offset) / pxPerMm;
-  ctx.strokeStyle = "#a9b1ba";
-  ctx.fillStyle = "#5b636d";
-  ctx.font = `500 10px ${uiFontFamily()}`;
+  ctx.strokeStyle = colors.lineStrong;
+  ctx.fillStyle = colors.inkMuted;
+  ctx.font = `500 11px ${uiFontFamily()}`;
   ctx.lineWidth = 1;
   ctx.beginPath();
   for (let mm = startMm; mm <= endMm; mm += minor) {
@@ -93,7 +97,7 @@ function drawRuler(
     }
   }
   ctx.stroke();
-  ctx.strokeStyle = "#e3e6ea";
+  ctx.strokeStyle = colors.line;
   ctx.beginPath();
   if (axis === "x") {
     ctx.moveTo(0, RULER_PX - 0.5);
@@ -122,15 +126,16 @@ export function Rulers({
 }) {
   const top = useRef<HTMLCanvasElement>(null);
   const left = useRef<HTMLCanvasElement>(null);
+  const colors = useThemeColors();
 
   useEffect(() => {
     if (top.current)
       drawRuler(top.current, "x", width, pan.x, pxPerMm, page.width,
-        highlight ? { start: highlight.x, end: highlight.x + highlight.width } : null);
+        highlight ? { start: highlight.x, end: highlight.x + highlight.width } : null, colors);
     if (left.current)
       drawRuler(left.current, "y", height, pan.y, pxPerMm, page.height,
-        highlight ? { start: highlight.y, end: highlight.y + highlight.height } : null);
-  }, [width, height, pan.x, pan.y, pxPerMm, page.width, page.height, highlight]);
+        highlight ? { start: highlight.y, end: highlight.y + highlight.height } : null, colors);
+  }, [width, height, pan.x, pan.y, pxPerMm, page.width, page.height, highlight, colors]);
 
   return (
     <>
@@ -138,7 +143,7 @@ export function Rulers({
       <canvas ref={left} aria-hidden className="pointer-events-none absolute top-0 left-0 z-10" />
       <div
         aria-hidden
-        className="absolute top-0 left-0 z-20 flex items-center justify-center border-r border-b border-line bg-subtle text-[9px] font-semibold text-ink-faint"
+        className="absolute top-0 left-0 z-20 flex items-center justify-center border-r border-b border-line bg-subtle text-badge font-semibold text-ink-faint"
         style={{ width: RULER_PX, height: RULER_PX }}
       >
         mm

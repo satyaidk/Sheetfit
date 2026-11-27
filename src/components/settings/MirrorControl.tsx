@@ -27,10 +27,10 @@ export function MirrorControl({
   return (
     <div>
       <div className="mb-1.5 flex items-center justify-between gap-2">
-        <span className="text-[12px] font-medium text-ink-muted">Mirror output</span>
+        <span className="text-caption font-medium text-ink-muted">Mirror output</span>
         <span
           data-testid="mirror-effective"
-          className={mirrored ? "flex items-center gap-1 text-[12px] font-semibold text-accent" : "text-[12px] font-semibold text-ink"}
+          className={mirrored ? "flex items-center gap-1 text-caption font-semibold text-accent" : "text-caption font-semibold text-ink"}
         >
           {mirrored && <FlipHorizontal2 className="size-3.5" />}
           {mirrored ? "Mirrored" : "Not mirrored"}

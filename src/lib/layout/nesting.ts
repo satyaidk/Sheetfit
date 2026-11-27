@@ -95,20 +95,31 @@ export class MaxRectsBin {
   /** Remove an occupied rectangle from the free space. */
   occupy(r: Rect) {
     const next: Rect[] = [];
+    const fresh = new Set<Rect>();
+    const split = (s: Rect) => {
+      next.push(s);
+      fresh.add(s);
+    };
     for (const f of this.free) {
       if (!intersects(f, r)) {
         next.push(f);
         continue;
       }
-      if (r.x > f.x + EPS) next.push({ x: f.x, y: f.y, width: r.x - f.x, height: f.height });
+      if (r.x > f.x + EPS) split({ x: f.x, y: f.y, width: r.x - f.x, height: f.height });
       if (r.x + r.width < f.x + f.width - EPS)
-        next.push({ x: r.x + r.width, y: f.y, width: f.x + f.width - (r.x + r.width), height: f.height });
-      if (r.y > f.y + EPS) next.push({ x: f.x, y: f.y, width: f.width, height: r.y - f.y });
+        split({ x: r.x + r.width, y: f.y, width: f.x + f.width - (r.x + r.width), height: f.height });
+      if (r.y > f.y + EPS) split({ x: f.x, y: f.y, width: f.width, height: r.y - f.y });
       if (r.y + r.height < f.y + f.height - EPS)
-        next.push({ x: f.x, y: r.y + r.height, width: f.width, height: f.y + f.height - (r.y + r.height) });
+        split({ x: f.x, y: r.y + r.height, width: f.width, height: f.y + f.height - (r.y + r.height) });
     }
-    // Prune rectangles contained in another (keep the first of equal pairs).
-    this.free = next.filter((a, i) => !next.some((b, j) => j !== i && contains(b, a) && (!contains(a, b) || j < i)));
+    // Prune rectangles contained in another. Only the pieces just split off can be:
+    // the old free rectangles were already maximal, and every new piece lies
+    // inside an old one, so checking the new pieces is enough (O(F) per placement,
+    // not O(F²); fill sheet places hundreds of identical items). Of two equal
+    // rectangles the older one stays.
+    this.free = next.filter(
+      (a, i) => !fresh.has(a) || !next.some((b, j) => j !== i && contains(b, a) && (!contains(a, b) || !fresh.has(b) || j < i)),
+    );
   }
 
   /** Best position for one orientation, or null. Lower score is better. */

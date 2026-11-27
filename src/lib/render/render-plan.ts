@@ -19,12 +19,13 @@
  * (`lib/render/mirror.ts`) and each renderer applies it once, to everything.
  */
 
-import type { Design, EditorDocument } from "@/types/editor";
+import type { CutGuideStyle, Design, EditorDocument } from "@/types/editor";
 import type { ImageAsset } from "@/types/image";
 import { computeImageRect, effectiveSourceRect, type Rect, type Size } from "@/lib/image/image-fit";
 import { boxCenter, designBounds, pageSize, printableRect } from "@/lib/layout/sheet-layout";
 import { cutPaths, localTrim, mapPath, roundedRectPath, type Path } from "@/lib/cut/cut-path";
-import { localRectToPage } from "@/lib/layout/arrange";
+import { printsCutGuide, stickerBorderFill } from "@/lib/cut/cut-method";
+import { contentBounds, localRectToPage } from "@/lib/layout/arrange";
 import { centreMarksFor, registrationMarks } from "./guides";
 import { resolveMirror } from "./mirror";
 
@@ -49,6 +50,23 @@ export interface PlanItem {
   border: { rect: Rect; width: number; color: string } | null;
   /** Cut paths in local coordinates (always present; drawn only when `plan.showCutlines`). */
   cut: { paths: Path[]; through: "kiss" | "die" };
+  /**
+   * Sticker border: the cut paths filled (even-odd, so cut holes stay empty)
+   * under the artwork. Part of the artwork, so it is in every output mode.
+   */
+  underlay: { paths: Path[]; color: string } | null;
+  /**
+   * Printed cutting line along the cut paths, for cutting by hand. With
+   * `inside`, the line is clipped to the sticker so it never spills past the
+   * cut. Not in `artwork` files (cutter software cuts by itself).
+   */
+  guide: { paths: Path[]; color: string; width: number; inside: boolean } | null;
+}
+
+/** Sticker extras for one plan item (see `PlanItem.underlay` and `PlanItem.guide`). */
+export interface ItemExtras {
+  borderFill?: string | null;
+  guide?: CutGuideStyle | null;
 }
 
 export interface PlanLine {
@@ -96,8 +114,9 @@ export const CUTLINE_WIDTH_MM = 0.1;
 /** Kiss cuts in magenta, die cuts and the sheet cut in cyan, as print-and-cut workflows usually colour-code them. */
 export const CUTLINE_COLORS = { kiss: "#ec008c", die: "#00aeef" } as const;
 
-export function buildPlanItem(design: Design, asset: ImageAsset): PlanItem {
+export function buildPlanItem(design: Design, asset: ImageAsset, extras: ItemExtras = {}): PlanItem {
   const natural = { width: asset.naturalWidth, height: asset.naturalHeight };
+  const paths = cutPaths(design);
   const sourceRect = effectiveSourceRect(design, natural);
   const local = computeImageRect(design, { width: sourceRect.width, height: sourceRect.height });
   const hw = design.width / 2;
@@ -131,7 +150,11 @@ export function buildPlanItem(design: Design, asset: ImageAsset): PlanItem {
           color: "#000000",
         }
       : null,
-    cut: { paths: cutPaths(design), through: design.cut?.through ?? "die" },
+    cut: { paths, through: design.cut?.through ?? "die" },
+    underlay: extras.borderFill ? { paths, color: extras.borderFill } : null,
+    guide: extras.guide
+      ? { paths, color: extras.guide.color, width: extras.guide.width, inside: extras.guide.placement === "inside" }
+      : null,
   };
 }
 
@@ -176,11 +199,17 @@ export function buildRenderPlan(
   const items: PlanItem[] = [];
   const marks: PlanLine[] = [];
   const centre: PlanLine[] = [];
+  // Sticker pages: the white border is artwork (every mode); the hand-cutting
+  // line is printed, but cutter software gets artwork-only files without it.
+  const extras: ItemExtras = {
+    borderFill: stickerBorderFill(doc.page),
+    guide: output !== "artwork" && printsCutGuide(doc.page) ? doc.page.cutGuide : null,
+  };
   for (const design of doc.designs) {
     // Empty product slots have no image and print nothing.
     const asset = design.assetId ? lookup(design.assetId) : undefined;
     if (!asset) continue;
-    items.push(buildPlanItem(design, asset));
+    items.push(buildPlanItem(design, asset, extras));
     if (marksOn && doc.page.cropMarks) marks.push(...cropMarksFor(designBounds(design)));
     if (marksOn && doc.page.guides?.centreMarks) centre.push(...centreMarksFor(trimBounds(design)));
   }
@@ -196,6 +225,40 @@ export function buildRenderPlan(
     showCutlines: cutlinesOn,
     cutlineWidth: CUTLINE_WIDTH_MM,
     sheetCut: cutlinesOn && doc.page.sheetCut ? roundedRectPath(printableRect(doc.page), 0) : null,
+  };
+}
+
+/**
+ * Bounds of everything a page prints (artwork and cut paths of designs that
+ * have an image), grown by `pad` mm and kept on the page; null when nothing
+ * prints.
+ */
+export function printedBounds(doc: EditorDocument, pad = 1): Rect | null {
+  const rects = doc.designs.filter((d) => d.assetId).map(contentBounds);
+  if (rects.length === 0) return null;
+  const size = pageSize(doc.page);
+  const x0 = Math.max(0, Math.min(...rects.map((r) => r.x)) - pad);
+  const y0 = Math.max(0, Math.min(...rects.map((r) => r.y)) - pad);
+  const x1 = Math.min(size.width, Math.max(...rects.map((r) => r.x + r.width)) + pad);
+  const y1 = Math.min(size.height, Math.max(...rects.map((r) => r.y + r.height)) + pad);
+  return x1 > x0 && y1 > y0 ? { x: x0, y: y0, width: x1 - x0, height: y1 - y0 } : null;
+}
+
+/**
+ * The plan cropped to `rect` (page mm): `rect` becomes the page and every item
+ * and mark moves with it. Cutter PNGs carry only the stickers, not the empty
+ * sheet, because cutting software takes the image's size as the print size.
+ */
+export function cropPlan(plan: RenderPlan, rect: Rect): RenderPlan {
+  const line = (l: PlanLine): PlanLine => ({ x1: l.x1 - rect.x, y1: l.y1 - rect.y, x2: l.x2 - rect.x, y2: l.y2 - rect.y });
+  return {
+    ...plan,
+    page: { width: rect.width, height: rect.height },
+    items: plan.items.map((it) => ({ ...it, center: { x: it.center.x - rect.x, y: it.center.y - rect.y } })),
+    cropMarks: plan.cropMarks.map(line),
+    centreMarks: plan.centreMarks.map(line),
+    registration: plan.registration.map((r) => ({ ...r, x: r.x - rect.x, y: r.y - rect.y })),
+    sheetCut: plan.sheetCut ? mapPath(plan.sheetCut, (x, y) => ({ x: x - rect.x, y: y - rect.y })) : null,
   };
 }
 

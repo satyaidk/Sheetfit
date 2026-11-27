@@ -15,18 +15,23 @@ Every agent (and human) reads it before starting work and updates it **in the sa
 feature, plan or known-issue change. Keep entries short and factual. Newest entries go at the top of the
 update log (section 8).
 
-Last updated: 2026-11-23 (v0.7.0 + unreleased: v0.9 print-and-cut work, T-shirt garment)
+Last updated: 2026-11-27 (v0.7.0 + unreleased: v0.9 print and cut, T-shirt garment, v0.10 stickers by hand, straps,
+fill sheet, adaptive editor)
 
 ## 1. Product in one paragraph
 
-Sheetfit is a browser-only, Canva-style layout editor for **sublimation and DTF** printing. A project has
+Sheetfit is a browser-only, Canva-style layout editor for **sublimation, DTF and sticker** printing. A project has
 **pages**, each with its own sheet (A4, Letter, Legal, A3, A3+, 22 in DTF gang sheets, custom) and process.
-Clicking one of 73 **product templates** (mugs, tumblers, coasters, shirt placements, caps, totes…) starts a
-**new design** on the sheet it needs (asking to save or discard current work; "+" adds it to the current sheet
-instead). Users drop images or generated **sample designs** into the box, watch a **live preview** on the product,
+Clicking one of 131 **product templates** (mugs, tumblers, coasters, ornaments in many shapes, keyrings, tags,
+shirt placements, caps, totes, decor, jewellery…) starts a **new design** on the sheet it needs (asking to save or
+discard current work; "+" adds it to the current sheet instead). **Fill sheet** repeats any design as many times as
+fit (the count is shown first). **Stickers** get their cut outline automatically and, for cutting by hand, a thin black
+cutting line and a white border; Cricut and Silhouette get a transparent cutter PNG. **Lanyard and keychain straps**
+(12, 16, 20 mm ribbon, the user's length) fill an A4 transfer sheet. Users drop images or generated **sample designs** into the box, watch a **live preview** on the product,
 inspect every product as an interactive **3D model** in any blank colour, and
 export an exact-size multi-page PDF, PNG/JPEG per page with DPI metadata, a browser print at 100%, or a
-`.sheetfit` project file. Default fitting never crops or distorts. Sublimation output is mirrored; DTF is not.
+`.sheetfit` project file. Default fitting never crops or distorts. Sublimation output is mirrored; DTF and stickers
+are not.
 No backend; projects live in IndexedDB. The home page (`/`) is a separate "studio" design that demonstrates
 all of this in a short, plain page (hero, three steps, product templates, Sublimation vs DTF, FAQ) and links straight
 into templates (`/editor?product=<id>`).
@@ -48,9 +53,10 @@ into templates (`/editor?product=<id>`).
 | v0.7 rendered product pictures (cards, lists, dialogs), 3D dock, 3D toolbar (views, zoom, full screen), back prints on the back, "Night press" home page | Done, tested, verified in Chrome |
 | T-shirt garment mesh (ADR 0013): generated torso, set-in sleeves, collar, seams, hems, fabric shells; prints cut in fabric coordinates; `tshirt.glb` export | Done, tested, verified in Chrome (unreleased) |
 | v0.9 print and cut (ADRs 0014–0017): mirror Auto/On/Off, fill and crop view, two-sided cards, cut paths and marks, MaxRects Auto Arrange, stickers, SVG cut file, 21 sourced templates, lanyard roll layout | Done, tested, verified in Chrome (unreleased) |
+| v0.10 (ADRs 0018–0022): sticker cut methods, automatic outlines (alpha or a plain background), printed cutting line, white borders, cutter PNG, Fill sheet, straps on A4, remove background, trim edges, 600 DPI print, tabbed inspector, one side panel at a time, 58 sourced templates, shaped-blank outlines, new 3D models (cap, stickers, straps, decor, jewellery) | Done, tested, verified in Chrome (unreleased) |
 | Quality gate `npm run check` | See section 8 for the latest numbers |
-| Browser checks | `scripts/e2e/v9func.mjs` (28 v0.9 checks, in the repo), `v5func.mjs` (48 whole-app checks incl. 3D dock), `v6func.mjs` (32 home page and link checks), `v5all3d.mjs` (every product in 3D); see section 8 |
-| Committed to git | Up to `9742a28` (by the user). The v0.9 print-and-cut work is uncommitted |
+| Browser checks | `scripts/e2e/v10func.mjs` (24 v0.10 checks), `scripts/e2e/v9func.mjs` (28 v0.9 checks), both in the repo; `v5func.mjs` (48 whole-app checks incl. 3D dock), `v6func.mjs` (32 home page and link checks), `v5all3d.mjs` (every product in 3D); see section 8 |
+| Committed to git | Up to `ba9919d` (by the user; v0.9 included). The v0.10 work is uncommitted |
 
 ## 3. Commands
 
@@ -60,6 +66,7 @@ npm run check          # lint + typecheck + tests with coverage + production bui
 npm test               # vitest only
 npm run model:tshirt   # regenerate public/models/tshirt.glb from the generator (a test fails if it is stale)
 node scripts/e2e/v9func.mjs   # v0.9 browser checks (needs next start -p 3200, puppeteer-core --no-save, make-images.py once)
+node scripts/e2e/v10func.mjs  # v0.10 browser checks (same set-up; run make-images.py again for the v0.10 images)
 ```
 
 - Windows: run from an upper-case `C:\` path; a lower-case `c:\` path makes every Vitest file fail
@@ -76,6 +83,11 @@ node scripts/e2e/v9func.mjs   # v0.9 browser checks (needs next start -p 3200, p
   controls the start dialog. In scripts: clicking the active rail tab closes its panel; accept the unsaved-changes
   `beforeunload` prompt; restart `next start` after every rebuild; clipped `page.screenshot` came back stale, use
   full-viewport or element screenshots; the product panel filters to the page's process, click "All" first.
+  Radix tabs (the inspector) activate on pointer down: click them with a real mouse (`ElementHandle.click()`), not
+  `element.click()` inside `page.evaluate`. React ignores clicks on buttons it renders disabled, even if a script
+  removes the attribute. Toasts can lag several seconds under software WebGL (the 3D dock): poll for them.
+- three.js draws nothing for a mesh whose material is an array when the geometry has no groups; `tests/v05-3d-models`
+  checks every product for this.
 - Product pictures: `scripts/pictures/render-products.mjs [id prefixes]` then `python scripts/pictures/finish-pictures.py`
   (needs `npm i --no-save puppeteer-core`, Pillow, and `next start -p 3200`). In scripts, wait about 5 s after a
   Front/Side/Back click under SwiftShader: a drag that starts mid-move cancels the camera animation.
@@ -130,8 +142,24 @@ node scripts/e2e/v9func.mjs   # v0.9 browser checks (needs next start -p 3200, p
     are HTML overlays (Konva children would change the Transformer's bounds).
 24. Every new document field gets a default and validation in `lib/storage/migrate.ts`; old projects must print exactly
     as before.
-25. Never invent product numbers. Supplier sizes go in `products.ts` with supplier, SKU, material and date, and in
-    `docs/catalogue-sources.md`; unverifiable items become user-entered (custom box, lanyard strip profile).
+25. Never invent product numbers. Supplier sizes go in `products.ts` (v0.10: `products-v10.ts`) with supplier, SKU,
+    material when stated and date, and in `docs/catalogue-sources.md`; unverifiable items become user-entered (custom
+    box, strap length, lanyard roll profile).
+26. **Sticker extras live in the render plan only** (ADR 0018): the white border (`PlanItem.underlay`) and the
+    hand-cutting line (`PlanItem.guide`) come from `stickerBorderFill` / `printsCutGuide` (`lib/cut/cut-method.ts`) on
+    sticker pages only, drawn with `fillPathsEvenOdd` / `strokeCutGuide` (canvas, Konva), `fillPathsOps` / `cutGuideOps`
+    (PDF) and the SVG groups. Artwork-only files never carry the line; transfer paper never carries either.
+27. **Sticker outlines are traced by the watcher** (`use-sticker-outlines.ts`): only designs with no cut or a stale
+    contour, never while dragging, once per set of inputs, folded into the user's undo step. Never replace a shape the
+    user chose. Plain backgrounds come from `lib/image/background.ts` (edge-connected only).
+28. **One step-and-repeat**: Fill sheet, Quantity and straps all use `lib/layout/fill.ts` (spacing between cut paths,
+    twins replaced, grids first). Do not add another repeat tool (ADR 0019).
+29. **Straps are designs with `strap`** whose image is composed by `composeStrapImage` from `sourceAssetId`; the
+    width is a user value with sourced quick picks (12, 16, 20 mm) and the length is always the user's (ADR 0020).
+30. **One side panel at a time below 1280 px**; the quick bar adapts with container queries on the canvas
+    (`@container` on `main`), not the window. Inspector tabs: Design, Arrange, Cut (ADR 0021).
+31. **Shaped blanks use `outline`** (`lib/catalogue/blank-outlines.ts`) for the cut guide, the 2D art and the 3D model;
+    outlines are guides drawn to the published bounding size (ADR 0022).
 
 ## 5. File map
 
@@ -151,7 +179,15 @@ node scripts/e2e/v9func.mjs   # v0.9 browser checks (needs next start -p 3200, p
 | `public/models/` | `tshirt.glb` (7.9 MB) and its knit and roughness PNGs, generated |
 | `src/lib/three/driver-notes.ts` | `threeConsole` for `THREE.setConsoleFunction`: drops Direct3D compiler notes (X4122), forwards the rest |
 | `src/lib/catalogue/sample-designs.ts` | Seeded SVG sample designs (4 emblem + 6 pattern families × 8 palettes), `renderSampleSvg(d, aspect)` |
-| `src/lib/catalogue/products.ts` | 73 product presets (sides, corner radius, cut, supplier, SKU, material, date checked, aliases), `slotSize`, `minSheetFor`, `searchProducts`, `sidesOf` |
+| `src/lib/catalogue/products.ts` | 131 product presets (73 here, 58 from `products-v10.ts`; sides, corner radius, cut, outline, supplier, SKU, material, date checked, aliases), `slotSize`, `minSheetFor`, `searchProducts`, `sidesOf` |
+| `src/lib/catalogue/products-v10.ts`, `blank-outlines.ts` | The 58 v0.10 presets with their sources; parametric outlines of shaped blanks (`outlineFor`, `outlineIn`) |
+| `src/lib/cut/cut-method.ts` | Cut methods (hand, Cricut, Silhouette, file), guide defaults and options, Cricut Print Then Cut areas, `stickerOutlineDefaults` |
+| `src/lib/image/background.ts` | Plain-background detection (rim colour, edge flood fill), knockout with a soft unmixed edge, `opaqueBounds` |
+| `src/lib/layout/fill.ts` | Fill sheet: grid candidates, turned bands, MaxRects around designs, twins, `fillCapacity` |
+| `src/lib/layout/strap.ts` | Straps on sheets: ribbon widths, validation, fold sections, art placements, strap design and 3D preset |
+| `src/components/editor/use-sticker-outlines.ts` | Watcher that outlines stickers automatically |
+| `src/components/products/preview-product.ts` | What a design is previewed on: its product, a strap, a die-cut sticker, or a T-shirt |
+| `src/components/ui/tabs.tsx` | Tabs primitive (the inspector) |
 | `src/lib/catalogue/processes.ts` | Process labels and hints (sublimation, DTF, stickers) |
 | `src/lib/render/mirror.ts` | `resolveMirror` (the only mirror decision), `mirrorModeFor` (migration), `driverAdvice` |
 | `src/lib/render/guides.ts` | Centre marks, generic registration squares |
@@ -161,8 +197,8 @@ node scripts/e2e/v9func.mjs   # v0.9 browser checks (needs next start -p 3200, p
 | `src/lib/layout/card-pair.ts` | Front/back placement, effective pair gap |
 | `src/lib/layout/strip-layout.ts` | Lanyard ribbon roll: user-entered profile, sections, saved profiles |
 | `src/lib/export/export-svg.ts` | SVG cut file in mm (ARTWORK, CUTLINE, SHEET_CUT, REGISTRATION) |
-| `src/components/editor/CropOverlay.tsx`, `ArrangeDialog.tsx`, `DesignSections.tsx` | Crop mode; Auto Arrange dialog; inspector sections (fit, card, cut, quantity) |
-| `src/components/settings/MirrorControl.tsx`, `StripDialog.tsx` | Mirror control (Sheet panel and export dialog); lanyard roll dialog |
+| `src/components/editor/CropOverlay.tsx`, `ArrangeDialog.tsx`, `DesignSections.tsx` | Crop mode; Auto Arrange dialog; inspector sections (fit, card, cut, copies, cut method, sticker outline, cutting line, strap) |
+| `src/components/settings/MirrorControl.tsx`, `StripDialog.tsx` | Mirror control (Sheet panel and export dialog); lanyard and keychain straps dialog (on A4 sheets, or along a ribbon roll) |
 | `src/lib/image/*` | Fitting engine, effective DPI, file loading |
 | `src/lib/layout/sheet-layout.ts` | `pageSize(page)`, `sheetLabel`, printable rect, rotated bounds, `pointInDesign`, `designAt` |
 | `src/lib/layout/product-placement.ts`, `free-spot.ts` | Where a new product goes (current page / new page, gap 5 then 2 mm, 90° turn) |
@@ -181,7 +217,7 @@ node scripts/e2e/v9func.mjs   # v0.9 browser checks (needs next start -p 3200, p
 | `src/components/editor/CanvasWorkspace.tsx` | Konva stage: handles, guides, gaps, slots, drops, space-pan, DPI badges, empty state |
 | `src/components/editor/ImageLayer.tsx`, `PrintSheet.tsx`, `Rulers.tsx` | Design node (image/slot), sheet, rulers |
 | `src/components/editor/QuickActionsBar.tsx`, `FloatingPill.tsx`, `CanvasContextMenu.tsx` | Contextual tools |
-| `src/components/editor/PropertiesPanel.tsx` | Inspector (preview card, image, empty slot + sample strip, multi-select, sheet summary) |
+| `src/components/editor/PropertiesPanel.tsx` | Tabbed inspector (header; Design, Arrange, Cut), empty slot + sample strip, multi-select, sheet summary with next steps |
 | `src/components/editor/LayersPanel.tsx`, `ProjectsPanel.tsx`, `StartDialog.tsx`, `ShortcutsDialog.tsx`, `use-editor-shortcuts.ts` | Panels, dialogs, keyboard |
 | `src/components/products/ProductMockup.tsx` | Original SVG product illustrations in any colour with a design (wrap strips, lighting, blend) |
 | `src/components/products/MockupPreview.tsx` | `MockupDialog` (3D / Flat switch), `ProductSection`, `ColorSwatches`, `SampleStrip` |
@@ -192,7 +228,7 @@ node scripts/e2e/v9func.mjs   # v0.9 browser checks (needs next start -p 3200, p
 | `src/components/export/ExportDialog.tsx` | Export/print for all pages or one, page-by-page preview, preflight per page, mirror badge |
 | `src/components/ui/*` | Radix/shadcn-style primitives incl. popover, context-menu, toolbar |
 | `src/app/page.tsx`, `src/components/landing/*` | Simple server-rendered home page (hero, 3 steps, 8 templates, gallery, Sublimation vs DTF, FAQ, CTA); `HomeSections` (`ProcessCompare`, `Faq`, unused `FeatureGrid`), `photos.ts` |
-| `public/products/` | 73 rendered product pictures and 9 detail crops (WebP) |
+| `public/products/` | 131 rendered product pictures and 11 detail crops (WebP) |
 | `public/env/` | Studio HDRI for 3D lighting and reflections (CC0, Poly Haven) and `CREDITS.md` |
 | `src/lib/landing/sheet-demos.ts` | Example sheets built with the real packer, margins and slot sizes |
 | `src/lib/editor-link.ts` | `parseEditorLink` (`?sample`, `?product=`, `&process=`), `productHref` |
@@ -242,7 +278,26 @@ v0.7 phases (all done 2026-10-28):
   back prints on the back (`side: "back"`), `frontAzimuth`
 - [x] U3 "Night press" home page; README, CHANGELOG 0.7.0, ADR 0011, design doc 17-18
 
-Next (v0.8 candidates, in suggested order):
+v0.10 phases (all done 2026-11-27):
+- [x] W1 Research (web): sticker cutting by hand and by machine, Cricut and Silhouette limits, lanyard ribbon widths,
+  Unisub and HeatPressNation templates, DTF widths, gang-sheet builders (`docs/catalogue-sources.md`)
+- [x] W2 Stickers: cut methods, printed cutting line, white border, automatic outlines (alpha, plain background,
+  closing), cutter PNG, Cricut area (ADR 0018)
+- [x] W3 Fill sheet everywhere with counts; exact quantities onto new pages; empty boxes fill together (ADR 0019)
+- [x] W4 Straps on A4 (12, 16, 20 mm), fold, repeat, 600 DPI strap images (ADR 0020)
+- [x] W5 UX: one side panel at a time, container-query quick bar, tabbed inspector, next steps, start dialog paths,
+  remove background, trim edges, 600 DPI print, number-field labels (ADR 0021)
+- [x] W6 Catalogue: 58 sourced templates, shaped-blank outlines (ADR 0022); 3D cap, die-cut sticker, strap, decor and
+  jewellery models; pictures rendered
+
+Next (v0.11 candidates, in suggested order):
+1. Hoodie and onesie on the garment generator; caps from a sewn-panel generator like the T-shirt.
+2. Shape-aware nesting for contour stickers (pack outlines, not bounding boxes).
+3. A CutContour spot colour in PDF cut files for print-shop RIPs; per-machine Cricut limits (Joy 2 is narrower).
+4. Physical validation: print and cut a hand-cut sticker sheet, a Cricut sheet and a strap sheet; record results.
+5. Text tool and simple shapes; background removal for busy backgrounds (on-device segmentation).
+
+Earlier (v0.8) candidates:
 1. 3D realism: drinkware (ADR 0012) and T-shirts (ADR 0013) done, pictures re-rendered. Next: hoodie and onesie on
    the garment generator, caps and totes; artwork rotation inside a print box (an editor feature, changes print
    output); Pacdora-style viewer functions (hi-res PNG, 360° video, three-quarter views, backdrop picker).
@@ -258,9 +313,17 @@ Next (v0.8 candidates, in suggested order):
 ## 7. Known issues / to fix
 
 - Contour stickers pack by their bounding rectangles (no shape-aware nesting). Hole and slot positions of tags and
-  plates are not modelled (not published). Heart, bone and tag outlines use the bounding rectangle as the cut guide.
-- Requested but unverifiable: lanyard ribbon width and roll length, badge-reel inserts, sublimation-coated PVC card
-  blanks (see `docs/catalogue-sources.md`).
+  plates are not modelled (not published). Shaped blanks use parametric outlines drawn to the published bounding size
+  (guides, not supplier outlines).
+- Requested but unverifiable: keychain strap and lanyard cut lengths (user-entered), badge-reel inserts,
+  sublimation-coated PVC card blanks, hat and beanie DTF sizes (no source page) (see `docs/catalogue-sources.md`).
+  Ribbon widths 12, 16 and 20 mm are now sourced (IndiaMART listings).
+- Remove background and automatic outlines handle transparency and plain backgrounds only; a photo with a busy edge
+  is cut as a rounded rectangle (the user is told).
+- The Cricut Print Then Cut sizes come from Cricut's help table as quoted in search results (the page refuses
+  automated reading) and are for Explore/Maker-class machines; other machines differ.
+- PDFs embed the 600 DPI composed strap image, not the original artwork file.
+- Nothing in v0.10 has been tested on a physical printer, heat press or cutter.
 - Nothing in v0.9 has been tested on a physical printer, press or cutter; see the manual checks in
   `docs/feature-implementation-plan.md`.
 - Raster export of very long DTF sheets (22×60 in and longer at 300 DPI) exceeds browser canvas limits; PDF
@@ -292,6 +355,28 @@ Next (v0.8 candidates, in suggested order):
 - `research_notes/` and `reports/` are in the repo root; decide with the user whether to keep them committed.
 
 ## 8. Update log
+
+- **2026-11-27**: User asked to research (web) and then fix: 3D models; all sublimation and DTF products with sizes;
+  automatic sticker outlines for any upload, with a choice of cutting by hand (thin black line) or by Cricut; lanyard
+  and keychain straps on white sublimation ribbon in 12, 16 and 20 mm filling an A4 sheet; "fill the sheet with as many
+  as fit" for every product; and, most important, the UI/UX ("not adaptive, many bottlenecks"). Baseline: `npm run
+  check` green (287 tests). Research: 13 web searches and 6 page-fetch rounds (Cricut, sticker guides, Unisub/HPN
+  template lists, DTF guides, lanyard listings, gang-sheet builders); Cricut's help page and two DTF guides refused automated
+  reading (noted). UX audit in headless Chrome at 5 sizes (`docs/engineering-audit.md` section 8): inspector 2,853 px of
+  12 sections; sheet a quarter of a 1366 px window; quick bar cut off; label overlap; sticker outline 6 manual steps.
+  Done: ADRs 0018–0022 (cut methods, printed line, white border, automatic outlines with plain-background detection
+  and closing; Fill sheet engine; straps on A4; adaptive layout and tabbed inspector; shaped-blank outlines), cutter
+  PNG, remove background, trim edges, 600 DPI print, 58 sourced templates (131 in all), new 3D models and a rebuilt cap,
+  64 new or changed product pictures rendered. Found and fixed while verifying: a scaled torus turned the
+  cap's sweatband into a giant ellipse; a pendant bezel hid its print; turned copies were not recognised as copies (a
+  re-fill would have duplicated them); the strap-length input showed two focus outlines; "Edit" could not bring back an
+  inspector hidden by the side panel; the packer's pruning was O(F²) per placement (now O(F) on the new pieces; same
+  layouts, cold 79 → 13 ms on a 40-design sheet). Measured: `npm run check` green (335 tests, 20 files;
+  coverage 95.3 % lines, 93.6 % statements, 82.53 % branches, 92.2 % functions);
+  `scripts/e2e/v10func.mjs` 24/24 and `v9func.mjs` 28/28 on the production build with no console
+  errors (PDF: white border `f*` before the image, clipped 0.25 mm black line after it; 6 stickers per A4 and still 6 after refilling; Cricut cutter PNG cropped to 1824 × 2740 px RGBA (6.08 × 9.13 in) with a transparent corner; 21 straps of 16 × 130 mm on A4; Trim 101.6 → 25.5 × 17 mm; Design tab 1,174 px; at 1024 px a selection folds the side panel). Not done: hoodie/onesie garment generator, shape-aware sticker nesting, physical print tests.
+  No dependencies added. Not committed.
+
 
 - **2026-11-23**: User pasted a master prompt: audit the repo, fix five issues (explicit mirror on/off, PVC front and
   back side by side, card spacing and cut guides, Auto Arrange of mixed designs, fill/crop in a fixed box with

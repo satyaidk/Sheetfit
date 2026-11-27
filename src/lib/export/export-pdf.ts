@@ -13,9 +13,13 @@
  */
 
 import {
+  LineJoinStyle,
   PDFDocument,
+  PDFOperator,
+  PDFOperatorNames,
   appendBezierCurve,
   clip,
+  clipEvenOdd,
   closePath,
   concatTransformationMatrix,
   endPath,
@@ -25,11 +29,12 @@ import {
   pushGraphicsState,
   rectangle,
   rgb,
+  setFillingRgbColor,
+  setLineJoin,
   setLineWidth,
   setStrokingRgbColor,
   stroke,
   type PDFImage,
-  type PDFOperator,
 } from "pdf-lib";
 import { CUTLINE_COLORS, type RenderPlan, type PlanItem } from "@/lib/render/render-plan";
 import type { Path } from "@/lib/cut/cut-path";
@@ -143,6 +148,10 @@ async function drawPdfPage(
       height: r.height,
     });
 
+    const local = (x: number, y: number): [number, number] => [x, -y];
+    if (item.underlay) {
+      page.pushOperators(...fillPathsOps(item.underlay.paths, local, item.underlay.color));
+    }
     if (item.background) {
       page.drawRectangle({ ...flip(item.background.rect), color: hexToRgb(item.background.color) });
     }
@@ -196,6 +205,7 @@ async function drawPdfPage(
         borderWidth: item.border.width,
       });
     }
+    if (item.guide) page.pushOperators(...cutGuideOps(item.guide, local));
     if (plan.showCutlines) {
       // Item space is millimetres scaled to points with y up, so a stroke of
       // w mm is w in user units here.
@@ -257,6 +267,54 @@ export function strokePathOps(
     else ops.push(closePath());
   }
   ops.push(stroke(), popGraphicsState());
+  return ops;
+}
+
+function pathOps(paths: Path[], toPdf: (x: number, y: number) => [number, number]): PDFOperator[] {
+  const ops: PDFOperator[] = [];
+  for (const path of paths) {
+    for (const cmd of path) {
+      if (cmd.op === "M") ops.push(moveTo(...toPdf(cmd.x, cmd.y)));
+      else if (cmd.op === "L") ops.push(lineTo(...toPdf(cmd.x, cmd.y)));
+      else if (cmd.op === "C") ops.push(appendBezierCurve(...toPdf(cmd.x1, cmd.y1), ...toPdf(cmd.x2, cmd.y2), ...toPdf(cmd.x, cmd.y)));
+      else ops.push(closePath());
+    }
+  }
+  return ops;
+}
+
+/** Fill paths with the even-odd rule (cut holes stay empty): the white sticker border, as a vector. */
+export function fillPathsOps(paths: Path[], toPdf: (x: number, y: number) => [number, number], color: string): PDFOperator[] {
+  const c = hexToRgb(color);
+  return [
+    pushGraphicsState(),
+    setFillingRgbColor(c.red, c.green, c.blue),
+    ...pathOps(paths, toPdf),
+    PDFOperator.of(PDFOperatorNames.FillEvenOdd),
+    popGraphicsState(),
+  ];
+}
+
+/**
+ * The printed cutting line as a vector. Inside placement clips to the sticker
+ * (even-odd) and strokes at twice the width, so exactly the inner half prints.
+ * `toPdf` maps mm to user units in which 1 unit is 1 mm (item space).
+ */
+export function cutGuideOps(
+  guide: { paths: Path[]; color: string; width: number; inside: boolean },
+  toPdf: (x: number, y: number) => [number, number],
+): PDFOperator[] {
+  const c = hexToRgb(guide.color);
+  const ops: PDFOperator[] = [pushGraphicsState()];
+  if (guide.inside) ops.push(...pathOps(guide.paths, toPdf), clipEvenOdd(), endPath());
+  ops.push(
+    setStrokingRgbColor(c.red, c.green, c.blue),
+    setLineWidth(guide.inside ? guide.width * 2 : guide.width),
+    setLineJoin(LineJoinStyle.Round),
+    ...pathOps(guide.paths, toPdf),
+    stroke(),
+    popGraphicsState(),
+  );
   return ops;
 }
 

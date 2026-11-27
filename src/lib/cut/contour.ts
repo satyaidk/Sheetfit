@@ -7,7 +7,9 @@
  * 2. Offset: grow the ink by `offsetPx` with an exact Euclidean distance
  *    transform (Felzenszwalb and Huttenlocher, 2012). Growing the *mask* and
  *    then tracing, rather than offsetting a traced polygon, can never produce a
- *    self-intersecting outline, and nearby islands merge naturally.
+ *    self-intersecting outline, and nearby islands merge naturally. With
+ *    `closePx`, the mask is grown further and shrunk back (a morphological
+ *    closing), which fills slots too narrow to cut by hand.
  * 3. Trace: marching squares on the grown mask gives closed boundary loops.
  *    Loops are classified as outer outlines or holes by their winding.
  * 4. Simplify (Ramer–Douglas–Peucker) and smooth (Chaikin corner cutting),
@@ -33,6 +35,12 @@ export interface ContourOptions {
   holes: boolean;
   /** Drop islands smaller than this many square pixels. */
   minAreaPx: number;
+  /**
+   * Morphological closing radius in mask pixels: gaps and inlets narrower
+   * than twice this are filled, so the outline has no slots that scissors
+   * (or a blade) cannot follow. 0 keeps every detail.
+   */
+  closePx: number;
 }
 
 export const DEFAULT_CONTOUR: ContourOptions = {
@@ -42,6 +50,7 @@ export const DEFAULT_CONTOUR: ContourOptions = {
   smoothing: 1,
   holes: false,
   minAreaPx: 4,
+  closePx: 0,
 };
 
 /** Threshold an RGBA buffer's alpha channel into a 0/1 mask. */
@@ -106,6 +115,17 @@ export function dilate(mask: Uint8Array, width: number, height: number, radius: 
   const r2 = radius * radius;
   const out = new Uint8Array(mask.length);
   for (let i = 0; i < out.length; i++) out[i] = dist[i] <= r2 ? 1 : 0;
+  return out;
+}
+
+/** Shrink the ink by `radius` pixels (exact Euclidean): the complement grown, inverted. */
+export function erode(mask: Uint8Array, width: number, height: number, radius: number): Uint8Array {
+  if (radius <= 0) return mask;
+  const inverse = new Uint8Array(mask.length);
+  for (let i = 0; i < mask.length; i++) inverse[i] = mask[i] ? 0 : 1;
+  const grown = dilate(inverse, width, height, radius);
+  const out = new Uint8Array(mask.length);
+  for (let i = 0; i < mask.length; i++) out[i] = grown[i] ? 0 : 1;
   return out;
 }
 
@@ -288,7 +308,12 @@ export interface ContourResult {
  */
 export function traceContour(mask: Uint8Array, width: number, height: number, options: Partial<ContourOptions> = {}): ContourResult {
   const o = { ...DEFAULT_CONTOUR, ...options };
-  const grown = dilate(mask, width, height, o.offsetPx);
+  // Closing (grow by offset + close, then shrink by close) fills narrow gaps
+  // while keeping the outline exactly `offsetPx` outside the artwork elsewhere.
+  const grown =
+    o.closePx > 0
+      ? erode(dilate(mask, width, height, o.offsetPx + o.closePx), width, height, o.closePx)
+      : dilate(mask, width, height, o.offsetPx);
   const loops = traceLoops(grown, width, height);
   const outlines: number[][] = [];
   const holes: number[][] = [];

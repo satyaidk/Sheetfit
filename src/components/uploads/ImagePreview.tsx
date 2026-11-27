@@ -14,13 +14,13 @@ export function ImagePreview({ asset }: { asset: LoadedAsset }) {
       <div className="checker flex aspect-square items-center justify-center overflow-hidden rounded-md">
         <img src={asset.objectUrl} alt="" className="max-h-full max-w-full object-contain" draggable={false} />
       </div>
-      <p className="mt-1.5 truncate text-[12px] font-medium" title={asset.name}>
+      <p className="mt-1.5 truncate text-caption font-medium" title={asset.name}>
         {asset.name}
       </p>
-      <p className="tnum text-[11px] text-ink-muted">
+      <p className="tnum text-caption text-ink-muted">
         {asset.naturalWidth} × {asset.naturalHeight} px{asset.hasAlpha ? ", transparent" : ""}
       </p>
-      <p className="tnum text-[11px] text-ink-faint">
+      <p className="tnum text-caption text-ink-faint">
         Sharp up to {Math.round(max.width)} × {Math.round(max.height)} mm
       </p>
     </div>

@@ -68,7 +68,7 @@ function LeaveBody({ intent }: { intent: LeaveIntent }) {
           <span className="flex size-20 shrink-0 items-center justify-center rounded-lg bg-subtle">
             <ProductArt product={product} className="size-16" />
           </span>
-          <p className="text-[13px] leading-relaxed text-ink-muted">
+          <p className="text-body leading-relaxed text-ink-muted">
             A new design opens on its own sheet with an empty {product.name.toLowerCase()} box at{" "}
             <span className="tnum font-medium text-ink">
               {+product.width.toFixed(1)} × {+product.height.toFixed(1)} mm

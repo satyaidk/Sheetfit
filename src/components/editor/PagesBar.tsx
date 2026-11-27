@@ -73,7 +73,7 @@ export function PagesBar() {
               <button
                 type="button"
                 aria-label="Add page"
-                className="flex h-12 shrink-0 items-center gap-1.5 rounded-lg px-3 text-[12.5px] font-medium text-ink-muted hover:bg-subtle hover:text-ink"
+                className="flex h-12 shrink-0 items-center gap-1.5 rounded-lg px-3 text-caption font-medium text-ink-muted hover:bg-subtle hover:text-ink"
               >
                 <Plus className="size-4" />
                 {docs.length === 1 && "Add page"}
@@ -162,7 +162,7 @@ function PageThumb({
             viewBox={`0 0 ${size.width} ${size.height}`}
             width={w}
             height={h}
-            className={cn("rounded-[2px] bg-white shadow-[0_0_0_1px_var(--line-strong)]", active && "shadow-[0_0_0_2px_var(--accent)]")}
+            className={cn("rounded-[2px] bg-paper shadow-[0_0_0_1px_var(--line-strong)]", active && "shadow-[0_0_0_2px_var(--accent)]")}
             aria-hidden
           >
             {doc.designs.map((d) => {
@@ -187,8 +187,8 @@ function PageThumb({
             })}
           </svg>
           <span className="flex flex-col items-start leading-tight">
-            <span className={cn("tnum text-[12px] font-semibold", active ? "text-accent" : "text-ink")}>{index + 1}</span>
-            <span className="text-[10.5px] whitespace-nowrap text-ink-muted">{findSheet(doc.page.sheet)?.short ?? "Custom"}</span>
+            <span className={cn("tnum text-caption font-semibold", active ? "text-accent" : "text-ink")}>{index + 1}</span>
+            <span className="text-badge whitespace-nowrap text-ink-muted">{findSheet(doc.page.sheet)?.short ?? "Custom"}</span>
           </span>
         </button>
       </Tooltip>

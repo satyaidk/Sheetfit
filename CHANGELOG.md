@@ -4,7 +4,59 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
-### Added
+### Added (v0.10: stickers cut by hand, straps, fill sheet, adaptive editor)
+
+- Sticker cut methods per page: By hand (default), Cricut, Silhouette, or a cutter or print shop (ADR 0018).
+- Automatic sticker outlines after every upload, drop, sample, replace or resize. Outlines come from transparency, or
+  from a plain background found by a flood fill from the edges, so a JPEG on white gets a shaped outline. Hand cutting
+  gets rounder, one-piece outlines with no slots under 3 mm. A photo with a busy edge falls back to a rounded rectangle,
+  with a note.
+- A printed cutting line for hand cutting: black, 0.25 mm, just inside the cut, in every output (canvas, PDF vector,
+  SVG, print, PNG). Colour, thickness and placement (inside the edge or on the cut) are adjustable. White sticker
+  borders are painted under the artwork.
+- Cutter PNG download for Cricut and Silhouette: the stickers only (cropped), transparent, 300 DPI, white borders, no
+  line, with import steps and the exact size in inches, and a warning above Cricut's Print Then Cut limit. Cricut pages show the Print Then Cut area (7.2 × 10.62 in on A4, 7.44 × 9.94 in on Letter)
+  and can make it the printable area.
+- Fill sheet (step and repeat) for every product, with the count shown before you click: in the quick-actions bar,
+  the floating pill, the right-click menu and the inspector. Grids are centred and may mix turned copies; filling twice
+  gives the same sheet; "Exactly N" spills onto new pages as one undo step (ADR 0019).
+- An image put into one empty product box also fills the other empty boxes of that product on the page.
+- Lanyard and keychain straps on A4 transfer sheets: 12, 16 or 20 mm ribbon (or any width), your own strap length,
+  artwork once, repeated or filling, turned along the strap, both faces for straps folded through a ring, clear end
+  zones, a live sheet and strap preview, and a 600 DPI strap image (ADR 0020). The ribbon-roll layout is its second
+  tab.
+- Remove plain background (a transparent PNG copy; inner white kept) and Trim empty edges (crop to the artwork, same
+  printed size). DTF warns when an opaque background would print as a white box.
+- High-quality printing at 600 DPI.
+- 58 sourced templates (ornaments in 16 shapes and sizes, a two-part heart keychain, bag tags, magnets, coasters, car
+  coasters, desk mats, a wall clock, signs and yard signs, wall panels, natural wood prints, a clipboard, a pillow
+  cover, glass cutting boards, cuff bracelets, pendant inserts, and five DTF placements), with supplier, code and date;
+  "Ornaments", "Home and decor" and "Jewellery" groups. 131 templates in all.
+- Outlines for shaped blanks (heart, star, tree, bell, snowflake, dog bone, cross, hexagon, tag) used as the cut guide,
+  in the 2D illustration and in 3D (ADR 0022). The heart and bone pet tags use them too.
+- 3D: die-cut stickers in their own traced shape with the white border (kiss-cut on a backing sheet), a strap model,
+  and new models for clocks, yard signs, wall panels, clipboards, pendants, glass boards, pillows and cuff bracelets.
+- A tabbed inspector (Design, Arrange, Cut) with a header showing the picture, size and DPI; a next-step checklist when
+  nothing is selected; the start dialog offers straps (ADR 0021).
+- `scripts/e2e/v10func.mjs` (browser checks for this release), ADRs 0018–0022, `tests/v10-stickers-fill.test.ts`,
+  `tests/v10-catalogue-straps.test.ts`.
+
+### Changed (v0.10)
+
+- One side panel at a time below 1280 px, narrower panels below 1536 px, and the 3D dock folds into a pill when the
+  canvas is narrow, so the sheet keeps its room on laptops. Choosing a product closes the catalogue below 1600 px.
+- The quick-actions bar adapts to the canvas width (container queries); rare image tools are in a More menu.
+- Repeat on sheet and Quantity are replaced by one Copies section; spacing is always between cut lines.
+- Rebuilt 3D cap: structured six-panel crown, eyelets, sweatband, a curved brim, resting tipped onto the brim.
+- The Products panel follows the page's process.
+
+### Fixed (v0.10)
+
+- Word labels overlapped their values in number fields (Bleed, Border, Offset).
+- Copies from Quantity that did not fit stayed stacked on the original.
+- Encoding damage in `lib/layout/arrange.ts` comments.
+
+### Added (v0.9)
 
 - Output mirror as an explicit choice per page: Auto (process default), On or Off (ADR 0014). Shown and changeable in
   the export and print dialog before output, with what to set in the printer driver. Applied once, in the file.

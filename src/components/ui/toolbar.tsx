@@ -18,7 +18,7 @@ export function ToolbarButton({
   return (
     <ToolbarPrimitive.Button
       className={cn(
-        "inline-flex h-8 min-w-8 shrink-0 items-center justify-center gap-1.5 rounded-md px-2 text-[13px] font-medium whitespace-nowrap text-ink transition-colors hover:bg-subtle-2 disabled:pointer-events-none disabled:opacity-40 [&_svg]:size-4 [&_svg]:shrink-0",
+        "inline-flex h-(--control-h) min-w-(--control-h) shrink-0 items-center justify-center gap-1.5 rounded-md px-2 text-body font-medium whitespace-nowrap text-ink transition-colors duration-(--duration-fast) hover:bg-subtle-2 disabled:pointer-events-none disabled:opacity-40 [&_svg]:size-4 [&_svg]:shrink-0",
         active && "bg-accent-soft text-accent hover:bg-accent-soft",
         className,
       )}
@@ -33,7 +33,7 @@ export function ToolbarSeparator({ className }: { className?: string }) {
 
 export function Kbd({ children }: { children: React.ReactNode }) {
   return (
-    <kbd className="inline-flex h-5 min-w-5 items-center justify-center rounded border border-line bg-subtle px-1 font-sans text-[11px] font-medium text-ink-muted">
+    <kbd className="inline-flex h-5 min-w-5 items-center justify-center rounded border border-line-strong bg-subtle px-1 font-sans text-badge font-medium text-ink-muted">
       {children}
     </kbd>
   );

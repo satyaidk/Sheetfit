@@ -19,6 +19,7 @@
 import type { CutSpec, Design } from "@/types/editor";
 import type { Rect } from "@/lib/image/image-fit";
 import { findProduct } from "@/lib/catalogue/products";
+import { outlineIn } from "@/lib/catalogue/blank-outlines";
 
 export type PathCmd =
   | { op: "M"; x: number; y: number }
@@ -132,6 +133,11 @@ export function resolvedCut(d: Pick<Design, "cut" | "productId">): CutSpec {
 export function cutPaths(d: BoxDesign & Pick<Design, "cut" | "productId">): Path[] {
   const cut = resolvedCut(d);
   const trim = localTrim(d);
+  // Shaped blanks (heart, star, bone...) cut along their outline unless the user chose a cut.
+  if (!d.cut) {
+    const outline = findProduct(d.productId)?.outline;
+    if (outline) return [polygonPath(outlineIn(outline, trim))];
+  }
   if (cut.shape === "contour") {
     const paths = cut.contour?.paths ?? [];
     if (paths.length > 0) {
@@ -149,6 +155,53 @@ export function cutPaths(d: BoxDesign & Pick<Design, "cut" | "productId">): Path
   const outline = outsetRect(trim, cut.offset);
   if (cut.shape === "ellipse") return [ellipsePath(outline)];
   return [roundedRectPath(outline, cut.radius + Math.max(0, cut.offset))];
+}
+
+/** Sample a path into a flat polygon (cubic curves split into `steps` segments). */
+export function flattenPath(path: Path, steps = 12): number[] {
+  const out: number[] = [];
+  let x = 0;
+  let y = 0;
+  for (const c of path) {
+    if (c.op === "M" || c.op === "L") {
+      out.push(c.x, c.y);
+      x = c.x;
+      y = c.y;
+    } else if (c.op === "C") {
+      for (let i = 1; i <= steps; i++) {
+        const t = i / steps;
+        const u = 1 - t;
+        out.push(
+          u * u * u * x + 3 * u * u * t * c.x1 + 3 * u * t * t * c.x2 + t * t * t * c.x,
+          u * u * u * y + 3 * u * u * t * c.y1 + 3 * u * t * t * c.y2 + t * t * t * c.y,
+        );
+      }
+      x = c.x;
+      y = c.y;
+    }
+  }
+  // A closing point equal to the start is implied by Z.
+  if (out.length >= 4 && Math.abs(out[0] - out[out.length - 2]) < 1e-9 && Math.abs(out[1] - out[out.length - 1]) < 1e-9) out.length -= 2;
+  return out;
+}
+
+/**
+ * The outer cut outline of a design as a box-relative polygon (0–1 of the
+ * box, y down; a border may reach past 0–1), for 3D previews. Null when the
+ * design has no cut path.
+ */
+export function boxOutline(d: BoxDesign & Pick<Design, "cut" | "productId">): number[] | null {
+  let best: number[] | null = null;
+  let bestArea = 0;
+  for (const path of cutPaths(d)) {
+    const pts = flattenPath(path);
+    const a = Math.abs(polygonArea(pts));
+    if (a > bestArea) {
+      bestArea = a;
+      best = pts;
+    }
+  }
+  return best ? best.map((v, i) => (i % 2 === 0 ? (v + d.width / 2) / d.width : (v + d.height / 2) / d.height)) : null;
 }
 
 /** Inputs a contour depends on; when they change, the stored contour is out of date. */

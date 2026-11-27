@@ -39,6 +39,18 @@ export function useEditorShortcuts() {
         s.setPanelOpen(!s.panelOpen);
         return;
       }
+      // Command palette, from anywhere (also inside fields), like VS Code and GitHub.
+      if (mod && !e.shiftKey && !e.altKey && key === "k") {
+        e.preventDefault();
+        if (s.dialog === "commands") s.setDialog(null);
+        else if (!s.dialog) s.setDialog("commands");
+        return;
+      }
+      if (mod && e.shiftKey && key === "e") {
+        e.preventDefault();
+        if (s.doc.designs.length > 0 && !s.dialog) s.setDialog("export");
+        return;
+      }
       if (isTyping(e.target) || s.dialog || s.cropEditing) return;
 
       if (e.key === "?") {

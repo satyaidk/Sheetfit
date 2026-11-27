@@ -26,6 +26,8 @@ describe("3D models", () => {
       model.group.traverse((o) => {
         const m = o as THREE.Mesh;
         if (m.isMesh) {
+          // A material array draws nothing without geometry groups (the v0.10 cap crown did that).
+          if (Array.isArray(m.material)) expect(m.geometry.groups.length, `${p.id}: material array without groups`).toBeGreaterThan(0);
           const pos = m.geometry.getAttribute("position");
           vertices += pos.count;
           for (let i = 0; i < pos.count; i += 37) expect(Number.isFinite(pos.getX(i) + pos.getY(i) + pos.getZ(i)), p.id).toBe(true);
@@ -34,8 +36,8 @@ describe("3D models", () => {
       expect(vertices, p.id).toBeGreaterThan(50);
       disposeModel(model.group);
     }
-    // Building all 52 models (13 cloth surfaces) takes several seconds in Node.
-  }, 30_000);
+    // Building every model (131 in v0.10, with cloth surfaces and pillows) takes several seconds in Node, more under coverage.
+  }, 120_000);
 
   it("sizes drinkware from the wrap: an 11 oz mug is about 82 mm across and 96 mm tall", () => {
     const model = buildProductModel(findProduct("mug-11oz")!, { color: "#ffffff", process: "sublimation", textures });

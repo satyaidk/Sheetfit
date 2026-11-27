@@ -21,6 +21,15 @@ import { useId } from "react";
 import { WRAP_SEAM_MM, type ProductArt as ArtKind, type ProductPreset } from "@/lib/catalogue/products";
 import { luminance, shade } from "@/lib/catalogue/colors";
 import { OUTLINES } from "@/lib/catalogue/outlines";
+import { outlineIn, type OutlineKind } from "@/lib/catalogue/blank-outlines";
+
+/** A shaped blank's outline as SVG path data, filling `b`. */
+function outlinePathD(kind: OutlineKind, b: Box): string {
+  const pts = outlineIn(kind, { x: b.x, y: b.y, width: b.w, height: b.h });
+  let d = "";
+  for (let i = 0; i < pts.length; i += 2) d += `${i === 0 ? "M" : "L"}${+pts[i].toFixed(2)} ${+pts[i + 1].toFixed(2)} `;
+  return d + "Z";
+}
 
 type Box = { x: number; y: number; w: number; h: number };
 type Light = "cylinder" | "flat" | "garment";
@@ -46,7 +55,7 @@ interface ShapeSpec {
   cyl?: { x: number; w: number };
 }
 
-export type MockupProduct = Pick<ProductPreset, "art" | "artArea" | "wrap" | "width" | "height" | "bleed" | "group" | "shape">;
+export type MockupProduct = Pick<ProductPreset, "art" | "artArea" | "wrap" | "width" | "height" | "bleed" | "group" | "shape" | "outline">;
 
 const METAL = "#8e979f";
 const LID = "#3f464e";
@@ -79,6 +88,22 @@ function shapes(kind: ArtKind, t: Tone, p: MockupProduct): ShapeSpec {
     const { face, box } = rectFace(max, aspect, radius);
     return { sil: face, face, faceBox: box, light: "flat", ...extra };
   };
+
+  // Shaped blanks (hearts, stars, trees...) show their own outline as the face.
+  if (p.outline && !p.wrap && p.group !== "apparel") {
+    const b = fitBox({ x: 16, y: 18, w: 68, h: 74 }, aspect);
+    const face = <path d={outlinePathD(p.outline, b)} />;
+    const hanger =
+      kind === "ornament" ? (
+        <>
+          <path d={`M50 2 V${b.y}`} stroke={t.edge} strokeWidth={1.2} />
+          <rect x="45" y={b.y - 6} width="10" height="7" rx="2" fill={GOLD} />
+        </>
+      ) : kind === "keychain" || kind === "pet-tag" ? (
+        <circle cx="50" cy={b.y - 6} r="7" fill="none" stroke={METAL} strokeWidth={3} />
+      ) : undefined;
+    return { under: hanger, sil: face, face, faceBox: b, light: "flat" };
+  }
 
   switch (kind) {
     case "mug":
@@ -356,6 +381,73 @@ function shapes(kind: ArtKind, t: Tone, p: MockupProduct): ShapeSpec {
         over: <path d="M20 34 h60" stroke={t.edge} strokeOpacity={0.4} strokeWidth={0.8} strokeDasharray="1.5 1.5" />,
         light: "garment",
       };
+    case "clock": {
+      const face = <circle cx="50" cy="50" r="40" />;
+      return {
+        sil: face,
+        face,
+        faceBox: { x: 10, y: 10, w: 80, h: 80 },
+        over: (
+          <>
+            <path d="M50 50 L50 26 M50 50 L66 58" stroke={LID} strokeWidth={2.2} strokeLinecap="round" />
+            <circle cx="50" cy="50" r="2.6" fill={LID} />
+          </>
+        ),
+        light: "flat",
+      };
+    }
+    case "sign": {
+      const spec = flat({ x: 18, y: 6, w: 64, h: 66 }, 1.5);
+      const b = spec.faceBox!;
+      return { ...spec, under: <path d={`M${b.x + b.w * 0.3} ${b.y + b.h - 2} V97 M${b.x + b.w * 0.7} ${b.y + b.h - 2} V97`} stroke={METAL} strokeWidth={2.4} /> };
+    }
+    case "wall-panel":
+      return flat({ x: 14, y: 8, w: 72, h: 84 }, 1);
+    case "clipboard": {
+      const spec = flat({ x: 18, y: 10, w: 64, h: 84 }, 3);
+      const b = spec.faceBox!;
+      return { ...spec, over: <rect x={50 - b.w * 0.18} y={b.y - 3} width={b.w * 0.36} height={9} rx={2} fill={METAL} stroke={t.edge} strokeWidth={0.6} /> };
+    }
+    case "pillow": {
+      const face = <path d="M14 18 Q50 10 86 18 Q92 50 86 82 Q50 90 14 82 Q8 50 14 18 Z" />;
+      return { sil: face, face, faceBox: { x: 14, y: 16, w: 72, h: 68 }, light: "garment" };
+    }
+    case "bracelet": {
+      const face = <path d={`M12 ${54 - 40 / aspect} Q50 ${36 - 40 / aspect} 88 ${54 - 40 / aspect} L88 ${54 + 40 / aspect} Q50 ${36 + 40 / aspect} 12 ${54 + 40 / aspect} Z`} />;
+      return { sil: face, face, faceBox: { x: 12, y: 44 - 40 / aspect, w: 76, h: 80 / aspect }, light: "cylinder", cyl: { x: 12, w: 76 } };
+    }
+    case "pendant": {
+      const b = fitBox({ x: 28, y: 30, w: 44, h: 56 }, aspect);
+      const face = p.shape === "circle" ? <ellipse cx={b.x + b.w / 2} cy={b.y + b.h / 2} rx={b.w / 2} ry={b.h / 2} /> : <rect x={b.x} y={b.y} width={b.w} height={b.h} rx={2} />;
+      return {
+        under: (
+          <>
+            <path d={`M50 4 V${b.y - 4}`} stroke={GOLD} strokeWidth={1} />
+            <rect x={b.x - 3} y={b.y - 3} width={b.w + 6} height={b.h + 6} rx={p.shape === "circle" ? b.w : 4} fill={METAL} />
+          </>
+        ),
+        sil: face,
+        face,
+        faceBox: b,
+        light: "flat",
+      };
+    }
+    case "strap": {
+      const b = fitBox({ x: 30, y: 16, w: 40, h: 70 }, Math.max(0.12, aspect * 2));
+      const face = <rect x={b.x} y={b.y} width={b.w} height={b.h} rx={1} />;
+      return {
+        under: <circle cx="50" cy={b.y - 7} r="8" fill="none" stroke={METAL} strokeWidth={3} />,
+        sil: face,
+        face,
+        faceBox: b,
+        over: <rect x={b.x - 2} y={b.y + b.h - 6} width={b.w + 4} height={8} rx={1.5} fill={METAL} />,
+        light: "flat",
+      };
+    }
+    case "cutting-board": {
+      const spec = flat({ x: 14, y: 8, w: 72, h: 84 }, 5);
+      return { ...spec, over: <rect x={spec.faceBox!.x} y={spec.faceBox!.y} width={spec.faceBox!.w} height={spec.faceBox!.h} rx={5} fill="#fff" fillOpacity={0.12} /> };
+    }
   }
 }
 

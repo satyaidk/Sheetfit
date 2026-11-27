@@ -33,4 +33,27 @@ d.ellipse([120, 120, 680, 680], fill=(236, 47, 143, 255))
 d.ellipse([330, 330, 470, 470], fill=(0, 0, 0, 0))
 d.rectangle([360, 40, 440, 160], fill=(7, 125, 137, 255))
 st.save(os.path.join(out, "sticker.png"))
+
+# v0.10: a JPEG sticker on plain white (a badge with a white hole, and a star apart from it).
+jw = Image.new("RGB", (900, 700), (255, 255, 255))
+d = ImageDraw.Draw(jw)
+d.rounded_rectangle([120, 140, 640, 520], radius=120, fill=(30, 110, 200))
+d.ellipse([300, 250, 460, 410], fill=(255, 255, 255))
+d.rectangle([170, 440, 590, 470], fill=(250, 200, 30))
+d.polygon([(720, 120), (760, 220), (860, 230), (780, 290), (810, 390), (720, 330), (630, 390), (660, 290), (580, 230), (680, 220)], fill=(230, 50, 90))
+jw.save(os.path.join(out, "badge-white.jpg"), quality=88)
+
+# v0.10: lanyard artwork (a 4:1 wordmark on transparency).
+lw = Image.new("RGBA", (1600, 400), (0, 0, 0, 0))
+d = ImageDraw.Draw(lw)
+d.rounded_rectangle([10, 60, 1590, 340], radius=60, fill=(20, 40, 120, 255))
+for i, x in enumerate(range(80, 1500, 280)):
+    d.ellipse([x, 120, x + 160, 280], fill=(255, 210, 40, 255) if i % 2 else (240, 80, 120, 255))
+lw.save(os.path.join(out, "lanyard-art.png"))
+
+# v0.10: artwork with wide empty transparent margins (for Trim empty edges).
+mg = Image.new("RGBA", (1200, 1200), (0, 0, 0, 0))
+d = ImageDraw.Draw(mg)
+d.rectangle([450, 500, 750, 700], fill=(7, 125, 137, 255))
+mg.save(os.path.join(out, "margins.png"))
 print("ok", len(os.listdir(out)))

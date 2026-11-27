@@ -33,7 +33,8 @@ describe("catalogue schema", () => {
   });
 
   it("records supplier, code and date for every product added in v0.9", () => {
-    const added = PRODUCTS.filter((p) => p.supplier);
+    // v0.9 additions were checked on 2026-11-23 (v0.10 additions have their own test).
+    const added = PRODUCTS.filter((p) => p.supplier && p.checked === "2026-11-23");
     expect(added.length).toBeGreaterThanOrEqual(15);
     for (const p of added) {
       expect(p.sku, p.id).toBeTruthy();

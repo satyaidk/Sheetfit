@@ -63,7 +63,7 @@ export function ArrangeDialog() {
         </DialogHeader>
         <div className="flex flex-col gap-4 overflow-y-auto px-5 py-4">
           <div>
-            <p className="mb-1.5 text-[12px] font-medium text-ink-muted">Arrange</p>
+            <p className="mb-1.5 text-caption font-medium text-ink-muted">Arrange</p>
             <Segmented<ArrangeOptions["scope"]>
               ariaLabel="Designs to arrange"
               value={scope}
@@ -74,11 +74,11 @@ export function ArrangeDialog() {
               ]}
             />
             {lockedCount > 0 && (
-              <p className="mt-1.5 text-[12px] text-ink-muted">{lockedCount} locked {lockedCount === 1 ? "design stays" : "designs stay"} put; others pack around them.</p>
+              <p className="mt-1.5 text-caption text-ink-muted">{lockedCount} locked {lockedCount === 1 ? "design stays" : "designs stay"} put; others pack around them.</p>
             )}
           </div>
           <div>
-            <p className="mb-1.5 text-[12px] font-medium text-ink-muted">Layout</p>
+            <p className="mb-1.5 text-caption font-medium text-ink-muted">Layout</p>
             <Segmented<ArrangeOptions["strategy"]>
               ariaLabel="Packing strategy"
               value={options.strategy}
@@ -90,11 +90,11 @@ export function ArrangeDialog() {
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <label className="flex flex-col gap-1 text-[12px] font-medium text-ink-muted">
+            <label className="flex flex-col gap-1 text-caption font-medium text-ink-muted">
               Gap between cut lines
               <NumberField label="" valueMm={doc.page.spacing} unit={unit} dpi={doc.page.dpi} min={0} max={100} onCommit={(spacing) => setPage({ spacing })} />
             </label>
-            <label className="flex flex-col gap-1 text-[12px] font-medium text-ink-muted">
+            <label className="flex flex-col gap-1 text-caption font-medium text-ink-muted">
               Sheet margins{uniform ? "" : " (mixed)"}
               <NumberField label="" valueMm={m.top} unit={unit} dpi={doc.page.dpi} min={0} max={100} onCommit={(v) => setPage({ margins: uniformMargins(v) })} />
             </label>
@@ -103,7 +103,7 @@ export function ArrangeDialog() {
             <Field label="Turn designs 90° when it saves space" htmlFor="arr-rotate">
               <Switch id="arr-rotate" checked={options.rotate} onCheckedChange={(rotate) => setOptions({ rotate })} />
             </Field>
-            <p className="text-[11.5px] text-ink-muted">Card pairs, groups and designs marked &ldquo;never turn&rdquo; are never turned.</p>
+            <p className="text-caption text-ink-muted">Card pairs, groups and designs marked &ldquo;never turn&rdquo; are never turned.</p>
             <Field label="Add pages for the rest" htmlFor="arr-pages">
               <Switch id="arr-pages" checked={options.extraPages} onCheckedChange={(extraPages) => setOptions({ extraPages })} />
             </Field>

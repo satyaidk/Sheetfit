@@ -21,6 +21,10 @@ export function makePage(overrides: Partial<PageSettings> = {}): PageSettings {
     pairGap: 5,
     guides: { cutlines: false, centreMarks: false, registration: false, registrationSize: 5 },
     sheetCut: false,
+    // Pre-v0.10 behaviour unless a test opts in: no printed cutting line, no painted border.
+    cutMethod: "file",
+    cutGuide: { color: "#000000", width: 0.25, placement: "inside" },
+    borderFill: null,
     ...overrides,
   };
 }
@@ -55,6 +59,7 @@ export function makeDesign(overrides: Partial<Design> = {}): Design {
     side: null,
     pairId: null,
     cut: null,
+    strap: null,
     ...overrides,
   };
 }

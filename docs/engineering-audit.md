@@ -1,4 +1,4 @@
-# Engineering audit (v0.9)
+# Engineering audit (v0.9, with the v0.10 UX audit)
 
 Date: 2026-11-23. Scope: the five reported issues (output mirror, PVC card front and back, card spacing and cut
 guides, Auto Arrange, fill and crop in a fixed box), the product catalogue, a new sticker workflow, and the systems they
@@ -87,3 +87,24 @@ Everything here is verified in software (geometry tests, real PDF and SVG files,
 verified on a physical printer, heat press or cutting machine: driver mirroring, transfer shrink, cutter registration
 and media behaviour must be tested by the user on their own equipment. See the test matrix in
 `docs/feature-implementation-plan.md`.
+
+## 8. v0.10 UX audit (2026-11-27)
+
+Method: the production build in headless Chrome (puppeteer-core) at 1366 × 768, 1920 × 1080, 1024 × 768,
+820 × 1180 and 390 × 844, the sample sheet and a sticker upload; measurements read from the DOM.
+
+| Finding | Measured | Fix |
+| --- | --- | --- |
+| Side panel, inspector and 3D dock open together on laptops | At 1366 px the A3 sample sheet was 330 px wide; at 1024 px the canvas was about 300 px | One side panel at a time below 1280 px; narrower panels below 1536 px; dock folds below a 760 px canvas (ADR 0021) |
+| Inspector too long | One sticker: 12 sections, 2,853 px in a 668 px panel; Trace contour in section 11 | Tabs (Design, Arrange, Cut); Design tab 1,174 px; cut controls one click away |
+| Duplicate tools | "Repeat on sheet" (box gap) and "Quantity" (cut-path gap) disagreed; leftovers sat on the original | One Fill engine with the count shown (ADR 0019) |
+| Quick bar cut off | Labels followed the window width | Container queries on the canvas; More menu |
+| Number field labels overlapped values | "Bleed", "Border" in a 16 px slot | Word labels take their own width |
+| Products panel ignored the page | Stayed on "Sublimation" on a sticker page | Follows the page's process |
+| Sticker outline manual | Six steps before a sticker could be cut; JPEGs could not be outlined | Automatic outlines from alpha or a plain background (ADR 0018) |
+| 3D | Caps a dome over a line; die-cut stickers square; heart and bone tags rounded rectangles | Rebuilt cap; sticker from its own contour; outlines for shaped blanks (ADR 0022) |
+
+Also fixed: mojibake in `lib/layout/arrange.ts` comments (`90Â°`), the strap length input's doubled focus outline,
+"Edit" toggling the inspector off when it was hidden by the side panel, and (found by the browser check) a Cricut
+cutter PNG of the whole A4 page, 8.27 × 11.69 in, larger than Print Then Cut accepts: it is now cropped to the
+stickers (6.08 × 9.13 in for six 3 in stickers).

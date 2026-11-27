@@ -9,14 +9,14 @@ export function Slider({ className, ...props }: React.ComponentProps<typeof Slid
       className={cn("relative flex h-5 w-full touch-none items-center select-none", className)}
       {...props}
     >
-      <SliderPrimitive.Track className="relative h-1 w-full grow overflow-hidden rounded-full bg-line">
+      <SliderPrimitive.Track className="relative h-1 w-full grow overflow-hidden rounded-full bg-line-strong">
         <SliderPrimitive.Range className="absolute h-full bg-accent" />
       </SliderPrimitive.Track>
       {thumbs.map((_, i) => (
         <SliderPrimitive.Thumb
           key={i}
           aria-label={props["aria-label"]}
-          className="block size-3.5 rounded-full border-2 border-accent bg-white shadow-sm"
+          className="relative block size-4 rounded-full border-2 border-accent bg-white shadow-card transition-transform duration-(--duration-fast) hover:scale-110 before:absolute before:-inset-1 before:rounded-full before:content-['']"
         />
       ))}
     </SliderPrimitive.Root>

@@ -1,63 +1,179 @@
 @import "tailwindcss";
 
 /*
- * Design tokens (v0.2, see AGENTS.md section 6 and the research report).
- * Quiet, light chrome so the sheet is the hero; one teal accent for selection,
- * primary actions, focus and active tabs; magenta reserved for snap guides
- * and live measurements. Surfaces are separated by tone first, borders second.
+ * Sheetfit design tokens, v2 (docs/design-system.md, ADR 0023).
+ *
+ * Three layers, the way large design systems (Fluent 2, Primer, Cloudscape)
+ * are built:
+ *   1. Theme: semantic colours, redefined for dark mode on
+ *      :root[data-theme="dark"]. Components never name a raw colour; they ask
+ *      for a role (surface, ink, accent, line).
+ *   2. Density: control heights, the body size and bar heights, redefined on
+ *      :root[data-density="compact"].
+ *   3. Constants: type ramp, radii, elevation geometry and motion.
+ * The inline script in app/layout.tsx sets data-theme and data-density before
+ * the first paint, so there is no flash. Every text pair below is checked for
+ * WCAG 2.2 contrast in tests/v11-design-system.test.ts (4.5:1 text, 3:1 UI).
+ * The print sheet is paper: --paper stays white in both themes.
+ * The home page (.home) keeps the light palette in both themes.
  */
-:root {
+:root,
+.home {
+  color-scheme: light;
   --surface: #ffffff;
+  --surface-raised: #ffffff;
   --subtle: #f5f6f8;
   --subtle-2: #eceef1;
   --canvas: #e9ebef;
+  --canvas-dot: rgb(27 31 36 / 0.07);
+  --paper: #ffffff;
   --line: #e3e6ea;
   --line-strong: #cfd4da;
+  /* Form-control edge: 3:1 against the surface (WCAG 1.4.11). */
+  --line-control: #7a828b;
   --ink: #1b1f24;
-  --ink-muted: #5b636d;
-  --ink-faint: #8b939c;
+  --ink-muted: #4f5761;
+  --ink-faint: #5f6770;
   --accent: #077d89;
   --accent-hover: #05656f;
-  --accent-soft: #e2f3f4;
+  --accent-soft: #eef8f9;
   --accent-ring: rgb(7 125 137 / 0.28);
+  --on-accent: #ffffff;
+  /* The chosen segment of a segmented control (lighter than its track in both themes). */
+  --control-selected: #ffffff;
+  /* Tooltips, count badges and the selected filter chip. */
+  --inverse: #1b1f24;
+  --on-inverse: #ffffff;
   --guide: #ec2f8f;
-  --danger: #cc2848;
+  /* Measurement badges carry white text: 5.1:1 on this magenta. */
+  --guide-strong: #cf1c7a;
+  --danger: #c42445;
   --danger-soft: #fdecef;
-  --warn: #a35f00;
+  --on-danger: #ffffff;
+  --warn: #8f5300;
   --warn-soft: #fff4de;
-  --ok: #18804a;
+  --ok: #157a45;
   --ok-soft: #e4f5eb;
+  --scrim: rgb(16 24 40 / 0.42);
   /* Print inks, for the marketing pages and process markers (CMY + a deep ink). */
   --ink-deep: #1d1b3a;
   --ink-deep-2: #2a2752;
   --process-cyan: #00a3c4;
   --process-magenta: #e5007d;
   --process-yellow: #ffd21f;
-  --shadow-pop: 0 1px 2px rgb(16 24 40 / 0.06), 0 8px 24px rgb(16 24 40 / 0.12);
-  --shadow-bar: 0 1px 2px rgb(16 24 40 / 0.06), 0 4px 14px rgb(16 24 40 / 0.08);
+  /* Elevation: a soft ambient shadow plus a directional key shadow (Fluent 2 geometry). */
+  --shadow-ambient: rgb(0 0 0 / 0.12);
+  --shadow-key: rgb(0 0 0 / 0.14);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --surface: #1c1f23;
+  --surface-raised: #262a30;
+  --subtle: #24282d;
+  --subtle-2: #2d3238;
+  --canvas: #131518;
+  --canvas-dot: rgb(230 233 236 / 0.07);
+  --line: #30363d;
+  --line-strong: #454d56;
+  --line-control: #7d858e;
+  --ink: #e6e9ec;
+  --ink-muted: #b4bbc3;
+  --ink-faint: #959da6;
+  --accent: #4dbfca;
+  --accent-hover: #6fd0d9;
+  --accent-soft: #133236;
+  --accent-ring: rgb(77 191 202 / 0.35);
+  --on-accent: #00272b;
+  --control-selected: #3b4148;
+  --inverse: #e6e9ec;
+  --on-inverse: #1c1f23;
+  --danger: #ff8096;
+  --danger-soft: #3b1b23;
+  --on-danger: #2b0610;
+  --warn: #f0b24f;
+  --warn-soft: #38290f;
+  --ok: #5fcf8e;
+  --ok-soft: #14301f;
+  --scrim: rgb(0 0 0 / 0.56);
+  --shadow-ambient: rgb(0 0 0 / 0.24);
+  --shadow-key: rgb(0 0 0 / 0.28);
+}
+
+/* Density (Cloudscape-style: comfortable by default, compact on request). */
+:root {
+  --control-h: 32px;
+  --control-h-sm: 28px;
+  --control-h-lg: 40px;
+  --fs-body: 14px;
+  --lh-body: 20px;
+  --fs-subtitle: 16px;
+  --lh-subtitle: 22px;
+  --header-h: 56px;
+  --statusbar-h: 36px;
+  --rail-w: 72px;
+  --panel-pad: 16px;
+}
+:root[data-density="compact"] {
+  --control-h: 28px;
+  --control-h-sm: 24px;
+  --control-h-lg: 32px;
+  --fs-body: 13px;
+  --lh-body: 18px;
+  --fs-subtitle: 15px;
+  --lh-subtitle: 20px;
+  --header-h: 48px;
+  --statusbar-h: 32px;
+  --rail-w: 64px;
+  --panel-pad: 12px;
+}
+
+:root {
+  /* Fluent 2 shadow ramp: 2 (cards), 4 (raised), 8 (bars), 16 (menus), 28 (floating panels), 64 (dialogs). */
+  --shadow-card: 0 0 2px var(--shadow-ambient), 0 1px 2px var(--shadow-key);
+  --shadow-raised: 0 0 2px var(--shadow-ambient), 0 2px 4px var(--shadow-key);
+  --shadow-bar: 0 0 2px var(--shadow-ambient), 0 4px 8px var(--shadow-key);
+  --shadow-pop: 0 0 2px var(--shadow-ambient), 0 8px 16px var(--shadow-key);
+  --shadow-float: 0 0 8px var(--shadow-ambient), 0 14px 28px var(--shadow-key);
+  --shadow-dialog: 0 0 8px var(--shadow-ambient), 0 32px 64px var(--shadow-key);
+  /* Motion: short and decelerating; transform and opacity only. */
+  --duration-fast: 100ms;
+  --duration-base: 150ms;
+  --duration-slow: 250ms;
   --ease-out: cubic-bezier(0.2, 0, 0, 1);
+  --ease-emphasized: cubic-bezier(0.05, 0.7, 0.1, 1);
 }
 
 @theme inline {
   --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
   --color-subtle: var(--subtle);
   --color-subtle-2: var(--subtle-2);
   --color-canvas: var(--canvas);
+  --color-paper: var(--paper);
   --color-line: var(--line);
   --color-line-strong: var(--line-strong);
+  --color-line-control: var(--line-control);
   --color-ink: var(--ink);
   --color-ink-muted: var(--ink-muted);
   --color-ink-faint: var(--ink-faint);
   --color-accent: var(--accent);
   --color-accent-hover: var(--accent-hover);
   --color-accent-soft: var(--accent-soft);
+  --color-on-accent: var(--on-accent);
+  --color-control-selected: var(--control-selected);
+  --color-inverse: var(--inverse);
+  --color-on-inverse: var(--on-inverse);
   --color-guide: var(--guide);
+  --color-guide-strong: var(--guide-strong);
   --color-danger: var(--danger);
   --color-danger-soft: var(--danger-soft);
+  --color-on-danger: var(--on-danger);
   --color-warn: var(--warn);
   --color-warn-soft: var(--warn-soft);
   --color-ok: var(--ok);
   --color-ok-soft: var(--ok-soft);
+  --color-scrim: var(--scrim);
   --color-ink-deep: var(--ink-deep);
   --color-ink-deep-2: var(--ink-deep-2);
   --color-process-cyan: var(--process-cyan);
@@ -70,14 +186,37 @@
   --color-mist-2: var(--home-mist-2);
   --color-muted: var(--home-muted);
   --color-hairline: var(--home-line);
-  --font-sans: var(--font-figtree), ui-sans-serif, system-ui, sans-serif;
-  --font-display: var(--font-bricolage), var(--font-figtree), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
+  --font-display: var(--font-sora), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  /*
+   * Type ramp (Fluent 2 / Primer sizes). Body and subtitle follow the density;
+   * nothing in the editor is set below 12 px except count badges (11 px).
+   */
+  --text-badge: 11px;
+  --text-badge--line-height: 14px;
+  --text-caption: 12px;
+  --text-caption--line-height: 16px;
+  --text-body: var(--fs-body);
+  --text-body--line-height: var(--lh-body);
+  --text-subtitle: var(--fs-subtitle);
+  --text-subtitle--line-height: var(--lh-subtitle);
+  --text-title: 20px;
+  --text-title--line-height: 28px;
+  --text-title-lg: 24px;
+  --text-title-lg--line-height: 32px;
+  --text-display: 32px;
+  --text-display--line-height: 40px;
   --radius-sm: 4px;
   --radius-md: 8px;
   --radius-lg: 12px;
-  --shadow-pop: var(--shadow-pop);
+  --shadow-card: var(--shadow-card);
+  --shadow-raised: var(--shadow-raised);
   --shadow-bar: var(--shadow-bar);
+  --shadow-pop: var(--shadow-pop);
+  --shadow-float: var(--shadow-float);
+  --shadow-dialog: var(--shadow-dialog);
   --ease-out: var(--ease-out);
+  --ease-emphasized: var(--ease-emphasized);
 }
 
 html,
@@ -88,8 +227,8 @@ body {
 
 body {
   font-family: var(--font-sans);
-  font-size: 13px;
-  line-height: 1.45;
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -98,18 +237,37 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* One focus indicator everywhere: 2 px, accent, 2 px away (WCAG 2.4.7). */
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
+/* Skip link: hidden until focused, then the first thing on screen. */
+.skip-link {
+  position: absolute;
+  left: 8px;
+  top: -48px;
+  z-index: 100;
+  border-radius: var(--radius-md);
+  background: var(--inverse);
+  color: var(--on-inverse);
+  padding: 8px 12px;
+  font-weight: 600;
+  transition: top var(--duration-base) var(--ease-out);
+}
+.skip-link:focus {
+  top: 8px;
+}
+
 /* Workspace backdrop: a faint dot grid, the convention of design canvases. */
 .canvas-surface {
   background-color: var(--canvas);
-  background-image: radial-gradient(rgb(27 31 36 / 0.07) 1px, transparent 1px);
+  background-image: radial-gradient(var(--canvas-dot) 1px, transparent 1px);
   background-size: 16px 16px;
 }
 
+/* Transparency checkerboard; always light, like the paper it stands for. */
 .checker {
   background-color: #fff;
   background-image: conic-gradient(#eceef1 25%, #fff 0 50%, #eceef1 0 75%, #fff 0);
@@ -153,17 +311,17 @@ input[type="number"]::-webkit-outer-spin-button {
   }
 }
 .animate-pop {
-  animation: pop-in 150ms var(--ease-out);
+  animation: pop-in var(--duration-base) var(--ease-out);
   transform-origin: var(--radix-popper-transform-origin, center);
 }
 .animate-fade {
-  animation: fade-in 150ms var(--ease-out);
+  animation: fade-in var(--duration-base) var(--ease-out);
 }
 .animate-panel {
-  animation: slide-in-left 200ms var(--ease-out);
+  animation: slide-in-left var(--duration-slow) var(--ease-out);
 }
 .animate-up {
-  animation: slide-up 200ms var(--ease-out);
+  animation: slide-up var(--duration-slow) var(--ease-out);
 }
 
 /*
@@ -184,12 +342,18 @@ input[type="number"]::-webkit-outer-spin-button {
   color: var(--home-night);
   font-size: 16px;
 }
+/* The home page is designed light; keep the page behind it light in a dark theme too. */
+html:has(body .home),
+html:has(body .home) body {
+  color-scheme: light;
+  background: #f4f5fa;
+}
 .home :focus-visible {
   outline: 2px solid var(--process-cyan);
   outline-offset: 3px;
 }
 .home-display {
-  font-family: var(--font-sora), var(--font-figtree), ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-sora), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   font-weight: 700;
   letter-spacing: -0.035em;
   line-height: 1.02;

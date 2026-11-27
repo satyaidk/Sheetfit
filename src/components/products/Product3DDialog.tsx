@@ -90,14 +90,14 @@ function Viewer3DBody({ productId }: { productId: string }) {
         </div>
         <div className="flex flex-col gap-4 border-l border-line p-5">
           <div>
-            <p className="mb-1.5 text-[12px] font-medium text-ink-muted">
+            <p className="mb-1.5 text-caption font-medium text-ink-muted">
               Blank colour <span className="text-ink">{color.name}</span>
             </p>
             <ColorSwatches colors={colorsFor(product)} value={color} onChange={setColor} />
           </div>
           {product.processes.length > 1 && (
             <div>
-              <p className="mb-1.5 text-[12px] font-medium text-ink-muted">Print process</p>
+              <p className="mb-1.5 text-caption font-medium text-ink-muted">Print process</p>
               <Segmented<PrintProcess>
                 ariaLabel="Print process for the preview"
                 value={process}
@@ -113,7 +113,7 @@ function Viewer3DBody({ productId }: { productId: string }) {
             <Note tone="warn">Sublimation dye is see-through, so it fades into dark blanks. DTF prints opaque.</Note>
           )}
           <div className="flex items-center justify-between gap-2">
-            <label className="flex items-center gap-2.5 text-[13px]">
+            <label className="flex items-center gap-2.5 text-body">
               <Switch checked={withDesign} onCheckedChange={setWithDesign} aria-label="Show a sample design" />
               Sample design
             </label>
@@ -122,7 +122,7 @@ function Viewer3DBody({ productId }: { productId: string }) {
               Shuffle
             </Button>
           </div>
-          <dl className="tnum grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 rounded-lg bg-subtle p-3 text-[12.5px]">
+          <dl className="tnum grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 rounded-lg bg-subtle p-3 text-caption">
             <dt className="text-ink-muted">Print area</dt>
             <dd className="text-right">
               {+product.width.toFixed(1)} × {+product.height.toFixed(1)} mm
@@ -136,7 +136,7 @@ function Viewer3DBody({ productId }: { productId: string }) {
             <dt className="text-ink-muted">Process</dt>
             <dd className="text-right">{product.processes.map((p) => (p === "dtf" ? "DTF" : "Sublimation")).join(" or ")}</dd>
           </dl>
-          {product.note && <p className="text-[12px] leading-relaxed text-ink-muted">{product.note}</p>}
+          {product.note && <p className="text-caption leading-relaxed text-ink-muted">{product.note}</p>}
         </div>
       </div>
       <DialogFooter className="justify-between">

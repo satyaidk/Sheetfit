@@ -73,3 +73,18 @@ SwiftShader). Physical: must be done by the user on real equipment.
 3. Import the SVG cut file into the cutting software you use and check scale (it is in millimetres) and registration;
    add the software's own registration marks if it uses an optical sensor.
 4. Measure ribbon width and strap length on your own lanyard roll before saving a strip profile.
+
+## v0.10 test matrix (stickers by hand, Fill sheet, straps, adaptive editor)
+
+| Area | Automated (Vitest) | Suite | Browser (`v10func.mjs`) | Physical |
+| --- | --- | --- | --- | --- |
+| Cut methods | Old pages migrate to no line and no border; new pages hand-cut; untrusted values sanitised; Cricut areas | `v10-stickers-fill` | Hand cutting chosen by default; Cricut area shown | — |
+| Cutting line, border | In the plan only for sticker pages; artwork-only files keep the border, drop the line; canvas, PDF and SVG draw both in order | `v10-stickers-fill` | Real PDF: `f*` before the image, `W* n`, `0.5 w`, black after it | Print, cut along the line |
+| Outlines | Plain background found, inner white kept, busy edges refused, transparency reached through; closing fills a 4 px gap | `v10-stickers-fill` | PNG and JPEG on white both outlined automatically | Cut by hand and on a Cricut |
+| Fill sheet | Grid counts, turned copies only when better, rotation lock, obstacles, twins replaced, maximum, too large, strips on A4; one undo step; exact quantity over pages | `v10-stickers-fill` | 6 stickers on A4; filling again keeps 6 | — |
+| Cutter PNG | — | — | 2480 × 3508 px RGBA, transparent corner, opaque stickers | Import into Design Space, check size |
+| Straps | Widths, length required, end zones; fold turns the second half 180°; once, repeat and fill placements; 600 DPI size; migration | `v10-catalogue-straps` | 21 straps of 16 × 130 mm on A4, mirrored | Press onto 16 mm ribbon, fold, check both faces |
+| Catalogue | 58 additions with supplier, source and date; outlines are simple polygons filling the box; bone along the long side; shaped cut paths | `v10-catalogue-straps` | Pictures rendered | Check your blanks |
+| 3D | New builders at real size; cuff arc length; die-cut sticker from its outline with box UVs; every product builds | `v10-catalogue-straps`, `v05-3d-models` | — | — |
+| Layout | — | — | 1024 px: selection folds the side panel; tabs present; Design tab shorter | — |
+| Image tools | Opaque bounds | `v10-stickers-fill` | Remove background clears the DTF warning; Trim shrinks the box to the motif | — |

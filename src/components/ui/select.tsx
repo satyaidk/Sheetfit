@@ -2,6 +2,8 @@ import * as React from "react";
 import { Select as SelectPrimitive } from "radix-ui";
 import { Check, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { fieldClass } from "./input";
+import { menuContentClass } from "./menu-styles";
 
 export function Select<T extends string>({
   value,
@@ -21,7 +23,8 @@ export function Select<T extends string>({
       <SelectPrimitive.Trigger
         aria-label={ariaLabel}
         className={cn(
-          "flex h-8 w-full items-center justify-between gap-1 rounded-md border border-line bg-surface px-2 text-[13px] text-ink outline-none hover:border-line-strong focus:border-accent",
+          fieldClass,
+          "flex h-(--control-h) w-full items-center justify-between gap-1 px-2",
           className,
         )}
       >
@@ -34,14 +37,14 @@ export function Select<T extends string>({
         <SelectPrimitive.Content
           position="popper"
           sideOffset={4}
-          className="z-50 min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-lg bg-surface p-1 shadow-pop ring-1 ring-black/5 animate-pop"
+          className={cn(menuContentClass, "min-w-[var(--radix-select-trigger-width)] overflow-hidden")}
         >
           <SelectPrimitive.Viewport>
             {options.map((o) => (
               <SelectPrimitive.Item
                 key={o.value}
                 value={o.value}
-                className="relative flex h-7 cursor-default items-center rounded-[4px] pr-2 pl-7 text-[13px] outline-none select-none data-[highlighted]:bg-accent-soft"
+                className="relative flex h-(--control-h) cursor-default items-center rounded-md pr-2 pl-7 text-body outline-none select-none data-[highlighted]:bg-subtle-2"
               >
                 <SelectPrimitive.ItemIndicator className="absolute left-2">
                   <Check className="size-3.5 text-accent" />

@@ -18,12 +18,12 @@
 import { forwardRef } from "react";
 import { Group, Image as KImage, Rect, Shape, Text } from "react-konva";
 import type Konva from "konva";
-import type { Design } from "@/types/editor";
+import type { CutGuideStyle, Design } from "@/types/editor";
 import type { LoadedAsset } from "@/types/image";
 import { computeImageRect, effectiveSourceRect } from "@/lib/image/image-fit";
 import { findProduct } from "@/lib/catalogue/products";
 import { cutPaths, resolvedCut, safeAreaPath, type Path } from "@/lib/cut/cut-path";
-import { tracePath } from "@/lib/export/rasterize";
+import { fillPathsEvenOdd, strokeCutGuide, tracePath } from "@/lib/export/rasterize";
 import { uiFontFamily } from "@/lib/utils";
 
 const ACCENT = "#077d89";
@@ -49,6 +49,40 @@ export interface DesignNodeProps {
   previewScale?: { x: number; y: number };
   /** Show the cut path even for plain rectangles (page "print cut lines" is on). */
   showCut?: boolean;
+  /** Sticker pages: the printed white border and hand-cutting line, drawn exactly as they print. */
+  sticker?: { fill: string | null; guide: CutGuideStyle | null };
+}
+
+/** The white sticker border: cut paths filled even-odd under the artwork, in true millimetres. */
+function StickerUnderlay({ paths, w, h, color }: { paths: Path[]; w: number; h: number; color: string }) {
+  return (
+    <Shape
+      listening={false}
+      sceneFunc={(ctx) => {
+        const c = ctx._context;
+        c.save();
+        c.translate(w / 2, h / 2);
+        fillPathsEvenOdd(c, paths, color);
+        c.restore();
+      }}
+    />
+  );
+}
+
+/** The printed hand-cutting line, at its real width and colour (it is part of the print). */
+function StickerGuide({ paths, w, h, guide }: { paths: Path[]; w: number; h: number; guide: CutGuideStyle }) {
+  return (
+    <Shape
+      listening={false}
+      sceneFunc={(ctx) => {
+        const c = ctx._context;
+        c.save();
+        c.translate(w / 2, h / 2);
+        strokeCutGuide(c, { paths, color: guide.color, width: guide.width, inside: guide.placement === "inside" });
+        c.restore();
+      }}
+    />
+  );
 }
 
 /** Konva shape that strokes cut paths given in box coordinates (origin top-left). */
@@ -74,7 +108,7 @@ function PathOutline({ paths, w, h, color, dash }: { paths: Path[]; w: number; h
 }
 
 export const DesignNode = forwardRef<Konva.Group, DesignNodeProps>(function DesignNode(
-  { design, asset, hovered, dropTarget, pxPerMm, draggable, onHover, onPointerDown, onDblClick, previewScale, showCut = false, ...handlers },
+  { design, asset, hovered, dropTarget, pxPerMm, draggable, onHover, onPointerDown, onDblClick, previewScale, showCut = false, sticker, ...handlers },
   ref,
 ) {
   const sx = previewScale?.x ?? 1;
@@ -110,8 +144,11 @@ export const DesignNode = forwardRef<Konva.Group, DesignNodeProps>(function Desi
 
   const product = findProduct(design.productId);
   const cut = resolvedCut(design);
+  // The printed guide replaces the dashed editor outline: it is what will print.
+  const printedGuide = !!(asset && sticker?.guide);
   // Draw the real cut path when it is not a plain rectangle at the trim (or when cut lines are on).
-  const shapedCut = cut.shape !== "rect" || cut.radius > 0 || cut.offset !== 0 || showCut;
+  const shapedCut = !printedGuide && (cut.shape !== "rect" || cut.radius > 0 || cut.offset !== 0 || showCut || (!design.cut && !!product?.outline));
+  const stickerPaths = asset && (sticker?.fill || sticker?.guide) ? cutPaths(design) : [];
   const paths = shapedCut ? cutPaths(design) : [];
   const safe = safeAreaPath(design);
   const label = product ? `${product.name}, ${product.detail}` : design.name;
@@ -155,7 +192,9 @@ export const DesignNode = forwardRef<Konva.Group, DesignNodeProps>(function Desi
               : "rgba(0,0,0,0)"
         }
       />
+      {asset && sticker?.fill && <StickerUnderlay paths={stickerPaths} w={w} h={h} color={sticker.fill} />}
       {imageNode}
+      {asset && sticker?.guide && <StickerGuide paths={stickerPaths} w={w} h={h} guide={sticker.guide} />}
       {!asset && (
         <>
           <Rect

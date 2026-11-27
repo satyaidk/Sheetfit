@@ -1,4 +1,4 @@
-# Catalogue sources (v0.9)
+# Catalogue sources (v0.9 and v0.10)
 
 Every product template added in v0.9 was checked on **2026-11-23** against a supplier or standard page. Only numbers
 printed on those pages are used. The same metadata (supplier, product code, material, date) is stored on each preset in
@@ -69,3 +69,60 @@ lines and between a cut line and the sheet edge"
 ([Adobe Express](https://www.adobe.com/express/learn/blog/how-to-design-stickers-for-print)). Sheetfit therefore stores
 these per design and per page and labels its starting values as starting values. The Vervante kiss-cut spec (HTTP 403)
 and the Excard label spec (PDF text not extractable) could not be read, so no supplier numbers from them are used.
+
+## v0.10 additions (checked 2026-11-27)
+
+Every size below is printed on the source page; nothing was estimated. Inches are converted at 25.4 mm and rounded to
+0.1 mm. The presets live in `src/lib/catalogue/products-v10.ts`; `tests/v10-catalogue-straps.test.ts` checks that each
+has a supplier, a source URL and the date, and spot-checks sizes. The Unisub code is the template number on the page.
+
+Sources:
+
+- **S1, S2**: Swing Design, Unisub sublimation blank templates ([page 1](https://www.swingdesign.com/pages/unisub-sublimation-blank-templates), [page 2](https://www.swingdesign.com/pages/unisub-sublimation-blank-templates-1)).
+- **H**: HeatPressNation, [sublimation templates](https://www.heatpressnation.com/pages/sublimation-templates) (shaped ornaments, car coasters, the 4.4 in coaster).
+- **P**: HeatPressNation, [SubliCraft linen pillow cover](https://www.heatpressnation.com/products/sublicraft-sublimation-blank-linen-pillow-cover).
+- **PF**: Printful, [glass cutting board](https://www.printful.com/custom/home-living/all/glass-cutting-board) (two sizes).
+- **PY**: Printify, [desk mats](https://printify.com/app/products/975/generic-brand/desk-mats) (three sizes).
+- **K**: Kingdom DTF, [sizing guide](https://kingdomdtf.com/blogs/dtf/how-big-should-my-dtf-design-be-sizing-guide-for-t-shirts-hoodies-more) (design widths only).
+
+| Group | Templates (id: size as published, code) | Source |
+| --- | --- | --- |
+| Ornaments | `ornament-round-2.75`: 2.75 in (4599); `ornament-ball-3x3.37`: 3 × 3.37 in (4335); `ornament-round-3.9`: 3.9 in (4849); `ornament-star`: 3.81 × 3.98 in (4331); `ornament-tree`: 3.38 × 3.95 in (4334); `ornament-heart`: 2.87 × 3 in (4332); `ornament-bell`: 3.3 × 3.33 in (4333); `ornament-snowflake`: 3 in (HPN 84002); `ornament-hexagon`: 2.6 × 3 in (4172); `ornament-oval`: 2.35 × 3 in (4171); `ornament-rect`: 2 × 3 in landscape (4173); `ornament-square-2.75`: 2.75 in (4859); `ornament-square-3.9`: 3.9 in (4850); `ornament-tag`: 2.5 × 3.5 in (4856); `ornament-bone`: 2.12 × 3.25 in (4857); `ornament-cross`: 2.9 × 3.5 in (4855) | H (4335 also S1) |
+| Keyrings and tags | `keychain-heart-2part`: 2.73 × 3.18 in (4664); bag tags `bag-tag-square-3`: 3 × 3 in (4622), `bag-tag-2.75x4` (4623), `bag-tag-1.75x3.5` (4624), `bag-tag-round-3.5`: 3.5 in (4625) | S2 |
+| Flat goods | magnets `magnet-round-2.5` (5522), `magnet-heart`: 2.5 × 2.25 in (5527); coasters `coaster-square-3.54` (4843), `coaster-round-3.54` (4028), `coaster-cork-3.78`: 3.78 in (5677; H lists 3.75 in, medium confidence); `coaster-round-4.4` (HPN 80307); car coasters `car-coaster-2.5` (ceramic), `car-coaster-2.625`; desk mats 14.4 × 12.1, 23.6 × 13.8, 31.5 × 15.5 in | S1, H, PY |
+| Home and decor | `wall-clock-8.125` (5650); `sign-5x12` (4792); yard signs 7.75 × 10 (4774) and 7.75 × 15.83 in (4776); wall panels 8 × 10 (4845) and 5.7 × 15.5 in (4846); natural wood prints 8 × 8, 8 × 10, 10 × 10, 11 × 14 in (4528–4531); `clipboard`: 9.76 × 12.68 in (4672); `pillow-cover-15.74`: 15.74 in square; glass cutting boards 8 × 11 and 11 × 15 in | S1, S2, P, PF |
+| Jewellery | cuff bracelets 0.55, 0.875, 1.375 and 1.75 × 6.5 in (4630, 4633, 4636, 4639); pendant inserts round 1 in (4691), square 1 in (4689), rectangle 2 × 1 in (4687) | S2 |
+| DTF placements | `crewneck-front` (11–12.5 in wide), `jacket-back` (11–13.5 in), `zip-hoodie-chest` (3.5–4 in per side), `tank-front` (6.5–8.5 in), `youth-sleeve` (2–3 in). K gives widths only: each box starts square at a width inside the range, marked medium confidence, and says so | K |
+
+Shaped blanks (heart, star, tree, bell, snowflake, bone, cross, hexagon, tag) carry a parametric outline drawn to the
+published bounding size (ADR 0022); the blank defines the real edge. The v0.9 heart and bone pet tags now use these
+outlines instead of their bounding rectangles.
+
+Not added: creative-border ornaments (Benelux, Berlin, London, Prague), paw, honeycomb, pentagon, tapered and
+snow-globe ornaments, and novelty keychains (anchor, car, flip-flop, martini, wine glass, shamrock, ribbon). Their sizes
+are published but not their outlines, so a shape could not be described honestly. Garden stakes are listed with one
+overall size that may include the stake; not added until the plate size is known. Hat, beanie and bucket-hat DTF sizes
+appeared only in a search summary without a source page; not added.
+
+## Lanyard and keychain ribbon (v0.10)
+
+- White sublimation lanyard ribbon in **16 mm** and **20 mm** (satin or polyester, 50, 100 and 101 m rolls) and
+  **12 mm** sublimation lanyard tape are listed on [IndiaMART](https://m.indiamart.com/impcat/lanyard-rolls.html)
+  ([printed lanyards](https://m.indiamart.com/impcat/sublimated-lanyard.html)), checked 2026-11-26. These are the
+  quick-pick widths in the strap tool; any other width can be typed.
+- ID&C lists lanyard widths from 10 to 25 mm, 20 mm the most popular ([guide](https://www.idcband.com/product-guides/lanyard-width-options-guide/)).
+  Wristband Bros lists a 900 mm (35 in) × 20 mm key-ring lanyard ([page](https://wristbandbros.com/lanyards/lanyard-with-key-ring)).
+- No source publishes a keychain strap cut length (it depends on the clamp), so the length is always the user's.
+
+## Cutting stickers (v0.10)
+
+| Topic | Guidance | Source |
+| --- | --- | --- |
+| Border | 2–4 mm for most designs; Sticker Mule's minimum 1/16 in | [Atomm](https://www.atomm.com/cs/blog/2645-how-to-design-stickers), [Sticker Mule](https://stickermule.com/blog/how-to-create-a-sticker-cut-line) |
+| Bleed and safe area | 2–3 mm bleed past the cut; keep important elements 3 mm (1/8 in) inside | Atomm, [MOO](https://www.moo.com/blog/ca/inspiration/sticker-design-mistakes), [Fourthwall](https://help.fourthwall.com/create-and-sell-products/best-practices/stickers-best-practices) |
+| Spacing | At least 3 mm between stickers for hand cutting; Fourthwall asks 0.25 in between cut lines on sheets | [stickerit.co](https://www.stickerit.co/blog/make-sticker-sheets), Fourthwall |
+| Shapes | Smooth outlines; thicken protrusions; avoid tiny inner cuts | Fourthwall, MOO, stickerit.co |
+| Cutting by hand | Print a visible outline, cut just outside it with sharp scissors or a craft knife, skip intricate inner cuts; scissors suit die-cut, a craft knife kiss-cut | [stickerit.co](https://www.stickerit.co/en-us/blog/how-to-kiss-cut-stickers-without-a-machine), stickerit.co |
+| Resolution | 300 DPI at the final size | Fourthwall, Atomm |
+| Cricut Print Then Cut | Largest image 7.2 × 10.62 in on A4, 7.44 × 9.94 in on Letter (current table; the older limit was 6.75 × 9.25 in); Design Space adds its registration marks; print from Design Space | Cricut Help ([page](https://help.cricut.com/hc/en-us/articles/360009429814-How-large-can-I-Print-Then-Cut), refuses automated reading; figures as quoted in search results), [Cricut blog (2021)](https://cricut.com/blog/gb/?p=206443) |
+| Silhouette Print & Cut | Studio adds marks in three corners; set Page Setup to the printer's paper size | Silhouette America support |

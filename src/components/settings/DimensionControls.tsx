@@ -17,7 +17,7 @@ import { useEditor } from "@/store/editor-store";
 import { boxFollowsImage, croppedSourceSize, describeFit } from "@/lib/image/image-fit";
 import { formatUnit } from "@/lib/layout/coordinate-conversion";
 import { NumberField } from "./NumberField";
-import { Note, Section } from "./Section";
+import { Disclosure, Note, Section } from "./Section";
 import { AlertDialog, AlertDialogContent } from "@/components/ui/alert-dialog";
 import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
@@ -125,7 +125,7 @@ export function DimensionControls({ design, asset }: { design: Design; asset: Lo
                 type="button"
                 onClick={() => applyPreset(p.width, p.height)}
                 className={cn(
-                  "tnum h-6 rounded-[4px] border px-1.5 text-[11px] font-medium transition-colors",
+                  "tnum h-6 rounded-[4px] border px-1.5 text-caption font-medium transition-colors",
                   active
                     ? "border-accent bg-accent-soft text-accent"
                     : "border-line bg-surface text-ink-muted hover:border-line-strong hover:text-ink",
@@ -165,13 +165,16 @@ export function DimensionControls({ design, asset }: { design: Design; asset: Lo
           )}
         </div>
         {derived && design.fitMode !== "manual" && (
-          <p className="mt-2 text-[12px] text-ink-muted">
+          <p className="mt-2 text-caption text-ink-muted">
             {design.fitMode === "fit-width" ? "Height" : "Width"} is calculated from the image proportions.
           </p>
         )}
       </Section>
 
-      <Section title="Fitting">
+      <Disclosure
+        title="More fitting options"
+        defaultOpen={!(design.fitMode === "contain" || design.fitMode === "cover" || design.fitMode === "fill")}
+      >
         <div role="radiogroup" aria-label="Fitting mode" className="flex flex-col gap-1">
           {FIT_MODES.map((m) => {
             const active = design.fitMode === m.value;
@@ -189,10 +192,10 @@ export function DimensionControls({ design, asset }: { design: Design; asset: Lo
               >
                 <FitGlyph mode={m.value} active={active} />
                 <span className="min-w-0">
-                  <span className={cn("block text-[13px] font-medium", m.value === "stretch" && !active && "text-ink-muted")}>
+                  <span className={cn("block text-body font-medium", m.value === "stretch" && !active && "text-ink-muted")}>
                     {m.title}
                   </span>
-                  <span className="block text-[12px] leading-snug text-ink-muted">{m.body}</span>
+                  <span className="block text-caption leading-snug text-ink-muted">{m.body}</span>
                 </span>
               </button>
             );
@@ -201,7 +204,7 @@ export function DimensionControls({ design, asset }: { design: Design; asset: Lo
 
         {design.fitMode === "fill" && (
           <div className="mt-3">
-            <p className="mb-1.5 text-[12px] font-medium text-ink-muted">Background in the box</p>
+            <p className="mb-1.5 text-caption font-medium text-ink-muted">Background in the box</p>
             <ColorChoices
               value={design.fillColor}
               onChange={(fillColor) => updateDesign(design.id, { fillColor })}
@@ -211,7 +214,7 @@ export function DimensionControls({ design, asset }: { design: Design; asset: Lo
 
         {(design.fitMode === "contain" || design.fitMode === "fill") && fit.aspectMismatch && (
           <div className="mt-3">
-            <p className="mb-1.5 text-[12px] font-medium text-ink-muted">Position inside the box</p>
+            <p className="mb-1.5 text-caption font-medium text-ink-muted">Position inside the box</p>
             <AlignGrid
               alignX={design.alignX}
               alignY={design.alignY}
@@ -221,7 +224,7 @@ export function DimensionControls({ design, asset }: { design: Design; asset: Lo
         )}
 
         <div className="mt-3 flex items-center justify-between gap-3">
-          <span className="text-[13px]">Padding</span>
+          <span className="text-body">Padding</span>
           <NumberField
             label=""
             className="w-28"
@@ -233,7 +236,7 @@ export function DimensionControls({ design, asset }: { design: Design; asset: Lo
             onCommit={(padding) => updateDesign(design.id, { padding })}
           />
         </div>
-      </Section>
+      </Disclosure>
 
       <AlertDialog open={confirmStretch} onOpenChange={setConfirmStretch}>
         <AlertDialogContent
@@ -291,7 +294,7 @@ export function ColorChoices({
           style={{ background: c }}
         />
       ))}
-      <label className="relative flex h-7 items-center gap-1.5 rounded-md border border-line bg-surface px-1.5 text-[12px] text-ink-muted hover:border-line-strong">
+      <label className="relative flex h-7 items-center gap-1.5 rounded-md border border-line bg-surface px-1.5 text-caption text-ink-muted hover:border-line-strong">
         <span className="size-4 rounded-[3px] border border-line" style={{ background: value ?? "transparent" }} />
         Custom
         <input

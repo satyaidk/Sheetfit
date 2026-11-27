@@ -176,7 +176,7 @@ export function CropOverlay({
             />
           </div>
           {/* The part that prints, at full strength, clipped to the box. */}
-          <div className="pointer-events-none absolute inset-0 overflow-hidden bg-white" style={{ transform: flip }}>
+          <div className="pointer-events-none absolute inset-0 overflow-hidden bg-paper" style={{ transform: flip }}>
             <img
               src={asset.objectUrl}
               alt=""
@@ -196,11 +196,11 @@ export function CropOverlay({
       </div>
 
       <div
-        className="absolute bottom-20 left-1/2 flex w-[min(560px,calc(100%-24px))] -translate-x-1/2 flex-col gap-2 rounded-xl bg-surface p-3 shadow-pop ring-1 ring-black/5"
+        className="absolute bottom-20 left-1/2 flex w-[min(560px,calc(100%-24px))] -translate-x-1/2 flex-col gap-2 rounded-xl bg-surface p-3 shadow-pop ring-1 ring-line"
         onPointerDown={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-3">
-          <span className="text-[12.5px] font-semibold whitespace-nowrap">Crop and adjust</span>
+          <span className="text-caption font-semibold whitespace-nowrap">Crop and adjust</span>
           <Minimize className="size-4 shrink-0 text-ink-faint" aria-hidden />
           <Slider
             aria-label="Zoom"
@@ -211,9 +211,9 @@ export function CropOverlay({
             onValueChange={([z]) => setDraft(zoomView(draft, natural, z))}
           />
           <Maximize className="size-4 shrink-0 text-ink-faint" aria-hidden />
-          <span className="tnum w-12 shrink-0 text-right text-[12px] font-medium">{Math.round(view.zoom * 100)}%</span>
+          <span className="tnum w-12 shrink-0 text-right text-caption font-medium">{Math.round(view.zoom * 100)}%</span>
         </div>
-        <p className={cn("tnum text-[12px]", quality.level === "low" ? "text-danger" : "text-ink-muted")}>
+        <p className={cn("tnum text-caption", quality.level === "low" ? "text-danger" : "text-ink-muted")}>
           {quality.level === "low" && <TriangleAlert className="mr-1 inline size-3.5" />}
           Box stays {+design.width.toFixed(1)} × {+design.height.toFixed(1)} mm. {Math.round(cropped * 100)}% of the image is cropped away.{" "}
           {Math.round(quality.effectiveDpi)} DPI{quality.level === "low" ? ": low resolution at this zoom, the print may look soft." : "."}
@@ -240,7 +240,7 @@ export function CropOverlay({
             Apply
           </Button>
         </div>
-        <p className="text-[11px] text-ink-faint">Drag to move the image. Pinch, scroll or use the slider to zoom. Enter applies, Esc cancels.</p>
+        <p className="text-caption text-ink-faint">Drag to move the image. Pinch, scroll or use the slider to zoom. Enter applies, Esc cancels.</p>
       </div>
     </div>
   );

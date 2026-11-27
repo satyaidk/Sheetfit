@@ -13,6 +13,7 @@ import { SHEETS, findSheet } from "@/lib/catalogue/sheets";
 import { formatUnit } from "@/lib/layout/coordinate-conversion";
 import type { Unit } from "@/types/editor";
 import { cn } from "@/lib/utils";
+import { fieldClass } from "@/components/ui/input";
 
 function SheetShape({ width, height, className }: { width: number; height: number; className?: string }) {
   const k = 14 / Math.max(width, height);
@@ -65,10 +66,10 @@ export function SheetSelect({
       <SelectPrimitive.Trigger
         aria-label={ariaLabel}
         className={cn(
-          "group flex min-w-0 items-center gap-2 rounded-md text-left text-[13px] text-ink outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent",
+          "group flex min-w-0 items-center gap-2 rounded-md text-left text-body text-ink outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent",
           variant === "field"
-            ? "h-10 w-full border border-line bg-surface px-3 hover:border-line-strong data-[state=open]:border-accent"
-            : "h-9 px-2.5 hover:bg-subtle-2 data-[state=open]:bg-subtle-2",
+            ? cn(fieldClass, "h-(--control-h-lg) w-full px-3 data-[state=open]:border-accent")
+            : "h-(--control-h) px-2.5 hover:bg-subtle-2 data-[state=open]:bg-subtle-2",
           className,
         )}
       >
@@ -81,36 +82,36 @@ export function SheetSelect({
             </span>
           )}
         </span>
-        <ChevronDown className="size-4 shrink-0 text-ink-faint transition-transform group-data-[state=open]:rotate-180" />
+        <ChevronDown className="size-4 shrink-0 text-ink-muted transition-transform group-data-[state=open]:rotate-180" />
       </SelectPrimitive.Trigger>
       <SelectPrimitive.Portal>
         <SelectPrimitive.Content
           position="popper"
           sideOffset={6}
-          className="scroll-thin z-50 max-h-[min(70vh,var(--radix-select-content-available-height))] w-[min(360px,calc(100vw-24px))] overflow-y-auto rounded-xl bg-surface p-1.5 shadow-pop ring-1 ring-black/5 animate-pop"
+          className="scroll-thin z-50 max-h-[min(70vh,var(--radix-select-content-available-height))] w-[min(360px,calc(100vw-24px))] overflow-y-auto rounded-lg bg-surface-raised p-1.5 text-ink shadow-pop ring-1 ring-line animate-pop"
         >
           <SelectPrimitive.Viewport>
             {groups.map((g, gi) => (
               <SelectPrimitive.Group key={g.title}>
                 {gi > 0 && <SelectPrimitive.Separator className="mx-2 my-1.5 h-px bg-line" />}
-                <SelectPrimitive.Label className="px-2.5 pt-1.5 pb-1 text-[12px] font-semibold text-ink-muted">{g.title}</SelectPrimitive.Label>
+                <SelectPrimitive.Label className="px-2.5 pt-1.5 pb-1 text-caption font-semibold text-ink-muted">{g.title}</SelectPrimitive.Label>
                 {g.items.map((s) => (
                   <SelectPrimitive.Item
                     key={s.id}
                     value={s.id}
-                    className="relative flex cursor-default items-center gap-2.5 rounded-lg py-2 pr-8 pl-2.5 outline-none select-none data-[highlighted]:bg-accent-soft data-[state=checked]:bg-accent-soft/60"
+                    className="relative flex cursor-default items-center gap-2.5 rounded-md py-2 pr-8 pl-2.5 outline-none select-none data-[highlighted]:bg-subtle-2 data-[state=checked]:bg-accent-soft"
                   >
                     <SheetShape width={s.width} height={s.height} className="text-ink-muted" />
                     <span className="min-w-0 flex-1">
                       <span className="flex items-baseline justify-between gap-3">
                         <SelectPrimitive.ItemText>
-                          <span className="text-[13px] font-medium text-ink">{s.name}</span>
+                          <span className="text-body font-medium text-ink">{s.name}</span>
                         </SelectPrimitive.ItemText>
-                        <span className="tnum shrink-0 text-[11.5px] text-ink-muted">
+                        <span className="tnum shrink-0 text-caption text-ink-muted">
                           {fmt(s.width)} × {fmt(s.height)} {u}
                         </span>
                       </span>
-                      <span className="block truncate text-[11.5px] text-ink-faint">{s.usedFor}</span>
+                      <span className="block truncate text-caption text-ink-faint">{s.usedFor}</span>
                     </span>
                     <SelectPrimitive.ItemIndicator className="absolute right-2.5">
                       <Check className="size-4 text-accent" />
@@ -124,11 +125,11 @@ export function SheetSelect({
                 <SelectPrimitive.Separator className="mx-2 my-1.5 h-px bg-line" />
                 <SelectPrimitive.Item
                   value="custom"
-                  className="relative flex cursor-default items-center gap-2.5 rounded-lg py-2 pr-8 pl-2.5 outline-none select-none data-[highlighted]:bg-accent-soft"
+                  className="relative flex cursor-default items-center gap-2.5 rounded-md py-2 pr-8 pl-2.5 outline-none select-none data-[highlighted]:bg-subtle-2"
                 >
                   <Ruler className="size-4 text-ink-muted" />
                   <SelectPrimitive.ItemText>
-                    <span className="text-[13px] font-medium text-ink">Custom size…</span>
+                    <span className="text-body font-medium text-ink">Custom size…</span>
                   </SelectPrimitive.ItemText>
                   <SelectPrimitive.ItemIndicator className="absolute right-2.5">
                     <Check className="size-4 text-accent" />
